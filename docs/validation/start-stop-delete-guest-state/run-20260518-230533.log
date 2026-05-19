@@ -1,0 +1,66 @@
+name=sand-tdd-230533
+log=/tmp/sand-tdd-230533.log
+
+$ swift build
+[0/1] Planning build
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+[2/4] Emitting module SandCore
+[3/5] Emitting module sand
+Build complete! (0.39s)
+[exit 0]
+
+$ .build/debug/sand create sand-tdd-230533 --cpus 2 --memory 1GB
+[exit 0]
+
+$ .build/debug/sand sand-tdd-230533 start
+[exit 0]
+
+$ .build/debug/sand sand-tdd-230533 status
+name: sand-tdd-230533
+state: running
+image: sand/developer-ready:ubuntu-lts
+resources: 2 CPUs, 1GB memory
+allowedFolders: 0
+[exit 0]
+
+$ .build/debug/sand sand-tdd-230533 run /bin/sh -lc echo marker-005 > /tmp/sand-marker-005 && cat /tmp/sand-marker-005
+[exit 0]
+
+$ .build/debug/sand sand-tdd-230533 stop
+[exit 0]
+
+$ .build/debug/sand sand-tdd-230533 status
+name: sand-tdd-230533
+state: stopped
+image: sand/developer-ready:ubuntu-lts
+resources: 2 CPUs, 1GB memory
+allowedFolders: 0
+[exit 0]
+
+$ .build/debug/sand sand-tdd-230533 start
+[exit 0]
+
+$ .build/debug/sand sand-tdd-230533 run /bin/sh -lc cat /tmp/sand-marker-005 && test "$(cat /tmp/sand-marker-005)" = marker-005
+[exit 0]
+
+$ printf no | .build/debug/sand delete sand-tdd-230533
+Delete Sandbox VM sand-tdd-230533? Type 'yes' to continue: [exit 1]
+
+$ test -f /Users/onorbumbum/.sand/specs/sand-tdd-230533.yaml
+[exit 0]
+
+$ container inspect sand-tdd-230533
+[{"configuration":{"capAdd":[],"virtualization":false,"publishedSockets":[],"initProcess":{"arguments":["infinity"],"terminal":false,"user":{"raw":{"userString":"sandbox"}},"rlimits":[],"workingDirectory":"\/workspace","executable":"sleep","supplementalGroups":[],"environment":["PATH=\/usr\/local\/sbin:\/usr\/local\/bin:\/usr\/sbin:\/usr\/bin:\/sbin:\/bin","DEBIAN_FRONTEND=noninteractive"]},"networks":[{"network":"default","options":{"hostname":"sand-tdd-230533","mtu":1280}}],"image":{"reference":"sand\/developer-ready:ubuntu-lts","descriptor":{"annotations":{"io.containerd.image.name":"docker.io\/sand\/developer-ready:ubuntu-lts","com.apple.containerization.image.name":"sand\/developer-ready:ubuntu-lts","org.opencontainers.image.ref.name":"ubuntu-lts","org.opencontainers.image.created":"2026-05-19T05:31:34Z"},"size":375,"mediaType":"application\/vnd.oci.image.index.v1+json","digest":"sha256:46afcbef5c9089e53788c3355088dc7fba9ef8a4d8a903c09da820dd4055c05c"}},"sysctls":{},"readOnly":false,"dns":{"nameservers":[],"searchDomains":[],"options":[]},"mounts":[],"capDrop":[],"id":"sand-tdd-230533","resources":{"cpus":2,"memoryInBytes":1073741824},"rosetta":false,"runtimeHandler":"container-runtime-linux","ssh":false,"labels":{},"publishedPorts":[],"platform":{"architecture":"arm64","os":"linux"},"useInit":false},"networks":[{"network":"default","mtu":1280,"ipv4Gateway":"192.168.64.1","ipv6Address":"fd4a:239f:b063:7ff2:f009:b2ff:feb7:a79b\/64","macAddress":"f2:09:b2:b7:a7:9b","hostname":"sand-tdd-230533","ipv4Address":"192.168.64.12\/24"}],"startedDate":800863542.037979,"status":"running"}]
+[exit 0]
+
+$ .build/debug/sand delete sand-tdd-230533 --force
+[exit 0]
+
+$ test ! -f '/Users/onorbumbum/.sand/specs/sand-tdd-230533.yaml'
+[exit 0]
+
+$ test "$(container inspect 'sand-tdd-230533')" = '[]'
+[exit 0]
+
+VALIDATION_PASS name=sand-tdd-230533 log=/tmp/sand-tdd-230533.log

@@ -2,6 +2,11 @@ import XCTest
 @testable import SandCore
 
 final class CLICommandRouterTests: XCTestCase {
+    func testCommandResultCarriesProcessExitCode() {
+        XCTAssertEqual(CommandResult.success.processExitCode, 0)
+        XCTAssertEqual(CommandResult.failure(exitCode: 42).processExitCode, 42)
+    }
+
     func testParsesEveryV1CommandShape() throws {
         let cases: [(arguments: [String], expected: AppCall)] = [
             (["doctor"], .doctor),

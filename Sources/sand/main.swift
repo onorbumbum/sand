@@ -3,11 +3,12 @@ import SandCore
 
 let metadataStore = FileHostMetadataStore()
 let backend = AppleContainerCLIBackend()
-let application = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
+let application = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, prompt: StandardInputPromptConfirmation())
 let router = CLICommandRouter(application: application)
 
 do {
-    _ = try router.dispatch(arguments: Array(CommandLine.arguments.dropFirst()))
+    let result = try router.dispatch(arguments: Array(CommandLine.arguments.dropFirst()))
+    Foundation.exit(result.processExitCode)
 } catch {
     FileHandle.standardError.write(Data("sand: \(error)\n".utf8))
     Foundation.exit(1)

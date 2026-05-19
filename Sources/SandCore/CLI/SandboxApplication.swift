@@ -98,4 +98,11 @@ public struct RemoveFolderRequest: Equatable {
 public enum CommandResult: Equatable {
     case success
     case failure(exitCode: Int)
+
+    public var processExitCode: Int32 {
+        switch self {
+        case .success: return 0
+        case .failure(let exitCode): return Int32(exitCode)
+        }
+    }
 }

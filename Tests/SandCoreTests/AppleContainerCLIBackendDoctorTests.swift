@@ -2,9 +2,38 @@ import XCTest
 @testable import SandCore
 
 final class AppleContainerCLIBackendDoctorTests: XCTestCase {
-    func testProvisionCreatesNamedStoppedSandboxWithResourceProfileAndImage() throws {
+    func testDeleteUsesBackendForceSoDestructiveConfirmationLivesOnlyInSand() throws {
         let runner = ScriptedBackendCommandRunner(results: [
-            ["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "custom:latest"]: .success(BackendCommandOutput(stdout: "mybox\n", stderr: "", exitCode: 0))
+            ["delete", "--force", "mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner)
+
+        try backend.delete(try SandboxName("mybox"))
+
+        XCTAssertEqual(runner.calls, [["delete", "--force", "mybox"]])
+    }
+
+    func testRunAndShellPassWorkdirBeforeSandboxNameForAppleExecSyntax() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["exec", "--workdir", "/workspace", "mybox", "echo", "hello"]: .success(BackendCommandOutput(stdout: "hello\n", stderr: "", exitCode: 0)),
+            ["exec", "--workdir", "/workspace", "mybox", "/bin/bash"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner)
+        let name = try SandboxName("mybox")
+        let workdir = try GuestPath("/workspace")
+
+        XCTAssertEqual(try backend.run(BackendRunRequest(sandboxName: name, command: try WorkloadCommand(arguments: ["echo", "hello"]), workingDirectory: workdir)), .success)
+        XCTAssertEqual(try backend.shell(BackendShellRequest(sandboxName: name, workingDirectory: workdir)), .success)
+
+        XCTAssertEqual(runner.calls, [
+            ["exec", "--workdir", "/workspace", "mybox", "echo", "hello"],
+            ["exec", "--workdir", "/workspace", "mybox", "/bin/bash"]
+        ])
+    }
+
+    func testProvisionCreatesNamedStoppedSandboxWithLongLivedInitResourceProfileAndImage() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "custom:latest", "sleep", "infinity"]: .success(BackendCommandOutput(stdout: "mybox\n", stderr: "", exitCode: 0))
         ])
         let backend = AppleContainerCLIBackend(runner: runner)
         let spec = SandboxSpec(
@@ -15,12 +44,12 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
 
         try backend.provision(spec)
 
-        XCTAssertEqual(runner.calls, [["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "custom:latest"]])
+        XCTAssertEqual(runner.calls, [["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "custom:latest", "sleep", "infinity"]])
     }
 
     func testProvisionThrowsWhenBackendCreateCommandFails() throws {
         let runner = ScriptedBackendCommandRunner(results: [
-            ["create", "--name", "mybox", "--cpus", "4", "--memory", "8192M", "sand/developer-ready:ubuntu-lts"]: .success(BackendCommandOutput(stdout: "", stderr: "image not found\n", exitCode: 1))
+            ["create", "--name", "mybox", "--cpus", "4", "--memory", "8192M", "sand/developer-ready:ubuntu-lts", "sleep", "infinity"]: .success(BackendCommandOutput(stdout: "", stderr: "image not found\n", exitCode: 1))
         ])
         let backend = AppleContainerCLIBackend(runner: runner)
 

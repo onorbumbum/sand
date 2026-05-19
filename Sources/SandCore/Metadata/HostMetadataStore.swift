@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public protocol HostMetadataStore {
@@ -109,7 +110,26 @@ public final class FileHostMetadataStore: HostMetadataStore {
     public func withLifecycleMutationLock<T>(_ operation: () throws -> T) throws -> T {
         lock.lock()
         defer { lock.unlock() }
+
+        try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+        let lockFileDescriptor = try openLifecycleLockFile()
+        defer { close(lockFileDescriptor) }
+        try acquireLifecycleLock(lockFileDescriptor)
+        defer { flock(lockFileDescriptor, LOCK_UN) }
+
         return try operation()
+    }
+
+    private func openLifecycleLockFile() throws -> Int32 {
+        let descriptor = open(root.appendingPathComponent("lifecycle.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+        guard descriptor != -1 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        return descriptor
+    }
+
+    private func acquireLifecycleLock(_ descriptor: Int32) throws {
+        while flock(descriptor, LOCK_EX) == -1 {
+            guard errno == EINTR else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        }
     }
 
     private func ensureDirectories() throws {

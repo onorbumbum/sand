@@ -81,7 +81,8 @@ public struct AppleContainerCLIBackend: SandboxBackend {
             "--name", spec.name.rawValue,
             "--cpus", String(spec.resourceProfile.cpus),
             "--memory", "\(spec.resourceProfile.memory.megabytes)M",
-            spec.image.reference
+            spec.image.reference,
+            "sleep", "infinity"
         ])
     }
 
@@ -98,12 +99,12 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 
     public func run(_ request: BackendRunRequest) throws -> CommandResult {
-        let output = try runner.run(arguments: ["exec", request.sandboxName.rawValue, "--workdir", request.workingDirectory.rawValue] + request.command.arguments)
+        let output = try runner.run(arguments: ["exec", "--workdir", request.workingDirectory.rawValue, request.sandboxName.rawValue] + request.command.arguments)
         return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
     }
 
     public func shell(_ request: BackendShellRequest) throws -> CommandResult {
-        let output = try runner.run(arguments: ["exec", request.sandboxName.rawValue, "--workdir", request.workingDirectory.rawValue, "/bin/bash"])
+        let output = try runner.run(arguments: ["exec", "--workdir", request.workingDirectory.rawValue, request.sandboxName.rawValue, "/bin/bash"])
         return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
     }
 
@@ -123,7 +124,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 
     public func delete(_ sandboxName: SandboxName) throws {
-        _ = try runRequired(arguments: ["delete", sandboxName.rawValue])
+        _ = try runRequired(arguments: ["delete", "--force", sandboxName.rawValue])
     }
 
     private func runRequired(arguments: [String]) throws -> BackendCommandOutput {
