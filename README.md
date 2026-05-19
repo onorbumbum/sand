@@ -13,6 +13,10 @@ v1 is intentionally small:
 - keep guest state under `/state/sandbox` across stop/start for the same Sandbox VM
 - use the developer-ready Linux image as the default image
 
+## Known issues / TODO
+
+- `sand delete <name>` is not fully idempotent yet. If Apple `container` removes the runtime but fails while deleting the persistent state volume, host metadata can remain in `~/.sand`; a later delete may report the runtime as missing instead of completing metadata cleanup. Fix: make delete tolerate already-missing runtime/volume during cleanup, then remove host metadata when cleanup is complete.
+
 ## v1 non-goals and limitations
 
 These are out of scope for v1 and are not supported commands or implicit behavior:
@@ -123,6 +127,36 @@ sand delete demo --force
 ```
 
 Persistence expectation: allowed Host Mac folder contents persist because they are host files. Guest state written under `/state/sandbox` persists across `sand <name> stop` and `sand <name> start` for the same Sandbox VM. Deleting the Sandbox VM removes its guest state volume and host metadata spec.
+
+## Subscription and OAuth logins inside a Sandbox VM
+
+Some CLI tools, including Pi/OpenAI-style subscription logins, start a temporary callback server on `localhost` during login. In `sand` v1, `localhost` in your Host Mac browser is **not** the Sandbox Guest's `localhost`, and v1 does not publish inbound guest ports to the Host Mac.
+
+Use a two-terminal callback handoff instead.
+
+Terminal A: start the login and leave it running:
+
+```sh
+sand demo run pi login
+```
+
+Open the authorization URL in your Host Mac browser. After approval, the browser may try to load a URL like this and fail:
+
+```text
+http://localhost:1455/auth/callback?code=...&scope=...&state=...
+```
+
+That failure is expected. Copy the full callback URL from the browser address bar.
+
+Terminal B: send that exact callback URL to the Sandbox Guest while Terminal A is still waiting:
+
+```sh
+sand demo run curl -sS 'http://localhost:1455/auth/callback?code=...&scope=...&state=...'
+```
+
+Quote the URL so shell `&` characters are not interpreted. The callback URL is usually short-lived and tied to the still-running login process, so rerun the login if Terminal A exited or the code expired.
+
+The resulting identity and tokens live in the Sandbox VM's Guest State. `sand` does not mount your Host Mac `~/.pi` or forward host credentials by default.
 
 ## CLI command surface
 
