@@ -2,6 +2,37 @@ import XCTest
 @testable import SandCore
 
 final class LifecycleCoordinatorTests: XCTestCase {
+    func testDoctorPrintsConciseSuccessOutputForDailyUse() throws {
+        var output: [String] = []
+        let coordinator = LifecycleCoordinator(
+            metadataStore: MemoryMetadataStore(),
+            backend: RecordingSandboxBackend(status: .running),
+            doctorPlatform: FixedDoctorPlatform(isSupported: true),
+            writeOutput: { output.append($0) }
+        )
+
+        let result = try coordinator.doctor()
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(output, ["sand doctor: all Sandbox VM prerequisites OK"])
+    }
+
+    func testDoctorRunsFullPrerequisiteChecksIncludingHostMetadata() throws {
+        let metadataStore = MemoryMetadataStore(writable: false)
+        let backend = RecordingSandboxBackend(status: .running)
+        let coordinator = LifecycleCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            doctorPlatform: FixedDoctorPlatform(isSupported: true),
+            writeOutput: { _ in }
+        )
+
+        let result = try coordinator.doctor()
+
+        XCTAssertEqual(result, .failure(exitCode: 1))
+        XCTAssertEqual(backend.calls, [.checkReadiness])
+    }
+
     func testCreateWritesSpecAndProvisionsBackendLeavingSandboxStopped() throws {
         let name = try SandboxName("mybox")
         let metadataStore = MemoryMetadataStore()
@@ -135,4 +166,8 @@ final class LifecycleCoordinatorTests: XCTestCase {
             allowedFolders: [AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)]
         )
     }
+}
+
+private struct FixedDoctorPlatform: DoctorPlatform {
+    var isSupported: Bool
 }

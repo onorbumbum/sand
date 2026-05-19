@@ -4,12 +4,14 @@ import Foundation
 final class MemoryMetadataStore: HostMetadataStore {
     private var specsByName: [String: SandboxSpec]
     private let hostDirectory: String
+    private let writable: Bool
     private let lock = NSLock()
     var lockEvents: [String] = []
 
-    init(specs: [SandboxSpec] = [], currentHostDirectory: String = "/workspace") {
+    init(specs: [SandboxSpec] = [], currentHostDirectory: String = "/workspace", writable: Bool = true) {
         self.specsByName = Dictionary(uniqueKeysWithValues: specs.map { ($0.name.rawValue, $0) })
         self.hostDirectory = currentHostDirectory
+        self.writable = writable
     }
 
     func createSpec(_ spec: SandboxSpec) throws {
@@ -44,6 +46,12 @@ final class MemoryMetadataStore: HostMetadataStore {
 
     func schemaVersion() throws -> Int {
         SandboxSpec.supportedSchemaVersion
+    }
+
+    func checkWritability() throws {
+        if !writable {
+            throw CocoaError(.fileWriteNoPermission)
+        }
     }
 
     func withLifecycleMutationLock<T>(_ operation: () throws -> T) throws -> T {

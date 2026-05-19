@@ -8,6 +8,7 @@ public protocol HostMetadataStore {
     func listSpecs() throws -> [SandboxSpec]
     func currentHostDirectory() -> String
     func schemaVersion() throws -> Int
+    func checkWritability() throws
     func withLifecycleMutationLock<T>(_ operation: () throws -> T) throws -> T
 }
 
@@ -88,6 +89,13 @@ public final class FileHostMetadataStore: HostMetadataStore {
             throw HostMetadataError.unsupportedSchemaVersion(version)
         }
         return version
+    }
+
+    public func checkWritability() throws {
+        try ensureDirectories()
+        let probe = root.appendingPathComponent(".doctor-writability-\(UUID().uuidString)")
+        try "ok\n".write(to: probe, atomically: true, encoding: .utf8)
+        try fileManager.removeItem(at: probe)
     }
 
     public func withLifecycleMutationLock<T>(_ operation: () throws -> T) throws -> T {

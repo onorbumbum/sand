@@ -13,11 +13,65 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 
     public func checkReadiness() throws -> BackendReadiness {
+        var findings: [DoctorFinding] = []
+
+        guard commandSucceeds(["--version"]) else {
+            return .notReady([
+                DoctorFinding(
+                    kind: .backendExecutableMissing,
+                    message: "Apple container executable is not available. Install Apple's container CLI and make sure it is on PATH before creating Sandbox VMs."
+                )
+            ])
+        }
+
+        if !backendServiceIsRunning() {
+            _ = commandSucceeds(["system", "start"])
+            if !backendServiceIsRunning() {
+                findings.append(
+                    DoctorFinding(
+                        kind: .backendServiceStopped,
+                        message: "Backend Service is not running and sand could not auto-start it. Run `container system start` and retry `sand doctor`."
+                    )
+                )
+                return .notReady(findings)
+            }
+        }
+
+        if !commandSucceeds(["image", "inspect", SandboxImage.developerReadyDefault.reference]) {
+            findings.append(
+                DoctorFinding(
+                    kind: .defaultImageMissing,
+                    message: "Default Sandbox Image \(SandboxImage.developerReadyDefault.reference) is not available. Build it with scripts/build-developer-ready-image.sh before creating Sandbox VMs."
+                )
+            )
+        }
+
+        return findings.isEmpty ? .ready : .notReady(findings)
+    }
+
+    private func commandSucceeds(_ arguments: [String]) -> Bool {
         do {
-            _ = try runner.run(arguments: ["--version"])
-            return .ready
+            return try runner.run(arguments: arguments).exitCode == 0
         } catch {
-            return .notReady([DoctorFinding(kind: .backendExecutableMissing, message: translator.message(for: error))])
+            return false
+        }
+    }
+
+    private func backendServiceIsRunning() -> Bool {
+        do {
+            let output = try runner.run(arguments: ["system", "status"])
+            guard output.exitCode == 0 else { return false }
+            for line in output.stdout.split(separator: "\n") {
+                let fields = line.split(whereSeparator: { character in
+                    character == " " || character == "\t"
+                })
+                if fields.first == "status" && fields.last == "running" {
+                    return true
+                }
+            }
+            return false
+        } catch {
+            return false
         }
     }
 

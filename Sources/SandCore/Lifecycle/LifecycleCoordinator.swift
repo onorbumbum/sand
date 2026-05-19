@@ -4,26 +4,33 @@ public struct LifecycleCoordinator: SandboxApplication {
     private let workingDirectoryMapper: WorkingDirectoryMapper
     private let folderPolicy: FolderPolicy
     private let prompt: any PromptConfirmation
+    private let doctorPlatform: any DoctorPlatform
+    private let writeOutput: (String) -> Void
 
     public init(
         metadataStore: any HostMetadataStore,
         backend: any SandboxBackend,
         workingDirectoryMapper: WorkingDirectoryMapper = WorkingDirectoryMapper(),
         folderPolicy: FolderPolicy = FolderPolicy(),
-        prompt: any PromptConfirmation = AlwaysProceedPromptConfirmation()
+        prompt: any PromptConfirmation = AlwaysProceedPromptConfirmation(),
+        doctorPlatform: any DoctorPlatform = HostDoctorPlatform(),
+        writeOutput: @escaping (String) -> Void = { Swift.print($0) }
     ) {
         self.metadataStore = metadataStore
         self.backend = backend
         self.workingDirectoryMapper = workingDirectoryMapper
         self.folderPolicy = folderPolicy
         self.prompt = prompt
+        self.doctorPlatform = doctorPlatform
+        self.writeOutput = writeOutput
     }
 
     public func doctor() throws -> CommandResult {
-        switch try backend.checkReadiness() {
-        case .ready: return .success
-        case .notReady: return .failure(exitCode: 1)
+        let report = try DoctorChecks(backend: backend, metadataStore: metadataStore, platform: doctorPlatform).run()
+        for line in DoctorPresenter().lines(for: report) {
+            writeOutput(line)
         }
+        return report.isHealthy ? .success : .failure(exitCode: 1)
     }
 
     public func create(_ request: CreateRequest) throws -> CommandResult {
