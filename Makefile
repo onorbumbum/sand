@@ -18,7 +18,7 @@ docs-check:
 
 check:
 	$(SWIFT) test
-	scripts/docs-check.sh
+	$(MAKE) docs-check
 
 install: build
 	$(INSTALL) -d "$(DESTDIR)$(BINDIR)"
