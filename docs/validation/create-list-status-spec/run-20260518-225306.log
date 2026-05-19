@@ -1,0 +1,41 @@
+# Real Apple backend acceptance log for issues/sand/004-create-list-status-spec.md
+
+Working directory: /Users/onorbumbum/_PROJECTS/sand
+Sandbox name: sand-tdd-225306
+Backend: Apple container CLI 0.12.3
+Image: sand/developer-ready:ubuntu-lts
+
+$ swift run sand create sand-tdd-225306 --cpus 2 --memory 1024MB --image sand/developer-ready:ubuntu-lts
+(exit 0)
+
+$ swift run sand list
+sand-tdd-225306	stopped	sand/developer-ready:ubuntu-lts	0 folders
+(exit 0)
+
+$ swift run sand sand-tdd-225306 status
+name: sand-tdd-225306
+state: stopped
+image: sand/developer-ready:ubuntu-lts
+resources: 2 CPUs, 1GB memory
+allowedFolders: 0
+(exit 0)
+
+$ swift run sand sand-tdd-225306 spec
+schemaVersion: 1
+name: sand-tdd-225306
+image: sand/developer-ready:ubuntu-lts
+resources:
+  cpus: 2
+  memory: 1GB
+allowedFolders:
+  []
+(exit 0)
+
+$ swift run sand delete sand-tdd-225306 --force
+(exit 0)
+
+$ container inspect sand-tdd-225306
+[]
+
+$ test ! -e "$HOME/.sand/specs/sand-tdd-225306.yaml"
+(exit 0)

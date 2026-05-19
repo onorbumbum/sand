@@ -28,6 +28,12 @@ final class HostMetadataStoreTests: XCTestCase {
         }
     }
 
+    func testDuplicateSandboxNameErrorIsClearForCLIOutput() throws {
+        let error = HostMetadataError.duplicateSandboxName("mybox")
+
+        XCTAssertEqual(String(describing: error), "sandbox already exists: mybox")
+    }
+
     func testGlobalSandboxNameUniquenessIsRejectedByMetadataStore() throws {
         let store = MemoryMetadataStore()
         let spec = SandboxSpec.generated(name: try SandboxName("mybox"))

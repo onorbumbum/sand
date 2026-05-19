@@ -42,13 +42,23 @@ public struct LifecycleCoordinator: SandboxApplication {
                 spec = SandboxSpec.generated(name: request.sandboxName, image: request.image, resourceProfile: request.resourceProfile)
             }
             try metadataStore.createSpec(spec)
-            try backend.provision(spec)
+            do {
+                try backend.provision(spec)
+            } catch {
+                try metadataStore.deleteSpec(named: spec.name)
+                throw error
+            }
         }
         return .success
     }
 
     public func list() throws -> CommandResult {
-        _ = try metadataStore.listSpecs()
+        let presenter = StatusPresenter()
+        for spec in try metadataStore.listSpecs() {
+            let runtimeStatus = try backend.status(spec.name)
+            let view = presenter.present(name: spec.name, spec: spec, runtimeStatus: runtimeStatus)
+            writeOutput(presenter.listLine(for: view))
+        }
         return .success
     }
 
@@ -74,8 +84,13 @@ public struct LifecycleCoordinator: SandboxApplication {
     }
 
     public func status(_ request: NamedSandboxRequest) throws -> CommandResult {
-        _ = try metadataStore.readSpec(named: request.sandboxName)
-        _ = try backend.status(request.sandboxName)
+        let spec = try metadataStore.readSpec(named: request.sandboxName)
+        let runtimeStatus = try backend.status(request.sandboxName)
+        let presenter = StatusPresenter()
+        let view = presenter.present(name: spec.name, spec: spec, runtimeStatus: runtimeStatus)
+        for line in presenter.detailLines(for: view) {
+            writeOutput(line)
+        }
         return .success
     }
 
@@ -127,7 +142,8 @@ public struct LifecycleCoordinator: SandboxApplication {
     }
 
     public func spec(_ request: NamedSandboxRequest) throws -> CommandResult {
-        _ = try metadataStore.readSpec(named: request.sandboxName).renderedYAML()
+        let yaml = try metadataStore.readSpec(named: request.sandboxName).renderedYAML()
+        writeOutput(yaml.trimmingCharacters(in: .newlines))
         return .success
     }
 

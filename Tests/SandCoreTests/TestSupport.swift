@@ -68,9 +68,11 @@ final class MemoryMetadataStore: HostMetadataStore {
 final class RecordingSandboxBackend: SandboxBackend {
     var calls: [BackendCall] = []
     var runtimeStatus: SandboxRuntimeStatus
+    var provisionError: (any Error)?
 
-    init(status: SandboxRuntimeStatus = .running) {
+    init(status: SandboxRuntimeStatus = .running, provisionError: (any Error)? = nil) {
         self.runtimeStatus = status
+        self.provisionError = provisionError
     }
 
     func checkReadiness() throws -> BackendReadiness {
@@ -80,6 +82,7 @@ final class RecordingSandboxBackend: SandboxBackend {
 
     func provision(_ spec: SandboxSpec) throws {
         calls.append(.provision(spec.name.rawValue))
+        if let provisionError = provisionError { throw provisionError }
         runtimeStatus = .stopped
     }
 
@@ -121,6 +124,10 @@ final class RecordingSandboxBackend: SandboxBackend {
         calls.append(.delete(sandboxName.rawValue))
         runtimeStatus = .missing
     }
+}
+
+enum BackendTestError: Error, Equatable {
+    case provisionFailed
 }
 
 enum BackendCall: Equatable {

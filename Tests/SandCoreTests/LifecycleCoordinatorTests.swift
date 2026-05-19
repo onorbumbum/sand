@@ -48,6 +48,39 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit"])
     }
 
+    func testListPrintsConciseStatusForStoredSandboxes() throws {
+        var output: [String] = []
+        let mybox = SandboxSpec.generated(name: try SandboxName("mybox"))
+        let other = SandboxSpec(name: try SandboxName("other"), image: SandboxImage(reference: "custom:latest"))
+        let metadataStore = MemoryMetadataStore(specs: [other, mybox])
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeOutput: { output.append($0) })
+
+        let result = try coordinator.list()
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(output, [
+            "mybox\tstopped\tsand/developer-ready:ubuntu-lts\t0 folders",
+            "other\tstopped\tcustom:latest\t0 folders"
+        ])
+        XCTAssertEqual(backend.calls, [.status("mybox"), .status("other")])
+    }
+
+    func testCreateRollsBackHostMetadataWhenBackendProvisioningFails() throws {
+        let name = try SandboxName("mybox")
+        let metadataStore = MemoryMetadataStore()
+        let backend = RecordingSandboxBackend(status: .missing, provisionError: BackendTestError.provisionFailed)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
+
+        XCTAssertThrowsError(try coordinator.create(CreateRequest(sandboxName: name)))
+
+        XCTAssertThrowsError(try metadataStore.readSpec(named: name)) { error in
+            XCTAssertEqual(error as? HostMetadataError, .specNotFound("mybox"))
+        }
+        XCTAssertEqual(backend.calls, [.provision("mybox")])
+        XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit"])
+    }
+
     func testApplyReconcilesStoredSpecThroughBackendUnderLifecycleLock() throws {
         let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
         let metadataStore = MemoryMetadataStore(specs: [spec])
@@ -59,6 +92,44 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(result, .success)
         XCTAssertEqual(backend.calls, [.apply("mybox")])
         XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit"])
+    }
+
+    func testSpecPrintsActiveSandboxSpec() throws {
+        var output: [String] = []
+        let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
+        let metadataStore = MemoryMetadataStore(specs: [spec])
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeOutput: { output.append($0) })
+
+        let result = try coordinator.spec(NamedSandboxRequest(sandboxName: spec.name))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(output, [spec.renderedYAML().trimmingCharacters(in: .newlines)])
+        XCTAssertEqual(backend.calls, [])
+    }
+
+    func testStatusPrintsUsefulConfigAndRuntimeStateWithoutRawBackendDump() throws {
+        var output: [String] = []
+        let spec = SandboxSpec(
+            name: try SandboxName("mybox"),
+            image: SandboxImage(reference: "custom:latest"),
+            resourceProfile: ResourceProfile(cpus: 6, memory: MemorySize(gigabytes: 12))
+        )
+        let metadataStore = MemoryMetadataStore(specs: [spec])
+        let backend = RecordingSandboxBackend(status: .running)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeOutput: { output.append($0) })
+
+        let result = try coordinator.status(NamedSandboxRequest(sandboxName: spec.name))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(output, [
+            "name: mybox",
+            "state: running",
+            "image: custom:latest",
+            "resources: 6 CPUs, 12GB memory",
+            "allowedFolders: 0"
+        ])
+        XCTAssertEqual(backend.calls, [.status("mybox")])
     }
 
     func testRunAutoStartsStoppedSandboxAndDelegatesOpaqueCommandToBackend() throws {

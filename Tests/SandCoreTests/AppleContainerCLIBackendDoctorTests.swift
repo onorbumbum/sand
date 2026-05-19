@@ -2,6 +2,44 @@ import XCTest
 @testable import SandCore
 
 final class AppleContainerCLIBackendDoctorTests: XCTestCase {
+    func testProvisionCreatesNamedStoppedSandboxWithResourceProfileAndImage() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "custom:latest"]: .success(BackendCommandOutput(stdout: "mybox\n", stderr: "", exitCode: 0))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner)
+        let spec = SandboxSpec(
+            name: try SandboxName("mybox"),
+            image: SandboxImage(reference: "custom:latest"),
+            resourceProfile: ResourceProfile(cpus: 6, memory: MemorySize(gigabytes: 12))
+        )
+
+        try backend.provision(spec)
+
+        XCTAssertEqual(runner.calls, [["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "custom:latest"]])
+    }
+
+    func testProvisionThrowsWhenBackendCreateCommandFails() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["create", "--name", "mybox", "--cpus", "4", "--memory", "8192M", "sand/developer-ready:ubuntu-lts"]: .success(BackendCommandOutput(stdout: "", stderr: "image not found\n", exitCode: 1))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner)
+
+        XCTAssertThrowsError(try backend.provision(.generated(name: try SandboxName("mybox"))))
+    }
+
+    func testStatusTranslatesAppleInspectJsonToSandboxRuntimeStatus() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["inspect", "missing"]: .success(BackendCommandOutput(stdout: "[]\n", stderr: "", exitCode: 0)),
+            ["inspect", "stopped"]: .success(BackendCommandOutput(stdout: "[{\"status\":\"stopped\"}]\n", stderr: "", exitCode: 0)),
+            ["inspect", "running"]: .success(BackendCommandOutput(stdout: "[{\"status\":\"running\"}]\n", stderr: "", exitCode: 0))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner)
+
+        XCTAssertEqual(try backend.status(try SandboxName("missing")), .missing)
+        XCTAssertEqual(try backend.status(try SandboxName("stopped")), .stopped)
+        XCTAssertEqual(try backend.status(try SandboxName("running")), .running)
+    }
+
     func testDoctorReportsBackendServiceFailureWithoutMisreportingImageWhenAutoStartFails() throws {
         let runner = ScriptedBackendCommandRunner(results: [
             ["--version"]: .success(BackendCommandOutput(stdout: "container 0.12.3\n", stderr: "", exitCode: 0)),

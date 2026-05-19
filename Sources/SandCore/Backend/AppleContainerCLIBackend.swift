@@ -76,19 +76,25 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 
     public func provision(_ spec: SandboxSpec) throws {
-        _ = try runner.run(arguments: ["create", spec.name.rawValue, spec.image.reference])
+        _ = try runRequired(arguments: [
+            "create",
+            "--name", spec.name.rawValue,
+            "--cpus", String(spec.resourceProfile.cpus),
+            "--memory", "\(spec.resourceProfile.memory.megabytes)M",
+            spec.image.reference
+        ])
     }
 
     public func apply(_ spec: SandboxSpec) throws {
-        _ = try runner.run(arguments: ["update", spec.name.rawValue])
+        _ = try runRequired(arguments: ["update", spec.name.rawValue])
     }
 
     public func start(_ sandboxName: SandboxName) throws {
-        _ = try runner.run(arguments: ["start", sandboxName.rawValue])
+        _ = try runRequired(arguments: ["start", sandboxName.rawValue])
     }
 
     public func stop(_ sandboxName: SandboxName) throws {
-        _ = try runner.run(arguments: ["stop", sandboxName.rawValue])
+        _ = try runRequired(arguments: ["stop", sandboxName.rawValue])
     }
 
     public func run(_ request: BackendRunRequest) throws -> CommandResult {
@@ -102,17 +108,42 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 
     public func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus {
-        let output = try runner.run(arguments: ["inspect", sandboxName.rawValue])
-        return output.stdout.contains("running") ? .running : .stopped
+        let output = try runRequired(arguments: ["inspect", sandboxName.rawValue])
+        let text = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text == "[]" { return .missing }
+        if text.contains("\"status\":\"running\"") || text.contains("\"status\" : \"running\"") {
+            return .running
+        }
+        return .stopped
     }
 
     public func logs(_ sandboxName: SandboxName) throws -> SandboxLogs {
-        let output = try runner.run(arguments: ["logs", sandboxName.rawValue])
+        let output = try runRequired(arguments: ["logs", sandboxName.rawValue])
         return SandboxLogs(text: output.stdout)
     }
 
     public func delete(_ sandboxName: SandboxName) throws {
-        _ = try runner.run(arguments: ["delete", sandboxName.rawValue])
+        _ = try runRequired(arguments: ["delete", sandboxName.rawValue])
+    }
+
+    private func runRequired(arguments: [String]) throws -> BackendCommandOutput {
+        let output = try runner.run(arguments: arguments)
+        guard output.exitCode == 0 else {
+            throw AppleContainerCLIBackendError.commandFailed(arguments: arguments, exitCode: output.exitCode, stderr: output.stderr)
+        }
+        return output
+    }
+}
+
+public enum AppleContainerCLIBackendError: Error, Equatable, CustomStringConvertible {
+    case commandFailed(arguments: [String], exitCode: Int, stderr: String)
+
+    public var description: String {
+        switch self {
+        case .commandFailed(let arguments, let exitCode, let stderr):
+            let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            return "backend command failed (exit \(exitCode)): \(arguments.joined(separator: " "))\(detail.isEmpty ? "" : " — \(detail)")"
+        }
     }
 }
 

@@ -12,10 +12,18 @@ public protocol HostMetadataStore {
     func withLifecycleMutationLock<T>(_ operation: () throws -> T) throws -> T
 }
 
-public enum HostMetadataError: Error, Equatable {
+public enum HostMetadataError: Error, Equatable, CustomStringConvertible {
     case specNotFound(String)
     case duplicateSandboxName(String)
     case unsupportedSchemaVersion(Int)
+
+    public var description: String {
+        switch self {
+        case .specNotFound(let name): return "sandbox not found: \(name)"
+        case .duplicateSandboxName(let name): return "sandbox already exists: \(name)"
+        case .unsupportedSchemaVersion(let version): return "unsupported host metadata schema version: \(version)"
+        }
+    }
 }
 
 public final class FileHostMetadataStore: HostMetadataStore {
