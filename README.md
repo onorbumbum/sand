@@ -13,9 +13,9 @@ v1 is intentionally small:
 - keep guest state under `/state/sandbox` across stop/start for the same Sandbox VM
 - use the developer-ready Linux image as the default image
 
-## Known issues / TODO
+## Delete cleanup behavior
 
-- `sand delete <name>` is not fully idempotent yet. If Apple `container` removes the runtime but fails while deleting the persistent state volume, host metadata can remain in `~/.sand`; a later delete may report the runtime as missing instead of completing metadata cleanup. Fix: make delete tolerate already-missing runtime/volume during cleanup, then remove host metadata when cleanup is complete.
+`sand delete <name>` removes the disposable Runtime Instance, Guest State volume, and Host Metadata. Cleanup tolerates already-missing backend resources, so rerunning delete can finish Host Metadata cleanup after a partially completed backend delete.
 
 ## Prerequisites
 

@@ -157,8 +157,31 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 
     public func delete(_ sandboxName: SandboxName) throws {
-        try deleteRuntime(sandboxName)
-        _ = try runRequired(arguments: ["volume", "delete", guestStateVolumeName(for: sandboxName)])
+        if try status(sandboxName) != .missing {
+            try deleteRuntime(sandboxName)
+        }
+        if try guestStateVolumeExists(for: sandboxName) {
+            _ = try runRequired(arguments: ["volume", "delete", guestStateVolumeName(for: sandboxName)])
+        }
+    }
+
+    private func guestStateVolumeExists(for sandboxName: SandboxName) throws -> Bool {
+        let arguments = ["volume", "inspect", guestStateVolumeName(for: sandboxName)]
+        do {
+            let output = try runner.run(arguments: arguments)
+            let detail = "\(output.stdout)\n\(output.stderr)".lowercased()
+            if detail.contains("not found") || detail.contains("no such") {
+                return false
+            }
+            guard output.exitCode == 0 else {
+                throw translator.translate(AppleContainerCLIBackendError.commandFailed(arguments: arguments, exitCode: output.exitCode, stderr: output.stderr))
+            }
+            return true
+        } catch let error as BackendTranslatedError {
+            throw error
+        } catch {
+            throw translator.translate(error)
+        }
     }
 
     private func ensureGuestStateVolume(for sandboxName: SandboxName) throws {

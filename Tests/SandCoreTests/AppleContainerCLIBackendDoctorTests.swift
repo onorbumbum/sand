@@ -10,14 +10,53 @@ private let guestStateBootstrapCommand = [
 final class AppleContainerCLIBackendDoctorTests: XCTestCase {
     func testDeleteUsesBackendForceAndDeletesGuestStateVolumeSoDestructiveConfirmationLivesOnlyInSand() throws {
         let runner = ScriptedBackendCommandRunner(results: [
+            ["inspect", "mybox"]: .success(BackendCommandOutput(stdout: "[{\"status\":\"stopped\"}]\n", stderr: "", exitCode: 0)),
             ["delete", "--force", "mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0)),
+            ["volume", "inspect", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "[{\"name\":\"sand-state-mybox\"}]\n", stderr: "", exitCode: 0)),
             ["volume", "delete", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
         ])
         let backend = AppleContainerCLIBackend(runner: runner)
 
         try backend.delete(try SandboxName("mybox"))
 
-        XCTAssertEqual(runner.calls, [["delete", "--force", "mybox"], ["volume", "delete", "sand-state-mybox"]])
+        XCTAssertEqual(runner.calls, [
+            ["inspect", "mybox"],
+            ["delete", "--force", "mybox"],
+            ["volume", "inspect", "sand-state-mybox"],
+            ["volume", "delete", "sand-state-mybox"]
+        ])
+    }
+
+    func testDeleteStillRemovesGuestStateVolumeWhenDisposableRuntimeIsAlreadyMissing() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["inspect", "mybox"]: .success(BackendCommandOutput(stdout: "[]\n", stderr: "", exitCode: 0)),
+            ["volume", "inspect", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "[{\"name\":\"sand-state-mybox\"}]\n", stderr: "", exitCode: 0)),
+            ["volume", "delete", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner)
+
+        try backend.delete(try SandboxName("mybox"))
+
+        XCTAssertEqual(runner.calls, [
+            ["inspect", "mybox"],
+            ["volume", "inspect", "sand-state-mybox"],
+            ["volume", "delete", "sand-state-mybox"]
+        ])
+    }
+
+    func testDeleteTreatsMissingRuntimeAndMissingGuestStateVolumeAsAlreadyDeleted() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["inspect", "mybox"]: .success(BackendCommandOutput(stdout: "[]\n", stderr: "", exitCode: 0)),
+            ["volume", "inspect", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "Error: volume 'sand-state-mybox' not found\n", exitCode: 0))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner)
+
+        try backend.delete(try SandboxName("mybox"))
+
+        XCTAssertEqual(runner.calls, [
+            ["inspect", "mybox"],
+            ["volume", "inspect", "sand-state-mybox"]
+        ])
     }
 
     func testRunAndShellPassSandboxUserAndWorkdirBeforeSandboxNameForAppleExecSyntaxAndUseInheritedTerminalIO() throws {
