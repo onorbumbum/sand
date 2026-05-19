@@ -1,17 +1,31 @@
 # sand
 
-`sand` creates and manages small isolated Linux computers on an Apple silicon Host Mac. Each Sandbox VM is backed by Apple `container`, has its own guest state, and only sees Host Mac folders that you explicitly allow. Work is run with generic Workload Commands: `sand <name> run <command> [args...]`.
+<!-- section-managed-doc: true -->
+<!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
+<!-- docs-input-hash: d039a5ec0acf7a13d194e3162068291d7984f7b884ec33aaed49c1fefad36890 -->
+
+`sand` creates and manages small isolated Linux computers on an Apple silicon Host Mac. Each Sandbox VM is backed by Apple `container`, has its own Guest State, and only sees Host Mac folders that you explicitly allow. Work is run with generic Workload Commands: `sand <name> run <command> [args...]`.
 
 ## v1 scope
 
 v1 is intentionally small:
 
 - create, list, inspect, start, stop, apply, log, and delete Sandbox VMs
-- map explicit Host Mac folders as read-write or read-only guest paths
+- map explicit Host Mac folders as read-write or read-only Guest Paths
 - run arbitrary Workload Commands inside a Sandbox VM from a mapped Host Mac current working directory
 - open an interactive shell inside a Sandbox VM
 - keep guest state under `/state/sandbox` across stop/start for the same Sandbox VM
 - use the developer-ready Linux image as the default image
+
+## Documentation
+
+Start with the generated guides when onboarding humans or agents:
+
+- [`docs/onboarding.md`](docs/onboarding.md) explains the repo map, first files to read, and local verification flow.
+- [`docs/cli-reference.md`](docs/cli-reference.md) is generated from current `sand` help output and is the detailed command reference.
+- [`docs/developer-guide.md`](docs/developer-guide.md) covers architecture, testing strategy, and the documentation update workflow.
+
+This README is section-managed: the product positioning and narrative stay hand-authored, while marked **Managed Sections** are refreshed through the Documentation Refresh Workflow so examples stay aligned with the current command surface.
 
 ## Delete cleanup behavior
 
@@ -27,6 +41,9 @@ v1 is intentionally small:
 
 ## Build and smoke-test the developer-ready image
 
+<!-- docs:managed:start id="build-and-test" source="Package.swift Makefile scripts/build-developer-ready-image.sh scripts/smoke-developer-ready-image.sh" -->
+Build and verify the default **Sandbox Image**:
+
 ```sh
 scripts/build-developer-ready-image.sh
 scripts/smoke-developer-ready-image.sh
@@ -39,8 +56,20 @@ SAND_DEVELOPER_READY_IMAGE=sand/developer-ready:ubuntu-lts scripts/build-develop
 PI_CLI_VERSION=0.73.1 scripts/build-developer-ready-image.sh
 ```
 
+Run the local project checks:
+
+```sh
+swift test
+make docs-check
+make check
+```
+
+`make check` runs the XCTest suite followed by the Documentation Freshness Gate.
+<!-- docs:managed:end -->
+
 ## Install from source
 
+<!-- docs:managed:start id="install-from-source" source="Makefile Package.swift docs/cli-reference.md" -->
 Build a release binary:
 
 ```sh
@@ -67,11 +96,13 @@ Uninstall:
 ```sh
 PREFIX=$HOME/.local make uninstall
 ```
+<!-- docs:managed:end -->
 
 ## Quickstart
 
 The paths below are illustrative. Replace them with real folders on your Host Mac.
 
+<!-- docs:managed:start id="quickstart" source="docs/cli-reference.md and actual sand help output" -->
 ```sh
 # 1. Verify prerequisites first.
 sand doctor
@@ -96,10 +127,10 @@ cd "$HOME/Projects/my-project"
 sand demo run pwd
 sand demo run bash -lc 'echo hello-from-sand > sand-smoke.txt && ls -la'
 
-# 7. Open a shell session.
+# 7. Open a Sandbox Session.
 sand demo shell
 
-# 8. Stop/start and verify guest-state persistence.
+# 8. Stop/start and verify Guest State persistence.
 sand demo run bash -lc 'echo persisted > /state/sandbox/persistence-check'
 sand demo stop
 sand demo start
@@ -111,8 +142,9 @@ sand demo logs
 # 10. Delete the Sandbox VM.
 sand delete demo --force
 ```
+<!-- docs:managed:end -->
 
-Persistence expectation: allowed Host Mac folder contents persist because they are host files. Guest state written under `/state/sandbox` persists across `sand <name> stop` and `sand <name> start` for the same Sandbox VM. Deleting the Sandbox VM removes its guest state volume and host metadata spec.
+Persistence expectation: Allowed Folder contents persist because they are host files. Guest State written under `/state/sandbox` persists across `sand <name> stop` and `sand <name> start` for the same Sandbox VM. Deleting the Sandbox VM removes its Guest State volume and Host Metadata spec.
 
 ## Subscription and OAuth logins inside a Sandbox VM
 
@@ -146,109 +178,44 @@ The resulting identity and tokens live in the Sandbox VM's Guest State. `sand` d
 
 ## CLI command surface
 
-### `sand --help`
+For the complete generated reference, see [`docs/cli-reference.md`](docs/cli-reference.md).
 
-Prints top-level usage, supported commands, and where to find command help.
+<!-- docs:managed:start id="command-surface-summary" source="docs/cli-reference.md and actual sand help output" -->
+Supported v1 commands:
+
+- Global: `sand --help`, `sand --version`
+- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`
+- Sandbox-first actions: `sand <name> status`, `sand <name> start`, `sand <name> stop`, `sand <name> shell`, `sand <name> run <command> [args...]`, `sand <name> logs`, `sand <name> spec`
+
+Command help:
 
 ```sh
 sand --help
-```
-
-### `sand --version`
-
-Prints the product version. Development builds currently print a documented development version such as `sand 0.1.0-dev`.
-
-```sh
-sand --version
-```
-
-### `sand doctor`
-
-Checks host support, Apple `container` readiness, default image availability, and `~/.sand` writability.
-
-```sh
-sand doctor
 sand doctor --help
-```
-
-### `sand create`
-
-Create from defaults:
-
-```sh
-sand create demo
-sand create demo --cpus 6 --memory 12GB --image sand/developer-ready:ubuntu-lts
-```
-
-Create from a spec file:
-
-```sh
-sand create demo --from spec.yaml
-sand create --from spec.yaml
-```
-
-Help:
-
-```sh
 sand create --help
-```
-
-### `sand list`
-
-```sh
-sand list
 sand list --help
-```
-
-### `sand apply`
-
-Apply allowed spec changes. Resource CPU and memory changes are immutable after creation.
-
-```sh
-sand apply demo
 sand apply --help
-```
-
-### `sand delete`
-
-```sh
-sand delete demo
-sand delete demo --force
 sand delete --help
+sand folders --help
+sand demo --help
 ```
 
-### `sand folders`
-
-Add, list, or remove explicit Host Mac folder access.
+Folder actions:
 
 ```sh
 sand folders add demo "$HOME/Projects/my-project" rw --as /workspace
 sand folders add demo "$HOME/Reference" ro --as /reference
 sand folders list demo
 sand folders remove demo "$HOME/Reference"
-sand folders --help
 ```
 
-Access modes:
+Known v1 non-goals:
 
-- `rw` / `read-write`
-- `ro` / `read-only`
-
-### Sandbox actions: `sand <name> <action>`
-
-```sh
-sand demo status
-sand demo start
-sand demo stop
-sand demo shell
-sand demo run echo hello
-sand demo run bash -lc 'python3 --version && node --version'
-sand demo logs
-sand demo spec
-sand demo --help
-```
-
-`run` treats everything after `run` as an opaque Workload Command. There is no special handling for `pi` or any other command name.
+- No `sand reset` command. Use explicit delete plus create for destructive reset flows.
+- No Pi-specific shortcut such as `sand <name> pi`. Run Pi as a normal **Workload Command** with `sand <name> run pi [args...]`.
+- No inbound networking or port publishing options such as `--inbound`, `--port`, or `--publish`.
+- No default Sandbox VM or project-local implicit Sandbox VM selection. Commands name the Sandbox VM explicitly.
+<!-- docs:managed:end -->
 
 ## Specs
 

@@ -12,6 +12,7 @@
 #   docs/onboarding.md
 #   docs/developer-guide.md
 
+README.md
 docs/cli-reference.md
 docs/onboarding.md
 docs/developer-guide.md

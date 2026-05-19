@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: cb70cafac5bd0c9a03bc7761eea55ccd12f02c78843cd44d44efe2095e68c504 -->
+<!-- docs-input-hash: d039a5ec0acf7a13d194e3162068291d7984f7b884ec33aaed49c1fefad36890 -->
 
 # sand Developer Guide
 
@@ -69,7 +69,7 @@ make docs-check
    scripts/generate-cli-reference.sh
    ```
 
-8. Refresh registered Generated Documentation so `docs/cli-reference.md`, `docs/onboarding.md`, `docs/developer-guide.md`, and any registered README managed sections record the current docs input hash and match the current behavior.
+8. Refresh registered Generated Documentation so `README.md`, `docs/cli-reference.md`, `docs/onboarding.md`, and `docs/developer-guide.md` record the current docs input hash and match the current behavior. Preserve hand-authored README prose and replace only Managed Section bodies.
 9. Run `swift test` and `make docs-check` before committing.
 
 ## Documentation Refresh Workflow

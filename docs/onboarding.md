@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: cb70cafac5bd0c9a03bc7761eea55ccd12f02c78843cd44d44efe2095e68c504 -->
+<!-- docs-input-hash: d039a5ec0acf7a13d194e3162068291d7984f7b884ec33aaed49c1fefad36890 -->
 
 # sand Onboarding Guide
 
@@ -59,7 +59,7 @@ Use the product language in [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md
 | `Sources/SandCore/Status/` | User-facing Sandbox Status presentation. |
 | `Sources/SandCore/WorkingDirectory/` | Working Directory Mapping from Host Mac paths into Guest Paths. |
 | `Tests/SandCoreTests/` | XCTest coverage for domain, CLI, lifecycle, backend boundaries, folder policy, docs-adjacent behavior, and fixtures. Start here before changing behavior. |
-| `README.md` | Human-facing overview, prerequisites, installation, quickstart, and command examples. Section-managed by the Documentation Refresh Workflow when registered. |
+| `README.md` | Human-facing overview, prerequisites, installation, quickstart, and command examples. Section-managed by the Documentation Refresh Workflow. |
 | `issues/sand/CONTEXT.md` | Canonical domain language and relationships. Read this before naming user-facing behavior. |
 | `docs/onboarding.md` | This generated start-here guide for humans and AI agents. |
 | `docs/cli-reference.md` | Generated CLI Reference derived from real help output or command definitions/tests. |
