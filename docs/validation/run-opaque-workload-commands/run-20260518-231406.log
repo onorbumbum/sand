@@ -1,0 +1,55 @@
+name=sand-run-231406
+log=docs/validation/run-opaque-workload-commands/run-20260518-231406.log
+
+$ swift build
+[0/1] Planning build
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.11s)
+[exit 0]
+
+$ .build/debug/sand create sand-run-231406 --cpus 2 --memory 1GB
+[exit 0]
+
+$ .build/debug/sand sand-run-231406 status
+name: sand-run-231406
+state: stopped
+image: sand/developer-ready:ubuntu-lts
+resources: 2 CPUs, 1GB memory
+allowedFolders: 0
+[exit 0]
+
+$ .build/debug/sand 'sand-run-231406' run python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' --workload-flag -- literal 'two words' > '/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/tmp.Qu6RgZHfRm/args.json'
+[exit 0]
+
+$ test "$(cat '/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/tmp.Qu6RgZHfRm/args.json')" = '["--workload-flag", "--", "literal", "two words"]'
+[exit 0]
+
+$ .build/debug/sand sand-run-231406 status
+name: sand-run-231406
+state: running
+image: sand/developer-ready:ubuntu-lts
+resources: 2 CPUs, 1GB memory
+allowedFolders: 0
+[exit 0]
+
+$ .build/debug/sand 'sand-run-231406' run printf 'redirect-ok\n' > '/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/tmp.Qu6RgZHfRm/redirect.txt'
+[exit 0]
+
+$ test "$(cat '/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/tmp.Qu6RgZHfRm/redirect.txt')" = 'redirect-ok'
+[exit 0]
+
+$ script -q /var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/tmp.Qu6RgZHfRm/tty.log .build/debug/sand sand-run-231406 run /bin/sh -lc test\ -t\ 0\ \&\&\ test\ -t\ 1\ \&\&\ echo\ TTY_OK
+TTY_OK
+[?25l[?25h[exit 0]
+TTY_OK
+[?25l[?25h
+$ .build/debug/sand sand-run-231406 run definitely-not-installed-sand-006
+Error: failed to find target executable definitely-not-installed-sand-006
+Error: failed to start process 0e705809-6065-412e-9bd7-ddb39fe87a57 in container sand-run-231406 (cause: "internalError: "failed to start process (cause: "internalError: "startProcess: failed to start process: internalError: "vmexec error: internalError: "failed to find target executable definitely-not-installed-sand-006"""")"")
+[exit 1]
+
+$ .build/debug/sand delete sand-run-231406 --force
+[exit 0]
+
+VALIDATION_PASS name=sand-run-231406 log=docs/validation/run-opaque-workload-commands/run-20260518-231406.log

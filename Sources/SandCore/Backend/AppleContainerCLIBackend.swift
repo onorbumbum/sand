@@ -1,15 +1,19 @@
+import Darwin
 import Foundation
 
 public struct AppleContainerCLIBackend: SandboxBackend {
     private let runner: any BackendCommandRunner
     private let translator: BackendErrorTranslator
+    private let terminal: any BackendTerminal
 
     public init(
         runner: any BackendCommandRunner = ProcessBackendCommandRunner(executable: "container"),
-        translator: BackendErrorTranslator = BackendErrorTranslator()
+        translator: BackendErrorTranslator = BackendErrorTranslator(),
+        terminal: any BackendTerminal = ProcessBackendTerminal()
     ) {
         self.runner = runner
         self.translator = translator
+        self.terminal = terminal
     }
 
     public func checkReadiness() throws -> BackendReadiness {
@@ -99,13 +103,37 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 
     public func run(_ request: BackendRunRequest) throws -> CommandResult {
-        let output = try runner.run(arguments: ["exec", "--workdir", request.workingDirectory.rawValue, request.sandboxName.rawValue] + request.command.arguments)
+        let output = try runner.run(
+            arguments: execArguments(
+                sandboxName: request.sandboxName,
+                workingDirectory: request.workingDirectory,
+                command: request.command.arguments
+            ),
+            io: .inherited
+        )
         return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
     }
 
     public func shell(_ request: BackendShellRequest) throws -> CommandResult {
-        let output = try runner.run(arguments: ["exec", "--workdir", request.workingDirectory.rawValue, request.sandboxName.rawValue, "/bin/bash"])
+        let output = try runner.run(
+            arguments: execArguments(
+                sandboxName: request.sandboxName,
+                workingDirectory: request.workingDirectory,
+                command: ["/bin/bash"]
+            ),
+            io: .inherited
+        )
         return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
+    }
+
+    private func execArguments(sandboxName: SandboxName, workingDirectory: GuestPath, command: [String]) -> [String] {
+        var arguments = ["exec", "--interactive"]
+        if terminal.standardInputIsTerminal && terminal.standardOutputIsTerminal {
+            arguments.append("--tty")
+        }
+        arguments += ["--workdir", workingDirectory.rawValue, sandboxName.rawValue]
+        arguments += command
+        return arguments
     }
 
     public func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus {
@@ -148,8 +176,36 @@ public enum AppleContainerCLIBackendError: Error, Equatable, CustomStringConvert
     }
 }
 
+public enum BackendCommandIO: Equatable {
+    case captured
+    case inherited
+}
+
 public protocol BackendCommandRunner {
-    func run(arguments: [String]) throws -> BackendCommandOutput
+    func run(arguments: [String], io: BackendCommandIO) throws -> BackendCommandOutput
+}
+
+public extension BackendCommandRunner {
+    func run(arguments: [String]) throws -> BackendCommandOutput {
+        try run(arguments: arguments, io: .captured)
+    }
+}
+
+public protocol BackendTerminal {
+    var standardInputIsTerminal: Bool { get }
+    var standardOutputIsTerminal: Bool { get }
+}
+
+public struct ProcessBackendTerminal: BackendTerminal {
+    public init() {}
+
+    public var standardInputIsTerminal: Bool {
+        isatty(STDIN_FILENO) == 1
+    }
+
+    public var standardOutputIsTerminal: Bool {
+        isatty(STDOUT_FILENO) == 1
+    }
 }
 
 public struct BackendCommandOutput: Equatable {
@@ -171,21 +227,33 @@ public struct ProcessBackendCommandRunner: BackendCommandRunner {
         self.executable = executable
     }
 
-    public func run(arguments: [String]) throws -> BackendCommandOutput {
+    public func run(arguments: [String], io: BackendCommandIO) throws -> BackendCommandOutput {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = [executable] + arguments
 
-        let standardOutput = Pipe()
-        let standardError = Pipe()
-        process.standardOutput = standardOutput
-        process.standardError = standardError
+        switch io {
+        case .captured:
+            let standardOutput = Pipe()
+            let standardError = Pipe()
+            process.standardOutput = standardOutput
+            process.standardError = standardError
 
-        try process.run()
-        process.waitUntilExit()
+            try process.run()
+            process.waitUntilExit()
 
-        let stdout = String(data: standardOutput.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        let stderr = String(data: standardError.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        return BackendCommandOutput(stdout: stdout, stderr: stderr, exitCode: Int(process.terminationStatus))
+            let stdout = String(data: standardOutput.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let stderr = String(data: standardError.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            return BackendCommandOutput(stdout: stdout, stderr: stderr, exitCode: Int(process.terminationStatus))
+        case .inherited:
+            process.standardInput = FileHandle.standardInput
+            process.standardOutput = FileHandle.standardOutput
+            process.standardError = FileHandle.standardError
+
+            try process.run()
+            process.waitUntilExit()
+
+            return BackendCommandOutput(stdout: "", stderr: "", exitCode: Int(process.terminationStatus))
+        }
     }
 }

@@ -13,12 +13,12 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         XCTAssertEqual(runner.calls, [["delete", "--force", "mybox"]])
     }
 
-    func testRunAndShellPassWorkdirBeforeSandboxNameForAppleExecSyntax() throws {
+    func testRunAndShellPassWorkdirBeforeSandboxNameForAppleExecSyntaxAndUseInheritedTerminalIO() throws {
         let runner = ScriptedBackendCommandRunner(results: [
-            ["exec", "--workdir", "/workspace", "mybox", "echo", "hello"]: .success(BackendCommandOutput(stdout: "hello\n", stderr: "", exitCode: 0)),
-            ["exec", "--workdir", "/workspace", "mybox", "/bin/bash"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
+            ["exec", "--interactive", "--tty", "--workdir", "/workspace", "mybox", "echo", "hello"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0)),
+            ["exec", "--interactive", "--tty", "--workdir", "/workspace", "mybox", "/bin/bash"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
         ])
-        let backend = AppleContainerCLIBackend(runner: runner)
+        let backend = AppleContainerCLIBackend(runner: runner, terminal: FixedBackendTerminal(inputIsTerminal: true, outputIsTerminal: true))
         let name = try SandboxName("mybox")
         let workdir = try GuestPath("/workspace")
 
@@ -26,9 +26,47 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         XCTAssertEqual(try backend.shell(BackendShellRequest(sandboxName: name, workingDirectory: workdir)), .success)
 
         XCTAssertEqual(runner.calls, [
-            ["exec", "--workdir", "/workspace", "mybox", "echo", "hello"],
-            ["exec", "--workdir", "/workspace", "mybox", "/bin/bash"]
+            ["exec", "--interactive", "--tty", "--workdir", "/workspace", "mybox", "echo", "hello"],
+            ["exec", "--interactive", "--tty", "--workdir", "/workspace", "mybox", "/bin/bash"]
         ])
+        XCTAssertEqual(runner.ioModes, [.inherited, .inherited])
+    }
+
+    func testRunDoesNotAllocateTTYForRedirectedUsageButKeepsStandardInputOpen() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["exec", "--interactive", "--workdir", "/workspace", "mybox", "grep", "needle"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner, terminal: FixedBackendTerminal(inputIsTerminal: false, outputIsTerminal: false))
+
+        let result = try backend.run(
+            BackendRunRequest(
+                sandboxName: try SandboxName("mybox"),
+                command: try WorkloadCommand(arguments: ["grep", "needle"]),
+                workingDirectory: try GuestPath("/workspace")
+            )
+        )
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(runner.calls, [["exec", "--interactive", "--workdir", "/workspace", "mybox", "grep", "needle"]])
+        XCTAssertEqual(runner.ioModes, [.inherited])
+    }
+
+    func testMissingWorkloadCommandReturnsBackendExitCodeWithoutSwallowingContainerErrorOutput() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["exec", "--interactive", "--workdir", "/workspace", "mybox", "not-installed-tool"]: .success(BackendCommandOutput(stdout: "", stderr: "command not found\n", exitCode: 127))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner, terminal: FixedBackendTerminal(inputIsTerminal: false, outputIsTerminal: false))
+
+        let result = try backend.run(
+            BackendRunRequest(
+                sandboxName: try SandboxName("mybox"),
+                command: try WorkloadCommand(arguments: ["not-installed-tool"]),
+                workingDirectory: try GuestPath("/workspace")
+            )
+        )
+
+        XCTAssertEqual(result, .failure(exitCode: 127))
+        XCTAssertEqual(runner.ioModes, [.inherited])
     }
 
     func testProvisionCreatesNamedStoppedSandboxWithLongLivedInitResourceProfileAndImage() throws {
@@ -125,13 +163,15 @@ private final class ScriptedBackendCommandRunner: BackendCommandRunner {
 
     private let results: [[String]: Result]
     var calls: [[String]] = []
+    var ioModes: [BackendCommandIO] = []
 
     init(results: [[String]: Result]) {
         self.results = results
     }
 
-    func run(arguments: [String]) throws -> BackendCommandOutput {
+    func run(arguments: [String], io: BackendCommandIO) throws -> BackendCommandOutput {
         calls.append(arguments)
+        ioModes.append(io)
         guard let result = results[arguments] else {
             throw UnexpectedBackendCommand(arguments: arguments)
         }
@@ -140,6 +180,14 @@ private final class ScriptedBackendCommandRunner: BackendCommandRunner {
         case .failure(let error): throw error
         }
     }
+}
+
+private struct FixedBackendTerminal: BackendTerminal {
+    var inputIsTerminal: Bool
+    var outputIsTerminal: Bool
+
+    var standardInputIsTerminal: Bool { inputIsTerminal }
+    var standardOutputIsTerminal: Bool { outputIsTerminal }
 }
 
 private struct UnexpectedBackendCommand: Error, Equatable {
