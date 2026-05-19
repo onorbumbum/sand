@@ -1,35 +1,58 @@
 import Foundation
 
 public struct CLICommandRouter {
+    public static let productVersion = "0.1.0-dev"
+
     private let application: any SandboxApplication
     private let readTextFile: (String) throws -> String
+    private let writeOutput: (String) -> Void
 
-    public init(application: any SandboxApplication, readTextFile: @escaping (String) throws -> String = { try String(contentsOfFile: $0, encoding: .utf8) }) {
+    public init(
+        application: any SandboxApplication,
+        readTextFile: @escaping (String) throws -> String = { try String(contentsOfFile: $0, encoding: .utf8) },
+        writeOutput: @escaping (String) -> Void = { Swift.print($0) }
+    ) {
         self.application = application
         self.readTextFile = readTextFile
+        self.writeOutput = writeOutput
     }
 
     @discardableResult
     public func dispatch(arguments: [String]) throws -> CommandResult {
         guard let first = arguments.first else {
-            throw CLICommandError.missingCommand
+            writeOutput(CLIHelp.topLevel)
+            return .success
         }
 
         switch first {
+        case "--help", "-h":
+            try requireExactCount(arguments, 1)
+            writeOutput(CLIHelp.topLevel)
+            return .success
+        case "--version":
+            try requireExactCount(arguments, 1)
+            writeOutput("sand \(Self.productVersion)")
+            return .success
         case "doctor":
+            if try printHelpIfRequested(arguments, CLIHelp.doctor) { return .success }
             try requireExactCount(arguments, 1)
             return try application.doctor()
         case "list":
+            if try printHelpIfRequested(arguments, CLIHelp.list) { return .success }
             try requireExactCount(arguments, 1)
             return try application.list()
         case "create":
+            if try printHelpIfRequested(arguments, CLIHelp.create) { return .success }
             return try dispatchCreate(Array(arguments.dropFirst()))
         case "apply":
+            if try printHelpIfRequested(arguments, CLIHelp.apply) { return .success }
             let name = try singleNameArgument(arguments, command: "apply")
             return try application.apply(NamedSandboxRequest(sandboxName: name))
         case "delete":
+            if try printHelpIfRequested(arguments, CLIHelp.delete) { return .success }
             return try dispatchDelete(Array(arguments.dropFirst()))
         case "folders":
+            if try printHelpIfRequested(arguments, CLIHelp.folders) { return .success }
             return try dispatchFolders(Array(arguments.dropFirst()))
         case "reset":
             throw CLICommandError.unsupportedCommand("reset")
@@ -136,6 +159,11 @@ public struct CLICommandRouter {
     private func dispatchSandboxFirst(nameArgument: String, remaining: [String]) throws -> CommandResult {
         let name = try SandboxName(nameArgument)
         guard let action = remaining.first else { throw CLICommandError.missingAction }
+        if action == "--help" || action == "-h" {
+            try requireExactCount(remaining, 1)
+            writeOutput(CLIHelp.sandboxActions)
+            return .success
+        }
 
         switch action {
         case "status":
@@ -172,9 +200,91 @@ public struct CLICommandRouter {
         return try SandboxName(arguments[1])
     }
 
+    private func printHelpIfRequested(_ arguments: [String], _ help: String) throws -> Bool {
+        guard arguments.count >= 2, arguments[1] == "--help" || arguments[1] == "-h" else { return false }
+        try requireExactCount(arguments, 2)
+        writeOutput(help)
+        return true
+    }
+
     private func requireExactCount(_ arguments: [String], _ count: Int) throws {
         guard arguments.count == count else { throw CLICommandError.unexpectedArguments(Array(arguments.dropFirst(count))) }
     }
+}
+
+private enum CLIHelp {
+    static let topLevel = """
+    Usage: sand <command> [options]
+
+    Commands:
+      doctor                         Verify host prerequisites
+      create <name> [options]        Create a Sandbox VM
+      list                           List Sandbox VMs
+      apply <name>                   Apply spec changes
+      delete <name> [--force]        Delete a Sandbox VM
+      folders <action> ...           Manage allowed Host Mac folders
+      <name> status                  Show Sandbox VM status
+      <name> start                   Start a Sandbox VM
+      <name> stop                    Stop a Sandbox VM
+      <name> shell                   Open a shell
+      <name> run <command> [args...] Run a Workload Command
+      <name> logs                    Show logs
+      <name> spec                    Print the sandbox spec
+
+    Use `sand <command> --help` or `sand <name> --help` for command help.
+    """
+
+    static let doctor = """
+    Usage: sand doctor
+
+    Verifies host support, backend readiness, default image availability, and ~/.sand writability.
+    """
+
+    static let list = """
+    Usage: sand list
+
+    Lists known Sandbox VMs with runtime state, image, and allowed folder count.
+    """
+
+    static let create = """
+    Usage: sand create <name> [--image <image>] [--cpus <count>] [--memory <size>] [--from <spec.yaml>]
+
+    Creates a Sandbox VM from generated defaults or from an authored spec.
+    """
+
+    static let apply = """
+    Usage: sand apply <name>
+
+    Applies allowed spec changes to an existing Sandbox VM.
+    """
+
+    static let delete = """
+    Usage: sand delete <name> [--force]
+
+    Deletes the Sandbox VM runtime, guest state volume, and host metadata spec.
+    """
+
+    static let folders = """
+    Usage: sand folders <action> ...
+
+    Actions:
+      folders add <name> <host-path> <rw|ro> [--as <guest-path>]
+      folders list <name>
+      folders remove <name> <host-path>
+    """
+
+    static let sandboxActions = """
+    Usage: sand <name> <action> [arguments]
+
+    Actions:
+      status                         Show status
+      start                          Start the Sandbox VM
+      stop                           Stop the Sandbox VM
+      shell                          Open an interactive shell
+      run <command> [args...]        Run a Workload Command
+      logs                           Show logs
+      spec                           Print the sandbox spec
+    """
 }
 
 public enum CLICommandError: Error, Equatable, CustomStringConvertible {

@@ -7,6 +7,44 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertEqual(CommandResult.failure(exitCode: 42).processExitCode, 42)
     }
 
+    func testTopLevelHelpAndVersionPrintWithoutCallingApplication() throws {
+        let app = RecordingSandboxApplication()
+        var output: [String] = []
+        let router = CLICommandRouter(application: app, writeOutput: { output.append($0) })
+
+        XCTAssertEqual(try router.dispatch(arguments: ["--help"]), .success)
+        XCTAssertEqual(try router.dispatch(arguments: ["--version"]), .success)
+
+        XCTAssertTrue(output[0].contains("Usage: sand <command>"))
+        XCTAssertTrue(output[0].contains("doctor"))
+        XCTAssertTrue(output[0].contains("<name> run"))
+        XCTAssertEqual(output[1], "sand 0.1.0-dev")
+        XCTAssertEqual(app.calls, [])
+    }
+
+    func testSupportedCommandHelpPrintsWithoutCallingApplication() throws {
+        let app = RecordingSandboxApplication()
+        var output: [String] = []
+        let router = CLICommandRouter(application: app, writeOutput: { output.append($0) })
+
+        XCTAssertEqual(try router.dispatch(arguments: ["create", "--help"]), .success)
+        XCTAssertEqual(try router.dispatch(arguments: ["delete", "--help"]), .success)
+        XCTAssertEqual(try router.dispatch(arguments: ["apply", "--help"]), .success)
+        XCTAssertEqual(try router.dispatch(arguments: ["folders", "--help"]), .success)
+        XCTAssertEqual(try router.dispatch(arguments: ["mybox", "--help"]), .success)
+
+        XCTAssertTrue(output[0].contains("Usage: sand create <name>"))
+        XCTAssertTrue(output[0].contains("--from <spec.yaml>"))
+        XCTAssertTrue(output[1].contains("Usage: sand delete <name>"))
+        XCTAssertTrue(output[1].contains("--force"))
+        XCTAssertTrue(output[2].contains("Usage: sand apply <name>"))
+        XCTAssertTrue(output[3].contains("Usage: sand folders <action>"))
+        XCTAssertTrue(output[3].contains("folders add <name> <host-path> <rw|ro>"))
+        XCTAssertTrue(output[4].contains("Usage: sand <name> <action>"))
+        XCTAssertTrue(output[4].contains("run <command> [args...]"))
+        XCTAssertEqual(app.calls, [])
+    }
+
     func testParsesEveryV1CommandShape() throws {
         let authoredSpecText = """
         schemaVersion: 1
@@ -88,7 +126,13 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertThrowsError(try router.dispatch(arguments: ["reset", "mybox"])) { error in
             XCTAssertEqual(error as? CLICommandError, .unsupportedCommand("reset"))
         }
+        XCTAssertThrowsError(try router.dispatch(arguments: ["reset", "--help"])) { error in
+            XCTAssertEqual(error as? CLICommandError, .unsupportedCommand("reset"))
+        }
         XCTAssertThrowsError(try router.dispatch(arguments: ["mybox", "pi"])) { error in
+            XCTAssertEqual(error as? CLICommandError, .unsupportedAction("pi"))
+        }
+        XCTAssertThrowsError(try router.dispatch(arguments: ["mybox", "pi", "--help"])) { error in
             XCTAssertEqual(error as? CLICommandError, .unsupportedAction("pi"))
         }
         XCTAssertThrowsError(try router.dispatch(arguments: ["create", "mybox", "--inbound", "8080:8080"])) { error in

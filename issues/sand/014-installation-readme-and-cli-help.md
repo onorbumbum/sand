@@ -67,6 +67,47 @@ Bundle the docs and CLI discoverability work together so README examples and `sa
 - [ ] CLI command handlers still do not call Apple `container` directly; backend interaction remains behind the Apple backend adapter boundary.
 - [ ] `swift test` passes.
 
+## Evidence
+
+Implemented in:
+
+- `README.md`
+- `Makefile`
+- `Sources/SandCore/CLI/CLICommandRouter.swift`
+- `Tests/SandCoreTests/CLICommandRouterTests.swift`
+
+Verification run on 2026-05-19:
+
+```sh
+swift test
+# passed: 79 tests, 0 failures
+
+tmp=$(mktemp -d)
+PREFIX="$tmp" make install
+"$tmp/bin/sand" --version
+"$tmp/bin/sand" --help
+"$tmp/bin/sand" create --help
+"$tmp/bin/sand" delete --help
+"$tmp/bin/sand" apply --help
+"$tmp/bin/sand" folders --help
+"$tmp/bin/sand" demo --help
+PREFIX="$tmp" make uninstall
+test ! -e "$tmp/bin/sand"
+rm -rf "$tmp"
+```
+
+Observed version/help output included:
+
+```text
+sand 0.1.0-dev
+Usage: sand <command> [options]
+Usage: sand create <name> [--image <image>] [--cpus <count>] [--memory <size>] [--from <spec.yaml>]
+Usage: sand delete <name> [--force]
+Usage: sand apply <name>
+Usage: sand folders <action> ...
+Usage: sand <name> <action> [arguments]
+```
+
 ## Blocked by
 
 - `issues/sand/013-final-v1-acceptance-pass.md`
