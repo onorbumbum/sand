@@ -1,6 +1,6 @@
 # sand Documentation
 
-This is the web-readable landing page for the `sand` Documentation System. It is intentionally plain Markdown so it works on GitHub or any static Markdown renderer without a documentation site generator.
+This is the web-readable landing page for the `sand` Documentation System. It is intentionally plain Markdown so it works on GitHub Pages or any static Markdown renderer without a custom documentation site generator.
 
 ## Start here
 
@@ -55,6 +55,16 @@ When a change affects those inputs:
    ```
 
 `make docs-check` runs `scripts/docs-check.sh`, recomputes the current docs input hash, and fails when any registered generated or section-managed document has missing or stale hash metadata. The registered v1 Generated Documentation set lives in [`docs/generated-docs-manifest.txt`](generated-docs-manifest.txt): `README.md`, `docs/cli-reference.md`, `docs/onboarding.md`, and `docs/developer-guide.md`.
+
+## Publish on GitHub Pages
+
+The fastest hosted docs path is GitHub Pages from the committed `docs/` directory:
+
+1. Keep this documentation source in `docs/`.
+2. Keep [`docs/_config.yml`](_config.yml) as the minimal Jekyll config.
+3. In GitHub, choose **Settings → Pages → Deploy from branch → `main` / `docs`**.
+
+No npm, MkDocs, VitePress, Bosun workflow, or separate generated website is required for v1.
 
 ## Final local flow
 
