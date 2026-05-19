@@ -177,7 +177,7 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         XCTAssertEqual(readiness, .notReady([
             DoctorFinding(
                 kind: .backendServiceStopped,
-                message: "Backend Service is not running and sand could not auto-start it. Run `container system start` and retry `sand doctor`."
+                message: "Backend Service is not running and sand could not auto-start it. Check the backend service, then retry `sand doctor`."
             )
         ]))
         XCTAssertEqual(runner.calls, [

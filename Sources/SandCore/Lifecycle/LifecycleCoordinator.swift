@@ -150,7 +150,15 @@ public struct LifecycleCoordinator: SandboxApplication {
     }
 
     public func logs(_ request: NamedSandboxRequest) throws -> CommandResult {
-        _ = try backend.logs(request.sandboxName)
+        let logs = try backend.logs(request.sandboxName)
+        let lines = logs.text.split(whereSeparator: \.isNewline).map(String.init)
+        if lines.isEmpty {
+            writeOutput("No logs available for Sandbox VM \(request.sandboxName.rawValue).")
+        } else {
+            for line in lines {
+                writeOutput(line)
+            }
+        }
         return .success
     }
 

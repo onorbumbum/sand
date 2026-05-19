@@ -18,7 +18,8 @@ let package = Package(
         .target(name: "SandCore"),
         .testTarget(
             name: "SandCoreTests",
-            dependencies: ["SandCore"]
+            dependencies: ["SandCore"],
+            exclude: ["Fixtures"]
         )
     ]
 )

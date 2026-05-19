@@ -34,7 +34,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
                 findings.append(
                     DoctorFinding(
                         kind: .backendServiceStopped,
-                        message: "Backend Service is not running and sand could not auto-start it. Run `container system start` and retry `sand doctor`."
+                        message: "Backend Service is not running and sand could not auto-start it. Check the backend service, then retry `sand doctor`."
                     )
                 )
                 return .notReady(findings)
@@ -202,11 +202,18 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 
     private func runRequired(arguments: [String]) throws -> BackendCommandOutput {
-        let output = try runner.run(arguments: arguments)
-        guard output.exitCode == 0 else {
-            throw AppleContainerCLIBackendError.commandFailed(arguments: arguments, exitCode: output.exitCode, stderr: output.stderr)
+        do {
+            let output = try runner.run(arguments: arguments)
+            guard output.exitCode == 0 else {
+                let rawError = AppleContainerCLIBackendError.commandFailed(arguments: arguments, exitCode: output.exitCode, stderr: output.stderr)
+                throw translator.translate(rawError)
+            }
+            return output
+        } catch let error as BackendTranslatedError {
+            throw error
+        } catch {
+            throw translator.translate(error)
         }
-        return output
     }
 }
 

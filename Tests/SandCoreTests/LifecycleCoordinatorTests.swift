@@ -175,6 +175,23 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(backend.calls, [])
     }
 
+    func testLogsPrintBackendRuntimeLogsWithoutDroppingUsefulLines() throws {
+        var output: [String] = []
+        let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
+        let backend = RecordingSandboxBackend(status: .running, logsText: "booted\nagent ready\n")
+        let coordinator = LifecycleCoordinator(
+            metadataStore: MemoryMetadataStore(specs: [spec]),
+            backend: backend,
+            writeOutput: { output.append($0) }
+        )
+
+        let result = try coordinator.logs(NamedSandboxRequest(sandboxName: spec.name))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(output, ["booted", "agent ready"])
+        XCTAssertEqual(backend.calls, [.logs("mybox")])
+    }
+
     func testStatusPrintsUsefulConfigAndRuntimeStateWithoutRawBackendDump() throws {
         var output: [String] = []
         let spec = SandboxSpec(

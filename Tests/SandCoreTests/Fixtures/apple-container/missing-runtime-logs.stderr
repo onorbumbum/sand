@@ -1,0 +1,1 @@
+Error: failed to get logs for container sand-does-not-exist-011 (cause: "internalError: "failed to open container logs: notFound: "container with ID sand-does-not-exist-011 not found""")

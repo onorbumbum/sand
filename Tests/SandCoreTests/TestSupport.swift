@@ -86,10 +86,12 @@ final class RecordingSandboxBackend: SandboxBackend {
     var calls: [BackendCall] = []
     var runtimeStatus: SandboxRuntimeStatus
     var provisionError: (any Error)?
+    var logsText: String
 
-    init(status: SandboxRuntimeStatus = .running, provisionError: (any Error)? = nil) {
+    init(status: SandboxRuntimeStatus = .running, provisionError: (any Error)? = nil, logsText: String = "") {
         self.runtimeStatus = status
         self.provisionError = provisionError
+        self.logsText = logsText
     }
 
     func checkReadiness() throws -> BackendReadiness {
@@ -134,7 +136,7 @@ final class RecordingSandboxBackend: SandboxBackend {
 
     func logs(_ sandboxName: SandboxName) throws -> SandboxLogs {
         calls.append(.logs(sandboxName.rawValue))
-        return SandboxLogs(text: "")
+        return SandboxLogs(text: logsText)
     }
 
     func delete(_ sandboxName: SandboxName) throws {
