@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: fcb2d9220f229525556adcd44c2a84f009cfd04ed10e610d13379103b3affd70 -->
+<!-- docs-input-hash: c6d43655ea26bb7e6b1e8eae88876c6235b6171d9589ad64ecfe8a81f2797ebb -->
 
 `sand` creates and manages small isolated Linux computers on an Apple silicon Host Mac. Each Sandbox VM is backed by Apple `container`, has its own Guest State, and only sees Host Mac folders that you explicitly allow. Work is run with generic Workload Commands: `sand <name> run <command> [args...]`.
 
@@ -19,13 +19,13 @@ v1 is intentionally small:
 
 ## Documentation
 
-Start with the generated guides when onboarding humans or agents:
+Start with the docs when onboarding humans or AI agents to work on the project:
 
-- [`docs/onboarding.md`](docs/onboarding.md) explains the repo map, first files to read, and local verification flow.
+- [`docs/onboarding.md`](docs/onboarding.md) teaches the repo map, first files to read, working loop, and local verification flow.
 - [`docs/cli-reference.md`](docs/cli-reference.md) is generated from current `sand` help output and is the detailed command reference.
-- [`docs/developer-guide.md`](docs/developer-guide.md) covers architecture, testing strategy, and the documentation update workflow.
+- [`docs/developer-guide.md`](docs/developer-guide.md) explains architecture, testing strategy, command-change workflow, and Definition of Done.
 
-This README is section-managed: the product positioning and narrative stay hand-authored, while marked **Managed Sections** are refreshed through the Documentation Refresh Workflow so examples stay aligned with the current command surface.
+The documentation refresh workflow is a guardrail for changes with Documentation Impact. It is not the default work mode for agents; agents should start from the task, product language, code, and tests.
 
 ## Delete cleanup behavior
 

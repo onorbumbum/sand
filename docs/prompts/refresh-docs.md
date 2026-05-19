@@ -1,6 +1,8 @@
 # Documentation Refresh Workflow Prompt
 
-You are refreshing `sand` Generated Documentation. `sand` manages **Sandbox VMs** on a **Host Mac** with explicit **Allowed Folders**, **Guest State**, and generic **Workload Commands**. Use the domain language in `issues/sand/CONTEXT.md` exactly.
+This prompt is only for refreshing `sand` generated/managed documentation after a change has Documentation Impact. It is not the general onboarding path for AI agents working on code. For normal project work, start with `docs/onboarding.md`, `docs/developer-guide.md`, the task, code, and tests.
+
+When this prompt is applicable, refresh docs for `sand`: a tool that manages **Sandbox VMs** on a **Host Mac** with explicit **Allowed Folders**, **Guest State**, and generic **Workload Commands**. Use the domain language in `issues/sand/CONTEXT.md` exactly.
 
 This workflow is manual and agent-run for v1. It must not require Bosun, network access, or a separate LLM quality gate.
 
@@ -80,7 +82,7 @@ Rules:
 
 ## Documents to refresh
 
-Refresh every non-comment path listed in `docs/generated-docs-manifest.txt`.
+Refresh every non-comment path listed in `docs/generated-docs-manifest.txt`. Keep `docs/onboarding.md` and `docs/developer-guide.md` focused on teaching humans and AI agents how to work on `sand`: how to orient, find behavior owners, change code/tests, verify, and handle Documentation Impact only when relevant.
 
 Expected v1 Generated Documentation set:
 

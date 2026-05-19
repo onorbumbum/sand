@@ -1,10 +1,10 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: fcb2d9220f229525556adcd44c2a84f009cfd04ed10e610d13379103b3affd70 -->
+<!-- docs-input-hash: c6d43655ea26bb7e6b1e8eae88876c6235b6171d9589ad64ecfe8a81f2797ebb -->
 
 # sand Onboarding Guide
 
-> Generated start-here guide for humans and AI agents. Refresh this document through the Documentation Refresh Workflow when the docs input hash changes.
+> Start here when you need to work on `sand`. This guide is for orienting humans and AI agents to the project, not for turning agents into documentation editors.
 
 ## What this repo is
 
@@ -14,33 +14,38 @@ Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbu
 
 ## Start here: humans
 
-1. Read [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md) for scope, prerequisites, install steps, and the v1 command surface.
-2. Read [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) before changing behavior or documentation language.
-3. Read [`docs/cli-reference.md`](cli-reference.md) for the generated command reference.
-4. If changing implementation, find the relevant module under `Sources/SandCore/` and the matching tests under `Tests/SandCoreTests/`.
-5. Run local verification before considering work complete:
+1. Read [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md) for product scope, prerequisites, install steps, and quickstart.
+2. Read [`docs/cli-reference.md`](cli-reference.md) when you need exact command shapes.
+3. Read [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) before naming user-facing behavior.
+4. If changing implementation, start from the relevant `Sources/SandCore/` module and its matching tests under `Tests/SandCoreTests/`.
+5. Run the local completion gate before considering work done:
 
    ```sh
-   swift test
-   make docs-check
    make check
    ```
 
-6. If your change affects public behavior, command output, onboarding, domain language, or documentation workflow, refresh Generated Documentation with [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md).
-
 ## Start here: AI agents
 
-1. Read the task issue, then read these files before editing:
-   - [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md)
-   - [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md)
-   - [`docs/docs-input-manifest.txt`](docs-input-manifest.txt)
-   - [`docs/generated-docs-manifest.txt`](generated-docs-manifest.txt)
-   - [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md) when touching Generated Documentation
-2. Keep the project language aligned with the Sandbox VM context. Do not describe the product as a generic Docker/container wrapper.
-3. Make the smallest change that satisfies the issue. Keep behavior claims tied to source, tests, CLI help, README, and the context language.
-4. Update Generated Documentation only through the documented refresh conventions. Do not hand-edit generated hash metadata to hide drift.
-5. Run the relevant gate. At minimum run `swift test`; when docs are touched, also run `make docs-check`. `make check` runs both.
-6. Record evidence in the issue file before committing.
+Your job is to make the project better while preserving its product language, behavior contracts, and verification loop. Do not start by editing docs. Start by understanding the change.
+
+1. **Read the task first.** Identify the requested behavior, bug, or documentation outcome.
+2. **Read the product language.** Use [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) to avoid overloaded or misleading terms.
+3. **Read the user-facing contract.** Use [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md) and [`docs/cli-reference.md`](cli-reference.md) to understand current public behavior.
+4. **Find the code and tests that own the behavior.** For most changes, pair one `Sources/SandCore/` area with one or more `Tests/SandCoreTests/` files.
+5. **Make the smallest coherent change.** Keep Workload Commands opaque, keep backend details behind the Sandbox Backend, and do not introduce shortcuts that violate v1 boundaries.
+6. **Verify with real commands.** Run targeted checks while working, then run `make check` before the final answer or commit.
+7. **Update docs only when the change has Documentation Impact.** If public behavior, CLI help, onboarding instructions, domain language, or docs tooling changed, follow [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md). Otherwise do not churn generated docs.
+8. **Leave evidence.** In an issue or final response, record what changed and which verification commands passed.
+
+## Working loop for agents
+
+Use this loop for most implementation tasks:
+
+```text
+Read task → read context language → locate behavior tests → inspect source → change code/docs → run verification → record evidence
+```
+
+Prefer source-backed claims. If docs and code disagree, treat that as a finding: inspect tests and command help before deciding which source is stale.
 
 ## Repo map
 
@@ -58,20 +63,20 @@ Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbu
 | `Sources/SandCore/Spec/` | Sandbox Spec model and validation. |
 | `Sources/SandCore/Status/` | User-facing Sandbox Status presentation. |
 | `Sources/SandCore/WorkingDirectory/` | Working Directory Mapping from Host Mac paths into Guest Paths. |
-| `Tests/SandCoreTests/` | XCTest coverage for domain, CLI, lifecycle, backend boundaries, folder policy, docs-adjacent behavior, and fixtures. Start here before changing behavior. |
-| `README.md` | Human-facing overview, prerequisites, installation, quickstart, and command examples. Section-managed by the Documentation Refresh Workflow. |
+| `Tests/SandCoreTests/` | XCTest coverage for domain, CLI, lifecycle, backend boundaries, folder policy, and validation evidence. Start here before changing behavior. |
+| `README.md` | Human-facing overview, prerequisites, installation, quickstart, and command examples. |
 | `issues/sand/CONTEXT.md` | Canonical domain language and relationships. Read this before naming user-facing behavior. |
-| `docs/onboarding.md` | This generated start-here guide for humans and AI agents. |
+| `docs/onboarding.md` | This start-here guide for humans and AI agents working on the project. |
 | `docs/cli-reference.md` | Generated CLI Reference derived from real help output or command definitions/tests. |
-| `docs/developer-guide.md` | Planned generated guide for architecture, testing strategy, and change workflow. Link to it from docs once present. |
+| `docs/developer-guide.md` | Architecture, testing strategy, command-change workflow, and local Definition of Done. |
 | `docs/docs-input-manifest.txt` | Curated Documentation Input Manifest used to compute freshness. |
-| `docs/generated-docs-manifest.txt` | Registry of Generated Documentation checked by the freshness gate. |
-| `docs/prompts/refresh-docs.md` | Manual agent-run Documentation Refresh Workflow and metadata conventions. |
+| `docs/generated-docs-manifest.txt` | Registry of generated/managed docs checked by the freshness gate. |
+| `docs/prompts/refresh-docs.md` | Only for refreshing generated/managed docs when a change has Documentation Impact. |
 | `docs/validation/` | Backend and behavior validation evidence that supports implementation decisions. |
 | `scripts/build-developer-ready-image.sh` | Builds the Developer-Ready Sandbox Image. |
 | `scripts/smoke-developer-ready-image.sh` | Smoke-tests the Developer-Ready Sandbox Image. |
 | `scripts/docs-input-hash.sh` | Computes the deterministic docs input hash. |
-| `scripts/docs-check.sh` | Documentation Freshness Gate for registered Generated Documentation. |
+| `scripts/docs-check.sh` | Documentation Freshness Gate for registered generated/managed docs. |
 | `scripts/generate-cli-reference.sh` | Regenerates `docs/cli-reference.md` from current CLI help/version output. |
 | `Makefile` | Local build, test, docs-check, check, install, and uninstall targets. |
 
@@ -84,7 +89,7 @@ Read in this order:
 3. [`docs/cli-reference.md`](cli-reference.md) for the generated command surface.
 4. The relevant `Sources/SandCore/` module.
 5. The corresponding tests in `Tests/SandCoreTests/`.
-6. [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md) if the change has Documentation Impact.
+6. [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md) only if the change has Documentation Impact.
 
 ## Local verification flow
 
@@ -97,7 +102,7 @@ make check
 ```
 
 - `swift test` runs the XCTest suite for `SandCore`.
-- `make docs-check` runs `scripts/docs-check.sh`, which computes the current Documentation Input Manifest hash and verifies every registered Generated Documentation file records that hash.
+- `make docs-check` verifies that registered generated/managed docs record the current Documentation Input Manifest hash.
 - `make check` is the single local completion gate and currently runs `swift test` followed by the Documentation Freshness Gate.
 
 For CLI documentation changes, regenerate the CLI Reference with:
@@ -108,22 +113,20 @@ scripts/generate-cli-reference.sh
 
 Then rerun `make docs-check` and `swift test`.
 
-## Documentation Refresh Workflow
+## When documentation needs updating
 
-Generated Documentation is committed, human-facing documentation. It is refreshed through the manual agent-run workflow in [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md), not through ad hoc edits or hidden LLM memory.
+Documentation updates are a consequence of product changes, not the default task. Refresh generated/managed docs when you change one of these:
 
-At a high level, the workflow is:
+- public CLI behavior or help text,
+- README quickstart or examples,
+- Sandbox VM domain language,
+- onboarding or developer workflow instructions,
+- docs freshness scripts or manifests.
 
-1. Read the Documentation Input Manifest, generated docs registry, source files, tests, README, context language, and existing generated docs.
-2. Compute the current docs input hash with `scripts/docs-input-hash.sh docs/docs-input-manifest.txt`.
-3. Refresh every registered Generated Documentation file while preserving any Managed Sections.
-4. Record the current docs input hash near the top of each generated document.
-5. Run `make docs-check` and `swift test`.
-6. Report the hash used, documents refreshed, generation sources, verification results, and any skipped/conflicting inputs.
+When that happens, use [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md). Do not update a document's `docs-input-hash` unless the document has actually been refreshed against the current inputs.
 
 ## Avoiding stale documentation
 
-- Treat `docs/docs-input-manifest.txt` as the curated list of inputs that can make Generated Documentation stale.
-- Treat `docs/generated-docs-manifest.txt` as the list of generated documents that must record the current docs input hash.
-- Do not update a document's `docs-input-hash` unless the document has actually been refreshed against the current inputs.
-- If `make docs-check` fails, refresh the affected Generated Documentation instead of bypassing the gate.
+- Treat `docs/docs-input-manifest.txt` as the curated list of inputs that can make generated/managed docs stale.
+- Treat `docs/generated-docs-manifest.txt` as the list of docs that must record the current docs input hash.
+- If `make docs-check` fails, refresh the affected docs against the current inputs instead of bypassing the gate.

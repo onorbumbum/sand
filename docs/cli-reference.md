@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: fcb2d9220f229525556adcd44c2a84f009cfd04ed10e610d13379103b3affd70 -->
+<!-- docs-input-hash: c6d43655ea26bb7e6b1e8eae88876c6235b6171d9589ad64ecfe8a81f2797ebb -->
 
 # sand CLI Reference
 

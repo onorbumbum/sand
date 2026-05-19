@@ -5,9 +5,9 @@ This is the web-readable landing page for the `sand` Documentation System. It is
 ## Start here
 
 - [Project README](https://github.com/onorbumbum/sand/blob/main/README.md) — product overview, prerequisites, install instructions, quickstart, and command surface summary.
-- [Onboarding Guide](onboarding.md) — first files to read, repo map, and local verification flow for humans and agents.
+- [Onboarding Guide](onboarding.md) — how humans and AI agents should orient, inspect code/tests, make changes, and verify work.
 - [CLI Reference](cli-reference.md) — generated command reference for the v1 `sand` Control Surface.
-- [Developer Guide](developer-guide.md) — architecture, testing strategy, command-change workflow, and local Definition of Done.
+- [Developer Guide](developer-guide.md) — architecture, testing strategy, command-change workflow, agent working rules, and local Definition of Done.
 - [Sandbox VM language](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) — canonical domain language for **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Guest State**, **Sandbox Session**, and **Workload Command**.
 
 ## Product and v1 delivery docs
@@ -27,19 +27,21 @@ This is the web-readable landing page for the `sand` Documentation System. It is
 
 | Document | Ownership | Notes |
 | --- | --- | --- |
-| [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md) | Section-managed | Human-authored narrative with marked Managed Sections refreshed by the Documentation Refresh Workflow. |
+| [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md) | Section-managed | Human-authored product narrative with generated factual sections for command examples and local checks. |
 | [`docs/cli-reference.md`](cli-reference.md) | Fully generated | Regenerated from current `sand` help/version output by `scripts/generate-cli-reference.sh`. |
-| [`docs/onboarding.md`](onboarding.md) | Generated | Start-here guide refreshed through the Documentation Refresh Workflow. |
-| [`docs/developer-guide.md`](developer-guide.md) | Generated | Contributor guide refreshed through the Documentation Refresh Workflow. |
+| [`docs/onboarding.md`](onboarding.md) | Generated | Start-here guide for humans and AI agents working on the project. |
+| [`docs/developer-guide.md`](developer-guide.md) | Generated | Contributor guide for architecture, tests, command changes, and Definition of Done. |
 | [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) | Hand-authored source of truth | Canonical Sandbox VM language and relationships. |
 | [`docs/index.md`](index.md) | Hand-authored landing page | Plain Markdown navigation and documentation workflow summary. |
 | [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md) | Hand-authored workflow prompt | Defines the manual agent-run Documentation Refresh Workflow. |
 
 ## Refresh docs and check freshness
 
-Generated Documentation records a `docs-input-hash` near the top of each registered document. The hash is computed from [`docs/docs-input-manifest.txt`](docs-input-manifest.txt), which lists the curated source-of-truth inputs for public behavior, command help, tests, scripts, README hand-authored content, and domain language.
+The docs are primarily onboarding and working instructions. The refresh machinery is a guardrail that keeps those instructions from drifting after public behavior changes.
 
-When a change affects those inputs:
+Generated/managed docs record a `docs-input-hash` near the top of each registered document. The hash is computed from [`docs/docs-input-manifest.txt`](docs-input-manifest.txt), which lists the curated source-of-truth inputs for public behavior, command help, tests, scripts, README hand-authored content, and domain language.
+
+When a change affects those inputs and has Documentation Impact:
 
 1. Refresh docs using [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md).
 2. Regenerate the CLI Reference when command help or version output changes:
@@ -70,9 +72,10 @@ No npm, MkDocs, VitePress, Bosun workflow, or separate generated website is requ
 
 For agents and humans, the normal completion path is:
 
-1. Change code, tests, scripts, or docs.
-2. If the Documentation Input Manifest hash changes, run the Documentation Refresh Workflow and update registered Generated Documentation.
-3. Run the full local gate:
+1. Understand the task, product language, relevant code, and tests.
+2. Change code, tests, scripts, or docs.
+3. If the change has Documentation Impact and the Documentation Input Manifest hash changes, run the Documentation Refresh Workflow and update registered generated/managed docs.
+4. Run the full local gate:
 
    ```sh
    make check

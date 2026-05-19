@@ -1,10 +1,10 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: fcb2d9220f229525556adcd44c2a84f009cfd04ed10e610d13379103b3affd70 -->
+<!-- docs-input-hash: c6d43655ea26bb7e6b1e8eae88876c6235b6171d9589ad64ecfe8a81f2797ebb -->
 
 # sand Developer Guide
 
-> Generated guide for contributors and agents changing `sand`. Refresh this document through the Documentation Refresh Workflow when the docs input hash changes.
+> Guide for changing `sand` safely. It teaches the project architecture, tests, command workflow, and completion gate for humans and AI agents.
 
 ## Canonical language and boundaries
 
@@ -28,7 +28,7 @@ Keep backend-specific wording inside backend implementation and tests. User-faci
 | Sandbox Backend | `Sources/SandCore/Backend/SandboxBackend.swift`, `Sources/SandCore/Backend/AppleContainerCLIBackend.swift`, `Sources/SandCore/Backend/BackendErrorTranslation.swift` | Hide backend operations behind a narrow interface and translate backend failures into Sandbox VM language. |
 | Status and prompts | `Sources/SandCore/Status/StatusPresenter.swift`, `Sources/SandCore/Prompt/PromptConfirmation.swift` | Present concise Sandbox Status and ask before destructive or interrupting Lifecycle Mutations. |
 
-The intended dependency direction is CLI -> application boundary -> domain/policy/backend interfaces. Backend adapter details should not spread into CLI help, Sandbox Specs, or general domain modules.
+The intended dependency direction is CLI → application boundary → domain/policy/backend interfaces. Backend adapter details should not spread into CLI help, Sandbox Specs, or general domain modules.
 
 ## Testing strategy
 
@@ -46,14 +46,13 @@ Behavior is specified with XCTest under `Tests/SandCoreTests/`. Start with the r
 | Architecture boundaries | `Tests/SandCoreTests/ArchitectureBoundaryTests.swift` checks that fake backends stay out of product sources and backend-specific implementation wording stays inside the adapter. |
 | Pi workload and credential boundaries | `Tests/SandCoreTests/PiWorkloadCredentialBoundaryValidationTests.swift` checks validation evidence that Pi runs as an ordinary Workload Command and Host Mac credentials are not mounted by default. |
 
-The preferred local gate is:
+Use targeted tests while iterating, then run:
 
 ```sh
-swift test
-make docs-check
+make check
 ```
 
-`make check` runs both.
+`make check` runs `swift test` and the Documentation Freshness Gate.
 
 ## Adding or changing a `sand` command
 
@@ -62,48 +61,47 @@ make docs-check
 3. Implement orchestration in `LifecycleCoordinator.swift` or the smallest matching domain module. Keep Workload Commands opaque; do not inspect workload-specific flags.
 4. Update help text in `CLICommandRouter.swift`. The CLI Reference is generated from help output, so help is part of the source of truth.
 5. Add or update tests in `CLICommandRouterTests.swift` for the command shape and in the relevant domain/lifecycle/backend test file for behavior.
-6. If the command changes public behavior or examples, update README managed sections through the Documentation Refresh Workflow rather than hand-maintaining divergent prose.
-7. Regenerate the CLI Reference with:
+6. Run targeted tests, then `make check`.
+7. If command behavior, help text, examples, or onboarding changed, refresh generated/managed docs using [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md). Do not refresh docs for implementation-only refactors.
 
-   ```sh
-   scripts/generate-cli-reference.sh
-   ```
+## Working rules for AI agents
 
-8. Refresh registered Generated Documentation so `README.md`, `docs/cli-reference.md`, `docs/onboarding.md`, and `docs/developer-guide.md` record the current docs input hash and match the current behavior. Preserve hand-authored README prose and replace only Managed Section bodies.
-9. Run `swift test` and `make docs-check` before committing.
+- Read the issue and relevant docs before editing.
+- Prefer the smallest change that preserves existing module boundaries.
+- Do not introduce user-facing backend implementation details.
+- Do not add Pi-specific `sand` semantics; Pi remains a normal Workload Command.
+- Do not weaken tests to make a change pass.
+- Do not update docs hashes just to silence `make docs-check`.
+- Record real verification evidence before finishing.
 
-## Documentation Refresh Workflow
+## Documentation as a guardrail
 
-Run the Documentation Refresh Workflow whenever a change affects public behavior, CLI help, README managed sections, domain language, executable behavior specs, docs scripts, or generated documentation itself.
+The documentation system exists to help contributors and agents work correctly, not to make every task a docs task. Most implementation changes should start in code and tests.
 
-The workflow is defined in [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md). In short:
+Run the Documentation Refresh Workflow only when the change has Documentation Impact:
 
-1. Read `docs/docs-input-manifest.txt`, `docs/generated-docs-manifest.txt`, all required manifest inputs, optional inputs that exist, and existing generated docs.
-2. Compute the current docs input hash:
+- public behavior or CLI help changed,
+- README examples or quickstart changed,
+- Sandbox VM domain language changed,
+- onboarding/developer workflow changed,
+- docs manifests, freshness scripts, or generation scripts changed.
 
-   ```sh
-   scripts/docs-input-hash.sh docs/docs-input-manifest.txt
-   ```
+When needed:
 
-3. Refresh every registered Generated Documentation file using current source, tests, CLI help, README, and context language.
-4. Record the hash near the top of each generated document using the agreed metadata convention:
+```sh
+scripts/generate-cli-reference.sh   # if command help/version output changed
+scripts/docs-input-hash.sh docs/docs-input-manifest.txt
+make docs-check
+```
 
-   ```md
-   <!-- docs-input-hash: <64-character-sha256> -->
-   ```
-
-5. Preserve Managed Section markers and only replace managed content in section-managed docs.
-6. Run `make docs-check` and `swift test`.
-7. Record evidence: hash used, documents refreshed, generation sources, verification results, and conflicts or skipped inputs.
-
-Do not update a document's hash just to bypass drift. If the hash is stale, refresh the document against the current inputs.
+The full refresh workflow is defined in [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md). Preserve Managed Section markers in section-managed docs and refresh registered generated/managed docs against current source-of-truth inputs.
 
 ## Local Definition of Done
 
 A change is done locally when:
 
-- Behavior tests pass with `swift test`.
-- The Documentation Freshness Gate passes with `make docs-check`.
-- Generated Documentation that has Documentation Impact has been refreshed and records the current docs input hash.
-- Public language follows [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md).
-- The issue records honest evidence for the commands run and any limitations.
+- behavior tests pass with `swift test`,
+- the full gate passes with `make check`,
+- any Documentation Impact has been handled through the documented refresh workflow,
+- public language follows [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md),
+- the issue or final response records honest evidence for commands run and any limitations.
