@@ -104,6 +104,46 @@ _Avoid_: Computer name, VM id, container name
 The user-facing way to create, configure, launch, and inspect Sandbox VMs, named `sand` for the first Swift CLI.
 _Avoid_: UI, frontend
 
+**Documentation System**:
+The integrated project documentation made from onboarding docs, domain language, decision records, executable behavior specs, and generated web-readable pages.
+_Avoid_: Wiki, docs folder, single source document
+
+**Documentation Freshness Gate**:
+A deterministic project check that prevents documentation from drifting by requiring behavior claims to be generated from or validated against source-of-truth artifacts.
+_Avoid_: Remember to update docs, best-effort documentation
+
+**Generated Documentation**:
+Committed human-facing documentation produced by a Documentation Refresh Workflow from code, tests, CLI help, domain language, and decisions.
+_Avoid_: Ephemeral docs, untracked generated output, LLM-only source of truth
+
+**Managed Section**:
+A marked region inside an otherwise hand-authored document that the Documentation Refresh Workflow may update.
+_Avoid_: Full-document overwrite, hidden generated prose
+
+**Documentation Refresh Workflow**:
+A repeatable agent-run workflow, initially a checked-in prompt plus scripts and later optionally Bosun, that refreshes Generated Documentation from current project inputs.
+_Avoid_: Ad hoc doc writing, mandatory Bosun automation, manual memory
+
+**Documentation Input Manifest**:
+The curated list of project files whose changes mean Generated Documentation may be stale.
+_Avoid_: Hash every file, watch the whole repo, rely on memory
+
+**Onboarding Guide**:
+A generated start-here document for humans and agents that explains the repo map, first files to read, and build/test/run workflow.
+_Avoid_: Scattered setup notes, tribal onboarding
+
+**CLI Reference**:
+A generated command reference derived from actual `sand` help output and command definitions.
+_Avoid_: Hand-maintained command docs, stale option list
+
+**Developer Guide**:
+A generated guide for changing `sand`, covering architecture, testing strategy, command implementation workflow, and documentation update workflow.
+_Avoid_: Contributor folklore, implementation tour in README
+
+**Documentation Impact**:
+The explicit per-change classification of whether README, domain language, ADRs, web docs, or executable specs must change.
+_Avoid_: Docs maybe, cleanup later
+
 **Sandbox Spec**:
 The declarative YAML definition of a Sandbox VM, including name, image, Resource Profile, Allowed Folders, Guest Paths, and Access Modes, while excluding unsupported future concerns such as inbound networking in the first version.
 _Avoid_: Hidden imperative setup, backend-only config, future config placeholders
@@ -179,6 +219,17 @@ _Avoid_: Parent machine, main computer
 - Daily CLI syntax is sandbox-first and explicit: `sand <sandbox-name> <action>`.
 - The first version has no default sandbox or project-local implicit sandbox selection.
 - The first **Control Surface** is a Swift CLI; any desktop UI should wrap the same underlying sandbox model later.
+- The **Documentation System** uses executable behavior specs as the source of truth for behavior, with human-facing docs generated from or checked against those specs.
+- **Generated Documentation** is committed to the repository rather than generated only on demand.
+- The first **Generated Documentation** set is `README.md`, **Onboarding Guide** at `docs/onboarding.md`, **CLI Reference** at `docs/cli-reference.md`, and **Developer Guide** at `docs/developer-guide.md`.
+- `README.md` is section-managed with **Managed Sections** rather than fully generated.
+- **CLI Reference** is fully generated, while **Onboarding Guide** and **Developer Guide** may combine generated sections with preserved human-authored sections.
+- The first **Documentation Refresh Workflow** is a manual agent-run workflow using a checked-in prompt plus deterministic scripts rather than Bosun automation.
+- Bosun is only introduced later if documentation refresh needs multiple LLM passes, structured intermediate artifacts, review loops, generated diagrams, resumability, or publishing automation.
+- A future Bosun documentation workflow may produce rich tutorials, onboarding guides, and web-readable pages, but the **Documentation Freshness Gate** remains deterministic and cheap.
+- A **Documentation Freshness Gate** is mandatory before project work is considered complete.
+- A **Documentation Freshness Gate** fails when the current **Documentation Input Manifest** hash differs from the hash recorded in Generated Documentation.
+- The first **Documentation Input Manifest** is curated around public behavior, command surface, domain language, README, and documentation refresh prompt changes rather than every source file.
 - A **Sandbox Spec** is the source of truth for a **Sandbox VM**.
 - `sand <sandbox-name> spec` prints the active **Sandbox Spec**; editor integration is omitted in the first version.
 - `sand create` generates a **Sandbox Spec** in **Host Metadata** by default, while `sand create --from` supports user-authored specs.
@@ -203,3 +254,5 @@ _Avoid_: Parent machine, main computer
 
 - "container" was used to mean an isolated Linux VM-style environment, not a generic Docker-style app container.
 - "Pi Sandbox" was initially used for the product concept, but that over-coupled the app to Pi. Resolved: use **Sandbox VM** for the product concept, with Pi as a workload inside it.
+- "documentation" was used broadly to mean onboarding, behavior reference, domain language, architecture rationale, and web-readable pages. Resolved: use **Documentation System** for the integrated whole and **Documentation Impact** for per-change obligations.
+- "Bosun workflow" was considered for documentation generation, but that may be premature automation. Resolved: start with a manual agent-run **Documentation Refresh Workflow** and introduce Bosun only when the workflow proves complex enough.
