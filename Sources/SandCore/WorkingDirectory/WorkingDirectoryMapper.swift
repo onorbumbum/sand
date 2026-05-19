@@ -1,14 +1,22 @@
+import Foundation
+
 public struct WorkingDirectoryMapper {
     private let fallbackGuestPath: GuestPath
+    private let resolvePath: @Sendable (String) -> String
 
-    public init(fallbackGuestPath: GuestPath = try! GuestPath("/workspace")) {
+    public init(
+        fallbackGuestPath: GuestPath = try! GuestPath("/workspace"),
+        resolvePath: @escaping @Sendable (String) -> String = WorkingDirectoryMapper.defaultResolvePath
+    ) {
         self.fallbackGuestPath = fallbackGuestPath
+        self.resolvePath = resolvePath
     }
 
     public func map(hostCurrentDirectory: String, spec: SandboxSpec) -> WorkingDirectoryMapping {
+        let resolvedCurrentDirectory = resolvePath(hostCurrentDirectory)
         for folder in spec.allowedFolders {
-            if hostCurrentDirectory == folder.resolvedHostPath || hostCurrentDirectory.hasPrefix(folder.resolvedHostPath + "/") {
-                let suffix = String(hostCurrentDirectory.dropFirst(folder.resolvedHostPath.count))
+            if resolvedCurrentDirectory == folder.resolvedHostPath || resolvedCurrentDirectory.hasPrefix(folder.resolvedHostPath + "/") {
+                let suffix = String(resolvedCurrentDirectory.dropFirst(folder.resolvedHostPath.count))
                 return WorkingDirectoryMapping(
                     guestPath: try! GuestPath(folder.guestPath.rawValue + suffix),
                     warning: nil
@@ -20,6 +28,10 @@ public struct WorkingDirectoryMapper {
             guestPath: fallbackGuestPath,
             warning: "Current directory is not inside an Allowed Folder; starting in \(fallbackGuestPath.rawValue)."
         )
+    }
+
+    public static func defaultResolvePath(_ path: String) -> String {
+        URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
     }
 }
 

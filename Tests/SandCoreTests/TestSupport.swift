@@ -1,12 +1,22 @@
+import Foundation
 @testable import SandCore
 
 final class MemoryMetadataStore: HostMetadataStore {
     private var specsByName: [String: SandboxSpec]
     private let hostDirectory: String
+    private let lock = NSLock()
+    var lockEvents: [String] = []
 
     init(specs: [SandboxSpec] = [], currentHostDirectory: String = "/workspace") {
         self.specsByName = Dictionary(uniqueKeysWithValues: specs.map { ($0.name.rawValue, $0) })
         self.hostDirectory = currentHostDirectory
+    }
+
+    func createSpec(_ spec: SandboxSpec) throws {
+        if specsByName[spec.name.rawValue] != nil {
+            throw HostMetadataError.duplicateSandboxName(spec.name.rawValue)
+        }
+        specsByName[spec.name.rawValue] = spec
     }
 
     func readSpec(named name: SandboxName) throws -> SandboxSpec {
@@ -25,11 +35,25 @@ final class MemoryMetadataStore: HostMetadataStore {
     }
 
     func listSpecs() throws -> [SandboxSpec] {
-        Array(specsByName.values)
+        Array(specsByName.values).sorted { $0.name.rawValue < $1.name.rawValue }
     }
 
     func currentHostDirectory() -> String {
         hostDirectory
+    }
+
+    func schemaVersion() throws -> Int {
+        SandboxSpec.supportedSchemaVersion
+    }
+
+    func withLifecycleMutationLock<T>(_ operation: () throws -> T) throws -> T {
+        lock.lock()
+        lockEvents.append("enter")
+        defer {
+            lockEvents.append("exit")
+            lock.unlock()
+        }
+        return try operation()
     }
 }
 
@@ -48,6 +72,7 @@ final class RecordingSandboxBackend: SandboxBackend {
 
     func provision(_ spec: SandboxSpec) throws {
         calls.append(.provision(spec.name.rawValue))
+        runtimeStatus = .stopped
     }
 
     func apply(_ spec: SandboxSpec) throws {
@@ -86,6 +111,7 @@ final class RecordingSandboxBackend: SandboxBackend {
 
     func delete(_ sandboxName: SandboxName) throws {
         calls.append(.delete(sandboxName.rawValue))
+        runtimeStatus = .missing
     }
 }
 
@@ -100,4 +126,19 @@ enum BackendCall: Equatable {
     case status(String)
     case logs(String)
     case delete(String)
+}
+
+final class RecordingPromptConfirmation: PromptConfirmation {
+    var decisions: [ConfirmationDecision]
+    var requests: [ConfirmationRequest] = []
+
+    init(decisions: [ConfirmationDecision] = [.proceed]) {
+        self.decisions = decisions
+    }
+
+    func confirm(_ request: ConfirmationRequest) throws -> ConfirmationDecision {
+        requests.append(request)
+        if decisions.isEmpty { return .proceed }
+        return decisions.removeFirst()
+    }
 }
