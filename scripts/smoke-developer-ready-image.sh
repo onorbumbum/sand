@@ -30,6 +30,16 @@ container exec --user sandbox --workdir /workspace "${CONTAINER}" bash -lc '
   test "$(sudo -n whoami)" = root
   test -w /workspace
   test -w /state/sandbox
+  test -d /state/sandbox/.pi
+  test -d /state/sandbox/secrets
+  printf "HOME/.pi -> %s\n" "$(readlink "$HOME/.pi")"
+  test "$(readlink "$HOME/.pi")" = /state/sandbox/.pi
+  printf "HOME/.sand-secrets -> %s\n" "$(readlink "$HOME/.sand-secrets")"
+  test "$(readlink "$HOME/.sand-secrets")" = /state/sandbox/secrets
+  test ! -e /Users
+  test ! -e /host
+  test ! -S /run/host-services/ssh-auth.sock
+  test -z "${SSH_AUTH_SOCK:-}"
 
   command -v git
   git --version

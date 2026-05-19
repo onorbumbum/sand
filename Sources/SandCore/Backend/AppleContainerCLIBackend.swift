@@ -185,8 +185,17 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         for folder in spec.allowedFolders {
             arguments += ["--mount", mountArgument(for: folder)]
         }
-        arguments += [spec.image.reference, "sleep", "infinity"]
+        arguments.append(spec.image.reference)
+        arguments += guestStateBootstrapCommand()
         return arguments
+    }
+
+    private func guestStateBootstrapCommand() -> [String] {
+        [
+            "/bin/bash",
+            "-lc",
+            "sudo -n mkdir -p /state/sandbox/.pi /state/sandbox/secrets && sudo -n chown -R sandbox:sandbox /state/sandbox && exec sleep infinity"
+        ]
     }
 
     private func mountArgument(for folder: AllowedFolder) -> String {

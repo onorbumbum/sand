@@ -31,8 +31,11 @@ RUN apt-get update \
 RUN useradd --create-home --shell /bin/bash sandbox \
     && printf 'sandbox ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/sandbox \
     && chmod 0440 /etc/sudoers.d/sandbox \
-    && mkdir -p /workspace /state/sandbox \
-    && chown -R sandbox:sandbox /workspace /state
+    && mkdir -p /workspace /state/sandbox/.pi /state/sandbox/secrets \
+    && chown -R sandbox:sandbox /workspace /state \
+    && ln -s /state/sandbox/.pi /home/sandbox/.pi \
+    && ln -s /state/sandbox/secrets /home/sandbox/.sand-secrets \
+    && chown -h sandbox:sandbox /home/sandbox/.pi /home/sandbox/.sand-secrets
 
 USER sandbox
 WORKDIR /workspace

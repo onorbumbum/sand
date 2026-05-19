@@ -1,0 +1,91 @@
+name=sand-pi-boundary-002050
+log=docs/validation/pi-workload-credential-boundary/run-20260519-002050.log
+
+$ swift build
+[0/1] Planning build
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.15s)
+[exit 0]
+
+$ ./scripts/build-developer-ready-image.sh
+#1 [resolver] fetching image...docker.io/library/ubuntu:24.04
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.62kB done
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 oci-layout://docker.io/library/ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b
+#4 resolve docker.io/library/ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b done
+#4 DONE 0.0s
+
+#5 [linux/arm64 1/4] RUN apt-get update     && apt-get install -y --no-install-recommends         bash         build-essential         ca-certificates         curl         git         gnupg         openssh-client         python3         python3-pip         python3-venv         ripgrep         sudo         tmux     && install -d -m 0755 /etc/apt/keyrings     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg     && chmod 0644 /etc/apt/keyrings/nodesource.gpg     && printf 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main\n' > /etc/apt/sources.list.d/nodesource.list     && apt-get update     && apt-get install -y --no-install-recommends nodejs     && npm install -g "@mariozechner/pi-coding-agent@0.73.1"     && npm cache clean --force     && rm -rf /var/lib/apt/lists/*
+#5 CACHED
+
+#6 [linux/arm64 2/4] RUN useradd --create-home --shell /bin/bash sandbox     && printf 'sandbox ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/sandbox     && chmod 0440 /etc/sudoers.d/sandbox     && mkdir -p /workspace /state/sandbox/.pi /state/sandbox/secrets     && chown -R sandbox:sandbox /workspace /state     && ln -s /state/sandbox/.pi /home/sandbox/.pi     && ln -s /state/sandbox/secrets /home/sandbox/.sand-secrets     && chown -h sandbox:sandbox /home/sandbox/.pi /home/sandbox/.sand-secrets
+#6 CACHED
+
+#7 [linux/arm64/v8 3/4] WORKDIR /workspace
+#7 CACHED
+
+#8 exporting to oci image format
+#8 exporting layers done
+#8 exporting manifest sha256:491acb72ddf31a06b56414f5a1fcf346212e59220f378461da6be14bd7ca91ba done
+#8 exporting config sha256:a874d3677416d25981998220e5deeb6f4de71059a3d442eeecd5f524a3505990 done
+#8 exporting manifest list sha256:2f1eca58a871bb4304cdf9d62217792e9c8c9ed9512e6fb6f85a8bb8c4334efb done
+#8 sending tarball
+#8 sending tarball 1.9s done
+#8 DONE 1.9s
+Successfully built sand/developer-ready:ubuntu-lts
+[exit 0]
+
+$ .build/debug/sand create sand-pi-boundary-002050 --cpus 2 --memory 1GB
+[exit 0]
+
+$ .build/debug/sand sand-pi-boundary-002050 spec
+schemaVersion: 1
+name: sand-pi-boundary-002050
+image: sand/developer-ready:ubuntu-lts
+resources:
+  cpus: 2
+  memory: 1GB
+allowedFolders:
+  []
+[exit 0]
+
+$ .build/debug/sand sand-pi-boundary-002050 run pi --version
+Current directory is not inside an Allowed Folder; starting in /workspace.
+0.73.1
+[exit 0]
+UNAUTHENTICATED_PI_SMOKE=pi --version only; no human-authenticated Pi login or provider credential setup was attempted.
+
+$ .build/debug/sand sand-pi-boundary-002050 run bash -lc $'\n  set -euo pipefail\n  test "$(readlink "$HOME/.pi")" = /state/sandbox/.pi\n  test "$(readlink "$HOME/.sand-secrets")" = /state/sandbox/secrets\n  printf PI_IDENTITY_MARKER > "$HOME/.pi/identity-marker"\n  test "$(cat /state/sandbox/.pi/identity-marker)" = PI_IDENTITY_MARKER\n  test ! -e /Users\n  test ! -e /host\n  test ! -e "$HOME/.aws"\n  test ! -e "$HOME/.config/gcloud"\n  test ! -e "$HOME/.ssh"\n  test ! -S /run/host-services/ssh-auth.sock\n  test -z "${SSH_AUTH_SOCK:-}"\n'
+Current directory is not inside an Allowed Folder; starting in /workspace.
+[exit 0]
+
+$ container inspect "$NAME"
+[exit 0]
+
+$ .build/debug/sand sand-pi-boundary-002050 stop
+[exit 0]
+
+$ .build/debug/sand apply sand-pi-boundary-002050
+[exit 0]
+
+$ .build/debug/sand sand-pi-boundary-002050 run bash -lc test\ \"\$\(cat\ \"\$HOME/.pi/identity-marker\"\)\"\ =\ PI_IDENTITY_MARKER
+Current directory is not inside an Allowed Folder; starting in /workspace.
+[exit 0]
+
+$ .build/debug/sand "$NAME" pi
+sand: unsupported sandbox action: pi
+[exit 1]
+
+$ .build/debug/sand delete sand-pi-boundary-002050 --force
+[exit 0]
+
+VALIDATION_PASS name=sand-pi-boundary-002050 log=docs/validation/pi-workload-credential-boundary/run-20260519-002050.log
