@@ -25,15 +25,15 @@ Bundle the docs and CLI discoverability work together so README examples and `sa
 
 ## Acceptance criteria
 
-- [ ] Add a repository `README.md` that explains what `sand` is: a small isolated Linux computer backed by Apple `container`, with explicit Host Mac folder access and generic Workload Commands.
-- [ ] README states v1 scope and non-goals clearly.
-- [ ] README lists prerequisites, including supported macOS/Swift expectations, Apple `container`, and the developer-ready image.
-- [ ] README documents how to build and smoke-test the developer-ready image using the existing scripts.
-- [ ] README documents install from source, including a release build and putting the `sand` binary on `PATH`.
-- [ ] Add an install path that is easy to run from the repo, such as a `Makefile` target or script with configurable prefix, e.g. `PREFIX=$HOME/.local make install`.
-- [ ] Add uninstall instructions or an uninstall target.
-- [ ] README documents `sand doctor` as the first verification command after install.
-- [ ] README includes a quickstart that covers the accepted daily workflow:
+- [x] Add a repository `README.md` that explains what `sand` is: a small isolated Linux computer backed by Apple `container`, with explicit Host Mac folder access and generic Workload Commands.
+- [x] README states v1 scope and non-goals clearly.
+- [x] README lists prerequisites, including supported macOS/Swift expectations, Apple `container`, and the developer-ready image.
+- [x] README documents how to build and smoke-test the developer-ready image using the existing scripts.
+- [x] README documents install from source, including a release build and putting the `sand` binary on `PATH`.
+- [x] Add an install path that is easy to run from the repo, such as a `Makefile` target or script with configurable prefix, e.g. `PREFIX=$HOME/.local make install`.
+- [x] Add uninstall instructions or an uninstall target.
+- [x] README documents `sand doctor` as the first verification command after install.
+- [x] README includes a quickstart that covers the accepted daily workflow:
   - create a Sandbox VM
   - inspect list/status/spec
   - add a read-write Allowed Folder
@@ -43,29 +43,29 @@ Bundle the docs and CLI discoverability work together so README examples and `sa
   - stop/start and verify persistence expectation
   - view logs
   - delete the Sandbox VM
-- [ ] README documents the active v1 command surface and examples for each supported command.
-- [ ] README documents v1 limitations/out-of-scope features: reset command, Pi shortcut command, inbound networking config, editor integration, shell completion, default/project-local implicit sandbox selection, host `~/.pi` mount, host credential forwarding, and non-Apple backend fallback.
-- [ ] `sand --help` prints concise top-level usage, supported commands, and points to `sand <command> --help` where relevant.
-- [ ] `sand --version` prints a stable product version or clearly documented development version.
-- [ ] Supported command groups expose useful help without mutating state:
+- [x] README documents the active v1 command surface and examples for each supported command.
+- [x] README documents v1 limitations/out-of-scope features: reset command, Pi shortcut command, inbound networking config, editor integration, shell completion, default/project-local implicit sandbox selection, host `~/.pi` mount, host credential forwarding, and non-Apple backend fallback.
+- [x] `sand --help` prints concise top-level usage, supported commands, and points to `sand <command> --help` where relevant.
+- [x] `sand --version` prints a stable product version or clearly documented development version.
+- [x] Supported command groups expose useful help without mutating state:
   - `sand create --help`
   - `sand delete --help`
   - `sand apply --help`
   - `sand folders --help`
   - `sand <name> --help` or equivalent sandbox-action help
-- [ ] Unsupported/out-of-scope commands still fail clearly and are not accidentally introduced while adding help.
-- [ ] README examples are manually checked against the real CLI where practical, or any unchecked examples are explicitly marked as illustrative.
-- [ ] `swift test` passes.
-- [ ] Installation/help evidence is recorded in this issue or a linked evidence file.
+- [x] Unsupported/out-of-scope commands still fail clearly and are not accidentally introduced while adding help.
+- [x] README examples are manually checked against the real CLI where practical, or any unchecked examples are explicitly marked as illustrative.
+- [x] `swift test` passes.
+- [x] Installation/help evidence is recorded in this issue or a linked evidence file.
 
 ## Definition of Done
 
-- [ ] A new user can clone the repo, follow README install instructions, run `sand doctor`, and understand the v1 workflow without reading source code.
-- [ ] CLI help and README describe the same command surface.
-- [ ] Install/uninstall paths do not require hidden machine-specific assumptions.
-- [ ] No fake/in-memory backend becomes selectable through install, help, flags, environment variables, or hidden fallback behavior.
-- [ ] CLI command handlers still do not call Apple `container` directly; backend interaction remains behind the Apple backend adapter boundary.
-- [ ] `swift test` passes.
+- [x] A new user can clone the repo, follow README install instructions, run `sand doctor`, and understand the v1 workflow without reading source code.
+- [x] CLI help and README describe the same command surface.
+- [x] Install/uninstall paths do not require hidden machine-specific assumptions.
+- [x] No fake/in-memory backend becomes selectable through install, help, flags, environment variables, or hidden fallback behavior.
+- [x] CLI command handlers still do not call Apple `container` directly; backend interaction remains behind the Apple backend adapter boundary.
+- [x] `swift test` passes.
 
 ## Evidence
 

@@ -23,23 +23,23 @@ Implement the complete `sand doctor` command as the prerequisite diagnostic for 
 
 ## Acceptance criteria
 
-- [ ] `sand doctor` checks Apple silicon/macOS support.
-- [ ] `sand doctor` checks Apple `container` executable availability.
-- [ ] `sand doctor` checks Backend Service status.
-- [ ] `sand doctor` attempts or verifies Backend Service auto-start behavior when needed.
-- [ ] `sand doctor` checks default Sandbox Image availability.
-- [ ] `sand doctor` checks Host Metadata writability under `~/.sand/`.
-- [ ] Failure cases produce clear messages explaining the broken prerequisite and likely next step.
-- [ ] Successful checks produce concise status output suitable for daily use.
-- [ ] Acceptance is demonstrated against the real host/backend, not only mocks or fake backends.
+- [x] `sand doctor` checks Apple silicon/macOS support.
+- [x] `sand doctor` checks Apple `container` executable availability.
+- [x] `sand doctor` checks Backend Service status.
+- [x] `sand doctor` attempts or verifies Backend Service auto-start behavior when needed.
+- [x] `sand doctor` checks default Sandbox Image availability.
+- [x] `sand doctor` checks Host Metadata writability under `~/.sand/`.
+- [x] Failure cases produce clear messages explaining the broken prerequisite and likely next step.
+- [x] Successful checks produce concise status output suitable for daily use.
+- [x] Acceptance is demonstrated against the real host/backend, not only mocks or fake backends.
 
 ## Definition of Done
 
-- [ ] Relevant deterministic tests are added or updated and `swift test` passes.
-- [ ] Backend-dependent acceptance evidence uses the real Apple backend.
-- [ ] Fake/in-memory backends are allowed only in tests and cannot be selected by user-facing CLI flags, environment variables, or hidden fallbacks.
-- [ ] CLI command handlers do not call Apple `container` directly; backend interaction goes through `SandboxBackend` or Doctor backend probes behind the diagnostic boundary.
-- [ ] No display-layer workaround hides a failed backend prerequisite.
+- [x] Relevant deterministic tests are added or updated and `swift test` passes.
+- [x] Backend-dependent acceptance evidence uses the real Apple backend.
+- [x] Fake/in-memory backends are allowed only in tests and cannot be selected by user-facing CLI flags, environment variables, or hidden fallbacks.
+- [x] CLI command handlers do not call Apple `container` directly; backend interaction goes through `SandboxBackend` or Doctor backend probes behind the diagnostic boundary.
+- [x] No display-layer workaround hides a failed backend prerequisite.
 
 ## Blocked by
 
