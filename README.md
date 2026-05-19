@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: 05afb86350b2a28c2d4f15f696cd36e812d87667b711d86486e3d4cdd65bd592 -->
+<!-- docs-input-hash: fcb2d9220f229525556adcd44c2a84f009cfd04ed10e610d13379103b3affd70 -->
 
 `sand` creates and manages small isolated Linux computers on an Apple silicon Host Mac. Each Sandbox VM is backed by Apple `container`, has its own Guest State, and only sees Host Mac folders that you explicitly allow. Work is run with generic Workload Commands: `sand <name> run <command> [args...]`.
 

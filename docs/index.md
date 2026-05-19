@@ -4,34 +4,34 @@ This is the web-readable landing page for the `sand` Documentation System. It is
 
 ## Start here
 
-- [Project README](../README.md) — product overview, prerequisites, install instructions, quickstart, and command surface summary.
+- [Project README](https://github.com/onorbumbum/sand/blob/main/README.md) — product overview, prerequisites, install instructions, quickstart, and command surface summary.
 - [Onboarding Guide](onboarding.md) — first files to read, repo map, and local verification flow for humans and agents.
 - [CLI Reference](cli-reference.md) — generated command reference for the v1 `sand` Control Surface.
 - [Developer Guide](developer-guide.md) — architecture, testing strategy, command-change workflow, and local Definition of Done.
-- [Sandbox VM language](../issues/sand/CONTEXT.md) — canonical domain language for **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Guest State**, **Sandbox Session**, and **Workload Command**.
+- [Sandbox VM language](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) — canonical domain language for **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Guest State**, **Sandbox Session**, and **Workload Command**.
 
 ## Product and v1 delivery docs
 
-- [v1 PRD](../issues/sand/prd-sand-sandbox-vm.md) — product scope, user stories, implementation decisions, testing decisions, and out-of-scope boundaries.
-- [Final v1 acceptance evidence](../issues/sand/013-final-v1-acceptance-evidence.md)
-- [Final v1 acceptance pass](../issues/sand/013-final-v1-acceptance-pass.md)
-- [Documentation Freshness Gate issue](../issues/sand/015-documentation-freshness-gate.md)
-- [Documentation Refresh Workflow issue](../issues/sand/016-documentation-refresh-workflow-prompt.md)
-- [Generated CLI Reference issue](../issues/sand/017-generated-cli-reference.md)
-- [Generated Onboarding Guide issue](../issues/sand/018-generated-onboarding-guide.md)
-- [Generated Developer Guide issue](../issues/sand/019-generated-developer-guide.md)
-- [README Managed Sections issue](../issues/sand/020-readme-managed-sections.md)
-- [Docs landing page and final gate issue](../issues/sand/021-docs-web-landing-and-final-gate.md)
+- [v1 PRD](https://github.com/onorbumbum/sand/blob/main/issues/sand/prd-sand-sandbox-vm.md) — product scope, user stories, implementation decisions, testing decisions, and out-of-scope boundaries.
+- [Final v1 acceptance evidence](https://github.com/onorbumbum/sand/blob/main/issues/sand/013-final-v1-acceptance-evidence.md)
+- [Final v1 acceptance pass](https://github.com/onorbumbum/sand/blob/main/issues/sand/013-final-v1-acceptance-pass.md)
+- [Documentation Freshness Gate issue](https://github.com/onorbumbum/sand/blob/main/issues/sand/015-documentation-freshness-gate.md)
+- [Documentation Refresh Workflow issue](https://github.com/onorbumbum/sand/blob/main/issues/sand/016-documentation-refresh-workflow-prompt.md)
+- [Generated CLI Reference issue](https://github.com/onorbumbum/sand/blob/main/issues/sand/017-generated-cli-reference.md)
+- [Generated Onboarding Guide issue](https://github.com/onorbumbum/sand/blob/main/issues/sand/018-generated-onboarding-guide.md)
+- [Generated Developer Guide issue](https://github.com/onorbumbum/sand/blob/main/issues/sand/019-generated-developer-guide.md)
+- [README Managed Sections issue](https://github.com/onorbumbum/sand/blob/main/issues/sand/020-readme-managed-sections.md)
+- [Docs landing page and final gate issue](https://github.com/onorbumbum/sand/blob/main/issues/sand/021-docs-web-landing-and-final-gate.md)
 
 ## Document ownership
 
 | Document | Ownership | Notes |
 | --- | --- | --- |
-| [`README.md`](../README.md) | Section-managed | Human-authored narrative with marked Managed Sections refreshed by the Documentation Refresh Workflow. |
+| [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md) | Section-managed | Human-authored narrative with marked Managed Sections refreshed by the Documentation Refresh Workflow. |
 | [`docs/cli-reference.md`](cli-reference.md) | Fully generated | Regenerated from current `sand` help/version output by `scripts/generate-cli-reference.sh`. |
 | [`docs/onboarding.md`](onboarding.md) | Generated | Start-here guide refreshed through the Documentation Refresh Workflow. |
 | [`docs/developer-guide.md`](developer-guide.md) | Generated | Contributor guide refreshed through the Documentation Refresh Workflow. |
-| [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md) | Hand-authored source of truth | Canonical Sandbox VM language and relationships. |
+| [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) | Hand-authored source of truth | Canonical Sandbox VM language and relationships. |
 | [`docs/index.md`](index.md) | Hand-authored landing page | Plain Markdown navigation and documentation workflow summary. |
 | [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md) | Hand-authored workflow prompt | Defines the manual agent-run Documentation Refresh Workflow. |
 

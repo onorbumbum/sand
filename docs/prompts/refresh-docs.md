@@ -29,6 +29,7 @@ Use that exact hash value as the recorded freshness metadata in every registered
 - Do not invent features. If source files and tests disagree, document the conflict in your final evidence and do not guess.
 - Use **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Guest State**, **Runtime Instance**, **Sandbox Session**, **Workload Command**, and other terms from `issues/sand/CONTEXT.md`.
 - Avoid banned or misleading terms from the context file, such as generic Docker/container wording for user-facing product concepts.
+- The docs website is published from the repository `docs/` directory. Links from pages under `docs/` must not point to `../README.md` or `../issues/...` because those files are outside the GitHub Pages source and will 404. Use repository links such as `https://github.com/onorbumbum/sand/blob/main/README.md` for files outside `docs/`, or link to a site-visible page under `docs/`.
 
 ## Metadata conventions
 

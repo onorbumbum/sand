@@ -1,0 +1,43 @@
+---
+---
+
+@import "{{ site.theme }}";
+
+.wrapper {
+  max-width: 1180px;
+  width: calc(100% - 48px);
+}
+
+section {
+  width: calc(100% - 320px);
+}
+
+header {
+  width: 270px;
+}
+
+section p,
+section li,
+section table {
+  max-width: 82ch;
+}
+
+pre,
+code {
+  white-space: pre-wrap;
+}
+
+@media print, screen and (max-width: 960px) {
+  .wrapper {
+    width: auto;
+    margin: 0;
+  }
+
+  header,
+  section,
+  footer {
+    float: none;
+    position: static;
+    width: auto;
+  }
+}

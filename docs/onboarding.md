@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 05afb86350b2a28c2d4f15f696cd36e812d87667b711d86486e3d4cdd65bd592 -->
+<!-- docs-input-hash: fcb2d9220f229525556adcd44c2a84f009cfd04ed10e610d13379103b3affd70 -->
 
 # sand Onboarding Guide
 
@@ -10,12 +10,12 @@
 
 `sand` is a Swift CLI for creating and managing **Sandbox VMs**: isolated Linux machines on a **Host Mac** with persistent **Guest State**, explicit **Allowed Folders**, and generic **Workload Commands**. Pi is an important workload, but `sand` is not a Pi-specific launcher.
 
-Use the product language in [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md). Prefer terms like **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Sandbox Session**, and **Workload Command**.
+Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md). Prefer terms like **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Sandbox Session**, and **Workload Command**.
 
 ## Start here: humans
 
-1. Read [`README.md`](../README.md) for scope, prerequisites, install steps, and the v1 command surface.
-2. Read [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md) before changing behavior or documentation language.
+1. Read [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md) for scope, prerequisites, install steps, and the v1 command surface.
+2. Read [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) before changing behavior or documentation language.
 3. Read [`docs/cli-reference.md`](cli-reference.md) for the generated command reference.
 4. If changing implementation, find the relevant module under `Sources/SandCore/` and the matching tests under `Tests/SandCoreTests/`.
 5. Run local verification before considering work complete:
@@ -31,8 +31,8 @@ Use the product language in [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md
 ## Start here: AI agents
 
 1. Read the task issue, then read these files before editing:
-   - [`README.md`](../README.md)
-   - [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md)
+   - [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md)
+   - [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md)
    - [`docs/docs-input-manifest.txt`](docs-input-manifest.txt)
    - [`docs/generated-docs-manifest.txt`](generated-docs-manifest.txt)
    - [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md) when touching Generated Documentation
@@ -79,8 +79,8 @@ Use the product language in [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md
 
 Read in this order:
 
-1. [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md) for names, boundaries, and non-goals.
-2. [`README.md`](../README.md) for current user-facing behavior and examples.
+1. [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) for names, boundaries, and non-goals.
+2. [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md) for current user-facing behavior and examples.
 3. [`docs/cli-reference.md`](cli-reference.md) for the generated command surface.
 4. The relevant `Sources/SandCore/` module.
 5. The corresponding tests in `Tests/SandCoreTests/`.

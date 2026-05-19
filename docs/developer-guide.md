@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 05afb86350b2a28c2d4f15f696cd36e812d87667b711d86486e3d4cdd65bd592 -->
+<!-- docs-input-hash: fcb2d9220f229525556adcd44c2a84f009cfd04ed10e610d13379103b3affd70 -->
 
 # sand Developer Guide
 
@@ -8,7 +8,7 @@
 
 ## Canonical language and boundaries
 
-Use [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md) as the source of truth for user-facing language. The product is a **Sandbox VM** tool for a **Host Mac** with explicit **Allowed Folders**, persistent **Guest State**, **Sandbox Sessions**, and generic **Workload Commands**. Pi is a workload, not a special `sand` command.
+Use [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) as the source of truth for user-facing language. The product is a **Sandbox VM** tool for a **Host Mac** with explicit **Allowed Folders**, persistent **Guest State**, **Sandbox Sessions**, and generic **Workload Commands**. Pi is a workload, not a special `sand` command.
 
 Keep backend-specific wording inside backend implementation and tests. User-facing docs, errors, help, and specs should describe the Sandbox VM domain, not the underlying adapter.
 
@@ -57,7 +57,7 @@ make docs-check
 
 ## Adding or changing a `sand` command
 
-1. Name the behavior in Sandbox VM language from [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md). If the feature is outside v1 scope, add an explicit rejection test rather than silently accepting the shape.
+1. Name the behavior in Sandbox VM language from [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md). If the feature is outside v1 scope, add an explicit rejection test rather than silently accepting the shape.
 2. Add or update routing in `CLICommandRouter.swift` and, when needed, request types or methods on `SandboxApplication.swift`.
 3. Implement orchestration in `LifecycleCoordinator.swift` or the smallest matching domain module. Keep Workload Commands opaque; do not inspect workload-specific flags.
 4. Update help text in `CLICommandRouter.swift`. The CLI Reference is generated from help output, so help is part of the source of truth.
@@ -105,5 +105,5 @@ A change is done locally when:
 - Behavior tests pass with `swift test`.
 - The Documentation Freshness Gate passes with `make docs-check`.
 - Generated Documentation that has Documentation Impact has been refreshed and records the current docs input hash.
-- Public language follows [`issues/sand/CONTEXT.md`](../issues/sand/CONTEXT.md).
+- Public language follows [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md).
 - The issue records honest evidence for the commands run and any limitations.
