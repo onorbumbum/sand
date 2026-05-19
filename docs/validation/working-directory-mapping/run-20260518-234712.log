@@ -1,0 +1,108 @@
+
+
+### Build sand and prepare host directories
+
+$ swift build --package-path /Users/onorbumbum/_PROJECTS/sand
+[0/1] Planning build
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.11s)
+[exit 0]
+
+$ mkdir -p /tmp/sand-working-directory-sand-wd-234712/project/src/module /tmp/sand-working-directory-sand-wd-234712/outside
+[exit 0]
+
+$ ln -s /tmp/sand-working-directory-sand-wd-234712/project /tmp/sand-working-directory-sand-wd-234712/project-link
+[exit 0]
+
+
+### Backend prerequisites
+
+$ container --version
+container CLI version 0.12.3 (build: release, commit: f989901)
+[exit 0]
+
+$ container system status
+FIELD              VALUE
+status             running
+appRoot            /Users/onorbumbum/Library/Application Support/com.apple.container/
+installRoot        /usr/local/
+logRoot            
+apiserver.version  container-apiserver version 0.12.3 (build: release, commit: f989901)
+apiserver.commit   f9899013fd43dd058fdf89709eed0b0861bfd931
+apiserver.build    release
+apiserver.appName  container-apiserver
+[exit 0]
+
+$ container image inspect sand/developer-ready:ubuntu-lts
+[{"index":{"digest":"sha256:46afcbef5c9089e53788c3355088dc7fba9ef8a4d8a903c09da820dd4055c05c","size":375,"annotations":{"org.opencontainers.image.ref.name":"ubuntu-lts","com.apple.containerization.image.name":"sand\/developer-ready:ubuntu-lts","io.containerd.image.name":"docker.io\/sand\/developer-ready:ubuntu-lts","org.opencontainers.image.created":"2026-05-19T06:30:21Z"},"mediaType":"application\/vnd.oci.image.index.v1+json"},"variants":[{"platform":{"os":"linux","architecture":"arm64"},"config":{"config":{"Cmd":["\/bin\/bash"],"WorkingDir":"\/workspace","User":"sandbox","Labels":{"org.opencontainers.image.version":"24.04"},"Env":["PATH=\/usr\/local\/sbin:\/usr\/local\/bin:\/usr\/sbin:\/usr\/bin:\/sbin:\/bin","DEBIAN_FRONTEND=noninteractive"]},"history":[{"empty_layer":true,"created_by":"\/bin\/sh -c #(nop)  ARG RELEASE","created":"2026-04-10T06:56:52.141341677Z"},{"empty_layer":true,"created_by":"\/bin\/sh -c #(nop)  ARG LAUNCHPAD_BUILD_ARCH","created":"2026-04-10T06:56:52.179563199Z"},{"created":"2026-04-10T06:56:52.214337462Z","created_by":"\/bin\/sh -c #(nop)  LABEL org.opencontainers.image.version=24.04","empty_layer":true},{"created":"2026-04-10T06:56:54.471434083Z","created_by":"\/bin\/sh -c #(nop) ADD file:c98b7645109cdf61ab97492b90629581b1b7cb925b9d58a5787a4aaeb719f2be in \/ "},{"created":"2026-04-10T06:56:54.752442228Z","created_by":"\/bin\/sh -c #(nop)  CMD [\"\/bin\/bash\"]","empty_layer":true},{"comment":"buildkit.dockerfile.v0","created":"2026-05-19T05:29:41.521109667Z","created_by":"ARG PI_CLI_VERSION=0.73.1","empty_layer":true},{"comment":"buildkit.dockerfile.v0","created":"2026-05-19T05:29:41.521109667Z","created_by":"ENV DEBIAN_FRONTEND=noninteractive","empty_layer":true},{"comment":"buildkit.dockerfile.v0","created":"2026-05-19T05:29:41.521109667Z","created_by":"RUN |1 PI_CLI_VERSION=0.73.1 \/bin\/sh -c apt-get update     && apt-get install -y --no-install-recommends         bash         build-essential         ca-certificates         curl         git         gnupg         openssh-client         python3         python3-pip         python3-venv         ripgrep         sudo         tmux     && install -d -m 0755 \/etc\/apt\/keyrings     && curl -fsSL https:\/\/deb.nodesource.com\/gpgkey\/nodesource-repo.gpg.key | gpg --dearmor -o \/etc\/apt\/keyrings\/nodesource.gpg     && chmod 0644 \/etc\/apt\/keyrings\/nodesource.gpg     && printf 'deb [signed-by=\/etc\/apt\/keyrings\/nodesource.gpg] https:\/\/deb.nodesource.com\/node_22.x nodistro main\\n' > \/etc\/apt\/sources.list.d\/nodesource.list     && apt-get update     && apt-get install -y --no-install-recommends nodejs     && npm install -g \"@mariozechner\/pi-coding-agent@${PI_CLI_VERSION}\"     && npm cache clean --force     && rm -rf \/var\/lib\/apt\/lists\/* # buildkit"},{"comment":"buildkit.dockerfile.v0","created":"2026-05-19T05:29:41.677099292Z","created_by":"RUN |1 PI_CLI_VERSION=0.73.1 \/bin\/sh -c useradd --create-home --shell \/bin\/bash sandbox     && printf 'sandbox ALL=(ALL) NOPASSWD:ALL\\n' > \/etc\/sudoers.d\/sandbox     && chmod 0440 \/etc\/sudoers.d\/sandbox     && mkdir -p \/workspace \/state\/sandbox     && chown -R sandbox:sandbox \/workspace \/state # buildkit"},{"comment":"buildkit.dockerfile.v0","created":"2026-05-19T05:29:41.677099292Z","created_by":"USER sandbox","empty_layer":true},{"comment":"buildkit.dockerfile.v0","created":"2026-05-19T05:29:41.684357458Z","created_by":"WORKDIR \/workspace"},{"comment":"buildkit.dockerfile.v0","created":"2026-05-19T05:29:41.684357458Z","created_by":"CMD [\"\/bin\/bash\"]","empty_layer":true}],"os":"linux","architecture":"arm64","rootfs":{"type":"layers","diff_ids":["sha256:d9a56420aee7ff835e0c05fc666d1237d40f0da5fe338738e651b01db4672a5d","sha256:10dbc7ffeff09e3e3fd795f0e643a4b01ff153c9dabb01985163089a291a75ac","sha256:35d3f092438c3b36febeb165eef359bcbf269e426df2e52f2a7b61a710b6483f","sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"]},"created":"2026-05-19T05:29:41.684357458Z"},"size":256643758}],"name":"sand\/developer-ready:ubuntu-lts"}]
+[exit 0]
+
+
+### Create Sandbox VM with one Allowed Folder
+
+$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand create sand-wd-234712 --cpus 2 --memory 1GB
+[exit 0]
+
+$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders add sand-wd-234712 /tmp/sand-working-directory-sand-wd-234712/project rw --as /workspace/project
+[exit 0]
+
+$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders list sand-wd-234712
+Host Path	Guest Path	Access Mode
+/tmp/sand-working-directory-sand-wd-234712/project	/workspace/project	read-write
+[exit 0]
+
+
+### run maps allowed, nested, symlinked, and outside Host cwd paths
+
+$ (cd /tmp/sand-working-directory-sand-wd-234712/project && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-wd-234712 run pwd)
+[exit 0]
+--- stdout ---
+/workspace/project
+--- stderr ---
+
+
+$ (cd /tmp/sand-working-directory-sand-wd-234712/project/src/module && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-wd-234712 run pwd)
+[exit 0]
+--- stdout ---
+/workspace/project/src/module
+--- stderr ---
+
+
+$ (cd /tmp/sand-working-directory-sand-wd-234712/project-link/src/module && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-wd-234712 run pwd)
+[exit 0]
+--- stdout ---
+/workspace/project/src/module
+--- stderr ---
+
+
+$ (cd /tmp/sand-working-directory-sand-wd-234712/outside && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-wd-234712 run pwd)
+[exit 0]
+--- stdout ---
+/workspace
+--- stderr ---
+Current directory is not inside an Allowed Folder; starting in /workspace.
+
+
+### shell uses the same mapping from inside an Allowed Folder
+--- allowed shell capture ---
+sandbox@sand-wd-234712:/workspace/project/src/module$ pwd; exit
+/workspace/project/src/module
+exit
+SHELL_EXIT:0
+
+
+### shell warns and falls back from outside Allowed Folders
+--- outside shell capture ---
+Current directory is not inside an Allowed Folder; starting in /workspace.
+sandbox@sand-wd-234712:/workspace$ pwd; exit
+/workspace
+exit
+SHELL_EXIT:0
+
+
+### Cleanup through sand delete
+
+$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand delete sand-wd-234712 --force
+[exit 0]
+Validation completed successfully. Log: /Users/onorbumbum/_PROJECTS/sand/docs/validation/working-directory-mapping/run-20260518-234712.log

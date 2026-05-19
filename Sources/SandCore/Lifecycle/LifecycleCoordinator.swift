@@ -1,3 +1,5 @@
+import Foundation
+
 public struct LifecycleCoordinator: SandboxApplication {
     private let metadataStore: any HostMetadataStore
     private let backend: any SandboxBackend
@@ -6,6 +8,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     private let prompt: any PromptConfirmation
     private let doctorPlatform: any DoctorPlatform
     private let writeOutput: (String) -> Void
+    private let writeWarning: (String) -> Void
 
     public init(
         metadataStore: any HostMetadataStore,
@@ -14,7 +17,8 @@ public struct LifecycleCoordinator: SandboxApplication {
         folderPolicy: FolderPolicy = FolderPolicy(),
         prompt: any PromptConfirmation = AlwaysProceedPromptConfirmation(),
         doctorPlatform: any DoctorPlatform = HostDoctorPlatform(),
-        writeOutput: @escaping (String) -> Void = { Swift.print($0) }
+        writeOutput: @escaping (String) -> Void = { Swift.print($0) },
+        writeWarning: @escaping (String) -> Void = { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
     ) {
         self.metadataStore = metadataStore
         self.backend = backend
@@ -23,6 +27,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         self.prompt = prompt
         self.doctorPlatform = doctorPlatform
         self.writeOutput = writeOutput
+        self.writeWarning = writeWarning
     }
 
     public func doctor() throws -> CommandResult {
@@ -111,6 +116,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     public func shell(_ request: ShellRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)
         let mapping = workingDirectoryMapper.map(hostCurrentDirectory: metadataStore.currentHostDirectory(), spec: spec)
+        emitWarningIfNeeded(mapping)
 
         if try backend.status(request.sandboxName) == .stopped {
             try backend.start(request.sandboxName)
@@ -122,6 +128,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     public func run(_ request: RunRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)
         let mapping = workingDirectoryMapper.map(hostCurrentDirectory: metadataStore.currentHostDirectory(), spec: spec)
+        emitWarningIfNeeded(mapping)
 
         if try backend.status(request.sandboxName) == .stopped {
             try backend.start(request.sandboxName)
@@ -173,6 +180,12 @@ public struct LifecycleCoordinator: SandboxApplication {
             let current = try metadataStore.readSpec(named: request.sandboxName)
             let updated = folderPolicy.removeFolder(from: current, displayHostPath: request.displayHostPath)
             return try applyConfigMutation(current: current, updated: updated) ? .success : .failure(exitCode: 1)
+        }
+    }
+
+    private func emitWarningIfNeeded(_ mapping: WorkingDirectoryMapping) {
+        if let warning = mapping.warning {
+            writeWarning(warning)
         }
     }
 

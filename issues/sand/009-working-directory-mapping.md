@@ -1,10 +1,9 @@
 ---
 title: Map Host Mac working directories for run and shell
-status: needs-triage
+status: done
 type: issue
 category: enhancement
 labels:
-  - needs-triage
   - afk
   - sand
   - sandbox-vm
@@ -23,23 +22,29 @@ Implement Working Directory Mapping for real `run` and `shell` sessions. When th
 
 ## Acceptance criteria
 
-- [ ] From inside an Allowed Folder, `sand <name> run pwd` starts at the mapped Guest Path.
-- [ ] Nested Host Mac directories map to the corresponding nested Guest Path.
-- [ ] Symlinked Host Mac cwd paths map correctly using resolved real paths.
-- [ ] From outside all Allowed Folders, `sand` emits a clear warning.
-- [ ] From outside all Allowed Folders, commands start in `/workspace` or the Sandbox User home.
-- [ ] `sand <name> shell` uses the same Working Directory Mapping behavior as `run`.
-- [ ] Working Directory Mapping behavior has deterministic tests independent of Apple `container`.
-- [ ] Acceptance is demonstrated against the real Apple backend.
+- [x] From inside an Allowed Folder, `sand <name> run pwd` starts at the mapped Guest Path.
+- [x] Nested Host Mac directories map to the corresponding nested Guest Path.
+- [x] Symlinked Host Mac cwd paths map correctly using resolved real paths.
+- [x] From outside all Allowed Folders, `sand` emits a clear warning.
+- [x] From outside all Allowed Folders, commands start in `/workspace` or the Sandbox User home.
+- [x] `sand <name> shell` uses the same Working Directory Mapping behavior as `run`.
+- [x] Working Directory Mapping behavior has deterministic tests independent of Apple `container`.
+- [x] Acceptance is demonstrated against the real Apple backend.
 
 ## Definition of Done
 
-- [ ] Relevant deterministic tests are added or updated and `swift test` passes.
-- [ ] Backend-dependent acceptance evidence uses the real Apple backend.
-- [ ] Fake/in-memory backends are allowed only in tests and cannot be selected by user-facing CLI flags, environment variables, or hidden fallbacks.
-- [ ] CLI command handlers do not call Apple `container` directly; backend interaction goes through `SandboxBackend`.
-- [ ] No display-layer workaround hides a failed path mapping, symlink, warning, or default-directory requirement.
+- [x] Relevant deterministic tests are added or updated and `swift test` passes.
+- [x] Backend-dependent acceptance evidence uses the real Apple backend.
+- [x] Fake/in-memory backends are allowed only in tests and cannot be selected by user-facing CLI flags, environment variables, or hidden fallbacks.
+- [x] CLI command handlers do not call Apple `container` directly; backend interaction goes through `SandboxBackend`.
+- [x] No display-layer workaround hides a failed path mapping, symlink, warning, or default-directory requirement.
+
+## Evidence
+
+- Deterministic tests: `swift test` — 66 tests passing.
+- Real backend validation: `docs/validation/working-directory-mapping/RESULTS.md`
+- Raw log: `docs/validation/working-directory-mapping/run-20260518-234712.log`
 
 ## Blocked by
 
-- `issues/sand/008-allowed-folder-lifecycle-policy.md`
+- `issues/sand/008-allowed-folder-lifecycle-policy.md` (done)

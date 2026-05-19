@@ -174,6 +174,34 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(metadataStore.lockEvents, [])
     }
 
+    func testRunOutsideAllowedFoldersWarnsAndUsesFallbackWorkingDirectory() throws {
+        var warnings: [String] = []
+        let spec = try specWithAllowedFolder()
+        let metadataStore = MemoryMetadataStore(specs: [spec], currentHostDirectory: "/Users/onur/Downloads")
+        let backend = RecordingSandboxBackend(status: .running)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeWarning: { warnings.append($0) })
+
+        let result = try coordinator.run(RunRequest(sandboxName: spec.name, command: try WorkloadCommand(arguments: ["pwd"])))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(warnings, ["Current directory is not inside an Allowed Folder; starting in /workspace."])
+        XCTAssertEqual(backend.calls, [.status("mybox"), .run("mybox", ["pwd"], "/workspace")])
+    }
+
+    func testShellOutsideAllowedFoldersWarnsAndUsesFallbackWorkingDirectory() throws {
+        var warnings: [String] = []
+        let spec = try specWithAllowedFolder()
+        let metadataStore = MemoryMetadataStore(specs: [spec], currentHostDirectory: "/Users/onur/Downloads")
+        let backend = RecordingSandboxBackend(status: .running)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeWarning: { warnings.append($0) })
+
+        let result = try coordinator.shell(ShellRequest(sandboxName: spec.name))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(warnings, ["Current directory is not inside an Allowed Folder; starting in /workspace."])
+        XCTAssertEqual(backend.calls, [.status("mybox"), .shell("mybox", "/workspace")])
+    }
+
     func testStartStopAndDeleteAreLifecycleMutationsAndUpdateBackendState() throws {
         let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
         let metadataStore = MemoryMetadataStore(specs: [spec])
