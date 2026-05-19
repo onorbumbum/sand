@@ -1,10 +1,9 @@
 ---
 title: Expose logs and translate backend errors without leaking backend details
-status: needs-triage
+status: done
 type: issue
 category: enhancement
 labels:
-  - needs-triage
   - afk
   - sand
   - sandbox-vm
@@ -24,22 +23,22 @@ Implement `sand <name> logs` and the backend error translation path so failed st
 
 ## Acceptance criteria
 
-- [ ] `sand <name> logs` exposes useful minimal runtime/backend logs for a Sandbox VM.
-- [ ] Backend service failures are reported clearly in user-facing language.
-- [ ] Apple `container` command failures are translated into domain/user-facing errors.
-- [ ] The CLI layer does not call Apple `container` directly.
-- [ ] Backend details remain behind a deep `SandboxBackend` module.
-- [ ] No display-layer workaround hides a failed hard backend requirement.
-- [ ] Apple `container` error translation has deterministic fixture-backed tests.
-- [ ] Acceptance is demonstrated with real backend failure or fixture-backed reproduction plus at least one real Apple backend log/error path.
+- [x] `sand <name> logs` exposes useful minimal runtime/backend logs for a Sandbox VM.
+- [x] Backend service failures are reported clearly in user-facing language.
+- [x] Apple `container` command failures are translated into domain/user-facing errors.
+- [x] The CLI layer does not call Apple `container` directly.
+- [x] Backend details remain behind a deep `SandboxBackend` module.
+- [x] No display-layer workaround hides a failed hard backend requirement.
+- [x] Apple `container` error translation has deterministic fixture-backed tests.
+- [x] Acceptance is demonstrated with real backend failure or fixture-backed reproduction plus at least one real Apple backend log/error path.
 
 ## Definition of Done
 
-- [ ] Relevant deterministic tests are added or updated and `swift test` passes.
-- [ ] Fixture-backed tests are allowed for error translation, but at least one real Apple backend log/error path is recorded.
-- [ ] Fake/in-memory backends are allowed only in tests and cannot be selected by user-facing CLI flags, environment variables, or hidden fallbacks.
-- [ ] CLI command handlers do not call Apple `container` directly; backend interaction goes through `SandboxBackend`.
-- [ ] No display-layer workaround hides a failed backend, logging, or error-translation requirement.
+- [x] Relevant deterministic tests are added or updated and `swift test` passes.
+- [x] Fixture-backed tests are allowed for error translation, but at least one real Apple backend log/error path is recorded.
+- [x] Fake/in-memory backends are allowed only in tests and cannot be selected by user-facing CLI flags, environment variables, or hidden fallbacks.
+- [x] CLI command handlers do not call Apple `container` directly; backend interaction goes through `SandboxBackend`.
+- [x] No display-layer workaround hides a failed backend, logging, or error-translation requirement.
 
 ## Blocked by
 
