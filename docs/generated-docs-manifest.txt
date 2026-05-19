@@ -9,6 +9,7 @@
 #
 # The first generated set is expected to be registered by follow-up slices:
 #   README.md
-#   docs/cli-reference.md
 #   docs/onboarding.md
 #   docs/developer-guide.md
+
+docs/cli-reference.md

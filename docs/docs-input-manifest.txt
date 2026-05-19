@@ -44,6 +44,7 @@ required scripts/build-developer-ready-image.sh
 required scripts/smoke-developer-ready-image.sh
 required scripts/docs-input-hash.sh
 required scripts/docs-check.sh
+required scripts/generate-cli-reference.sh
 
 # Added by issue 16. Optional now so this gate can land before the workflow prompt.
 optional docs/prompts/refresh-docs.md managed-markdown
