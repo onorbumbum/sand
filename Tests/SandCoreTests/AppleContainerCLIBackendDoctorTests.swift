@@ -13,10 +13,10 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         XCTAssertEqual(runner.calls, [["delete", "--force", "mybox"]])
     }
 
-    func testRunAndShellPassWorkdirBeforeSandboxNameForAppleExecSyntaxAndUseInheritedTerminalIO() throws {
+    func testRunAndShellPassSandboxUserAndWorkdirBeforeSandboxNameForAppleExecSyntaxAndUseInheritedTerminalIO() throws {
         let runner = ScriptedBackendCommandRunner(results: [
-            ["exec", "--interactive", "--tty", "--workdir", "/workspace", "mybox", "echo", "hello"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0)),
-            ["exec", "--interactive", "--tty", "--workdir", "/workspace", "mybox", "/bin/bash"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
+            ["exec", "--interactive", "--tty", "--user", "sandbox", "--workdir", "/workspace", "mybox", "echo", "hello"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0)),
+            ["exec", "--interactive", "--tty", "--user", "sandbox", "--workdir", "/workspace", "mybox", "/bin/bash"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
         ])
         let backend = AppleContainerCLIBackend(runner: runner, terminal: FixedBackendTerminal(inputIsTerminal: true, outputIsTerminal: true))
         let name = try SandboxName("mybox")
@@ -26,15 +26,15 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         XCTAssertEqual(try backend.shell(BackendShellRequest(sandboxName: name, workingDirectory: workdir)), .success)
 
         XCTAssertEqual(runner.calls, [
-            ["exec", "--interactive", "--tty", "--workdir", "/workspace", "mybox", "echo", "hello"],
-            ["exec", "--interactive", "--tty", "--workdir", "/workspace", "mybox", "/bin/bash"]
+            ["exec", "--interactive", "--tty", "--user", "sandbox", "--workdir", "/workspace", "mybox", "echo", "hello"],
+            ["exec", "--interactive", "--tty", "--user", "sandbox", "--workdir", "/workspace", "mybox", "/bin/bash"]
         ])
         XCTAssertEqual(runner.ioModes, [.inherited, .inherited])
     }
 
     func testRunDoesNotAllocateTTYForRedirectedUsageButKeepsStandardInputOpen() throws {
         let runner = ScriptedBackendCommandRunner(results: [
-            ["exec", "--interactive", "--workdir", "/workspace", "mybox", "grep", "needle"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
+            ["exec", "--interactive", "--user", "sandbox", "--workdir", "/workspace", "mybox", "grep", "needle"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
         ])
         let backend = AppleContainerCLIBackend(runner: runner, terminal: FixedBackendTerminal(inputIsTerminal: false, outputIsTerminal: false))
 
@@ -47,13 +47,13 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         )
 
         XCTAssertEqual(result, .success)
-        XCTAssertEqual(runner.calls, [["exec", "--interactive", "--workdir", "/workspace", "mybox", "grep", "needle"]])
+        XCTAssertEqual(runner.calls, [["exec", "--interactive", "--user", "sandbox", "--workdir", "/workspace", "mybox", "grep", "needle"]])
         XCTAssertEqual(runner.ioModes, [.inherited])
     }
 
     func testMissingWorkloadCommandReturnsBackendExitCodeWithoutSwallowingContainerErrorOutput() throws {
         let runner = ScriptedBackendCommandRunner(results: [
-            ["exec", "--interactive", "--workdir", "/workspace", "mybox", "not-installed-tool"]: .success(BackendCommandOutput(stdout: "", stderr: "command not found\n", exitCode: 127))
+            ["exec", "--interactive", "--user", "sandbox", "--workdir", "/workspace", "mybox", "not-installed-tool"]: .success(BackendCommandOutput(stdout: "", stderr: "command not found\n", exitCode: 127))
         ])
         let backend = AppleContainerCLIBackend(runner: runner, terminal: FixedBackendTerminal(inputIsTerminal: false, outputIsTerminal: false))
 

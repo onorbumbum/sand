@@ -1,0 +1,76 @@
+
+## Build sand
+[0/1] Planning build
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.11s)
+
+## Backend prerequisites
+container CLI version 0.12.3 (build: release, commit: f989901)
+FIELD              VALUE
+status             running
+appRoot            /Users/onorbumbum/Library/Application Support/com.apple.container/
+installRoot        /usr/local/
+logRoot            
+apiserver.version  container-apiserver version 0.12.3 (build: release, commit: f989901)
+apiserver.commit   f9899013fd43dd058fdf89709eed0b0861bfd931
+apiserver.build    release
+apiserver.appName  container-apiserver
+
+## Clean existing validation sandbox
+
+## Create stopped Sandbox VM
+name: sand007shell
+state: stopped
+image: sand/developer-ready:ubuntu-lts
+resources: 4 CPUs, 8GB memory
+allowedFolders: 0
+
+## Open two real Sandbox Sessions concurrently
+
+## Drive session one
+
+## Drive session two while session one is still sleeping
+
+## Capture concurrent session output before session one sleep completes
+--- session one before ---
+sandbox@sand007shell:/workspace$ printf 'SESSION_ONE user=%s sudo=%s tty=%s pwd=
+%s\n' "$(whoami)" "$(sudo -n whoami)" "$(test -t 0 && echo yes || echo no)" "$(p
+wd)"
+sleep 8; echo SESSION_ONE_DONE
+SESSION_ONE user=sandbox sudo=root tty=yes pwd=/workspace
+sandbox@sand007shell:/workspace$ sleep 8; echo SESSION_ONE_DONE
+--- session two before ---
+sandbox@sand007shell:/workspace$ printf 'SESSION_TWO user=%s sudo=%s tty=%s pwd=
+%s\n' "$(whoami)" "$(sudo -n whoami)" "$(test -t 0 && echo yes || echo no)" "$(p
+wd)"
+echo SESSION_TWO_DONE
+SESSION_TWO user=sandbox sudo=root tty=yes pwd=/workspace
+sandbox@sand007shell:/workspace$ echo SESSION_TWO_DONE
+SESSION_TWO_DONE
+sandbox@sand007shell:/workspace$
+
+## Capture final session output
+--- session one after ---
+sandbox@sand007shell:/workspace$ printf 'SESSION_ONE user=%s sudo=%s tty=%s pwd=
+%s\n' "$(whoami)" "$(sudo -n whoami)" "$(test -t 0 && echo yes || echo no)" "$(p
+wd)"
+sleep 8; echo SESSION_ONE_DONE
+SESSION_ONE user=sandbox sudo=root tty=yes pwd=/workspace
+sandbox@sand007shell:/workspace$ sleep 8; echo SESSION_ONE_DONE
+SESSION_ONE_DONE
+sandbox@sand007shell:/workspace$
+--- session two after ---
+sandbox@sand007shell:/workspace$ printf 'SESSION_TWO user=%s sudo=%s tty=%s pwd=
+%s\n' "$(whoami)" "$(sudo -n whoami)" "$(test -t 0 && echo yes || echo no)" "$(p
+wd)"
+echo SESSION_TWO_DONE
+SESSION_TWO user=sandbox sudo=root tty=yes pwd=/workspace
+sandbox@sand007shell:/workspace$ echo SESSION_TWO_DONE
+SESSION_TWO_DONE
+sandbox@sand007shell:/workspace$
+
+## Exit sessions
+
+## Validation passed
+Raw log: /Users/onorbumbum/_PROJECTS/sand/docs/validation/shell-sessions-sandbox-user/run-20260518-232548.log

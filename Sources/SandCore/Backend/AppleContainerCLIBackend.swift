@@ -131,7 +131,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         if terminal.standardInputIsTerminal && terminal.standardOutputIsTerminal {
             arguments.append("--tty")
         }
-        arguments += ["--workdir", workingDirectory.rawValue, sandboxName.rawValue]
+        arguments += ["--user", "sandbox", "--workdir", workingDirectory.rawValue, sandboxName.rawValue]
         arguments += command
         return arguments
     }
@@ -246,14 +246,25 @@ public struct ProcessBackendCommandRunner: BackendCommandRunner {
             let stderr = String(data: standardError.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             return BackendCommandOutput(stdout: stdout, stderr: stderr, exitCode: Int(process.terminationStatus))
         case .inherited:
-            process.standardInput = FileHandle.standardInput
-            process.standardOutput = FileHandle.standardOutput
-            process.standardError = FileHandle.standardError
-
-            try process.run()
-            process.waitUntilExit()
-
-            return BackendCommandOutput(stdout: "", stderr: "", exitCode: Int(process.terminationStatus))
+            // Interactive Apple `container exec --tty` needs to own the controlling
+            // terminal. A Foundation Process child can print the guest prompt, but
+            // keystrokes sent to the terminal do not reliably reach the guest shell.
+            // Replace `sand` with the backend command for inherited-IO sessions so
+            // stdin/stdout/stderr and terminal control are exactly the user's shell.
+            try execReplacingCurrentProcess(arguments: [executable] + arguments)
         }
+    }
+
+    private func execReplacingCurrentProcess(arguments: [String]) throws -> Never {
+        let cArguments = arguments.map { strdup($0) }
+        defer {
+            for argument in cArguments {
+                free(argument)
+            }
+        }
+
+        var argv = cArguments + [nil]
+        execvp(cArguments[0], &argv)
+        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
     }
 }

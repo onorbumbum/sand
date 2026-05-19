@@ -1,6 +1,6 @@
 ---
 title: Open real Sandbox Sessions as the Sandbox User
-status: needs-triage
+status: done
 type: issue
 category: enhancement
 labels:
@@ -24,21 +24,27 @@ Implement `sand <name> shell` as an interactive Sandbox Session into the real Sa
 
 ## Acceptance criteria
 
-- [ ] `sand <name> shell` opens an interactive shell inside the real Sandbox Guest.
-- [ ] The shell runs as the non-root Sandbox User.
-- [ ] Opening a shell does not prompt for a guest username or password.
-- [ ] Passwordless sudo works inside the Sandbox Guest.
-- [ ] Multiple Sandbox Sessions can coexist against the same Sandbox VM.
-- [ ] Normal Sandbox Sessions are not serialized behind Lifecycle Mutation locks.
-- [ ] Acceptance is demonstrated against the real Apple backend.
+- [x] `sand <name> shell` opens an interactive shell inside the real Sandbox Guest.
+- [x] The shell runs as the non-root Sandbox User.
+- [x] Opening a shell does not prompt for a guest username or password.
+- [x] Passwordless sudo works inside the Sandbox Guest.
+- [x] Multiple Sandbox Sessions can coexist against the same Sandbox VM.
+- [x] Normal Sandbox Sessions are not serialized behind Lifecycle Mutation locks.
+- [x] Acceptance is demonstrated against the real Apple backend.
 
 ## Definition of Done
 
-- [ ] Relevant deterministic tests are added or updated and `swift test` passes.
-- [ ] Backend-dependent acceptance evidence uses the real Apple backend.
-- [ ] Fake/in-memory backends are allowed only in tests and cannot be selected by user-facing CLI flags, environment variables, or hidden fallbacks.
-- [ ] CLI command handlers do not call Apple `container` directly; backend interaction goes through `SandboxBackend`.
-- [ ] No display-layer workaround hides a failed session, user, sudo, concurrency, or credential-prompt requirement.
+- [x] Relevant deterministic tests are added or updated and `swift test` passes.
+- [x] Backend-dependent acceptance evidence uses the real Apple backend.
+- [x] Fake/in-memory backends are allowed only in tests and cannot be selected by user-facing CLI flags, environment variables, or hidden fallbacks.
+- [x] CLI command handlers do not call Apple `container` directly; backend interaction goes through `SandboxBackend`.
+- [x] No display-layer workaround hides a failed session, user, sudo, concurrency, or credential-prompt requirement.
+
+## Evidence
+
+- Deterministic tests: `swift test` — 58 tests passing.
+- Real backend validation: `docs/validation/shell-sessions-sandbox-user/RESULTS.md`
+- Raw log: `docs/validation/shell-sessions-sandbox-user/run-20260518-232548.log`
 
 ## Blocked by
 
