@@ -80,18 +80,23 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 
     public func provision(_ spec: SandboxSpec) throws {
-        _ = try runRequired(arguments: [
-            "create",
-            "--name", spec.name.rawValue,
-            "--cpus", String(spec.resourceProfile.cpus),
-            "--memory", "\(spec.resourceProfile.memory.megabytes)M",
-            spec.image.reference,
-            "sleep", "infinity"
-        ])
+        try ensureGuestStateVolume(for: spec.name)
+        try createRuntime(from: spec)
     }
 
     public func apply(_ spec: SandboxSpec) throws {
-        _ = try runRequired(arguments: ["update", spec.name.rawValue])
+        let currentStatus = try status(spec.name)
+        if currentStatus == .running {
+            try stop(spec.name)
+        }
+        if currentStatus != .missing {
+            try deleteRuntime(spec.name)
+        }
+        try ensureGuestStateVolume(for: spec.name)
+        try createRuntime(from: spec)
+        if currentStatus == .running {
+            try start(spec.name)
+        }
     }
 
     public func start(_ sandboxName: SandboxName) throws {
@@ -152,7 +157,48 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 
     public func delete(_ sandboxName: SandboxName) throws {
+        try deleteRuntime(sandboxName)
+        _ = try runRequired(arguments: ["volume", "delete", guestStateVolumeName(for: sandboxName)])
+    }
+
+    private func ensureGuestStateVolume(for sandboxName: SandboxName) throws {
+        guard !commandSucceeds(["volume", "inspect", guestStateVolumeName(for: sandboxName)]) else { return }
+        _ = try runRequired(arguments: ["volume", "create", guestStateVolumeName(for: sandboxName)])
+    }
+
+    private func createRuntime(from spec: SandboxSpec) throws {
+        _ = try runRequired(arguments: createArguments(for: spec))
+    }
+
+    private func deleteRuntime(_ sandboxName: SandboxName) throws {
         _ = try runRequired(arguments: ["delete", "--force", sandboxName.rawValue])
+    }
+
+    private func createArguments(for spec: SandboxSpec) -> [String] {
+        var arguments = [
+            "create",
+            "--name", spec.name.rawValue,
+            "--cpus", String(spec.resourceProfile.cpus),
+            "--memory", "\(spec.resourceProfile.memory.megabytes)M",
+            "--volume", "\(guestStateVolumeName(for: spec.name)):/state"
+        ]
+        for folder in spec.allowedFolders {
+            arguments += ["--mount", mountArgument(for: folder)]
+        }
+        arguments += [spec.image.reference, "sleep", "infinity"]
+        return arguments
+    }
+
+    private func mountArgument(for folder: AllowedFolder) -> String {
+        var argument = "type=bind,source=\(folder.resolvedHostPath),target=\(folder.guestPath.rawValue)"
+        if folder.accessMode == .readOnly {
+            argument += ",readonly"
+        }
+        return argument
+    }
+
+    private func guestStateVolumeName(for sandboxName: SandboxName) -> String {
+        "sand-state-\(sandboxName.rawValue)"
     }
 
     private func runRequired(arguments: [String]) throws -> BackendCommandOutput {

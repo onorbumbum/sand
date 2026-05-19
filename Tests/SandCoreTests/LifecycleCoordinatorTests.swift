@@ -218,6 +218,80 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(backend.calls, [.status("mybox"), .apply("mybox")])
     }
 
+    func testFoldersListPrintsHostGuestAndAccessModeForAudit() throws {
+        var output: [String] = []
+        let spec = SandboxSpec(
+            name: try SandboxName("mybox"),
+            allowedFolders: [
+                AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite),
+                AllowedFolder(displayHostPath: "/Users/onur/Downloads", resolvedHostPath: "/Users/onur/Downloads", guestPath: try GuestPath("/reference"), accessMode: .readOnly)
+            ]
+        )
+        let coordinator = LifecycleCoordinator(
+            metadataStore: MemoryMetadataStore(specs: [spec]),
+            backend: RecordingSandboxBackend(status: .stopped),
+            writeOutput: { output.append($0) }
+        )
+
+        let result = try coordinator.listFolders(NamedSandboxRequest(sandboxName: spec.name))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(output, [
+            "Host Path\tGuest Path\tAccess Mode",
+            "~/Projects/sand\t/workspace/sand\tread-write",
+            "/Users/onur/Downloads\t/reference\tread-only"
+        ])
+    }
+
+    func testFolderRemoveMutatesSpecAndAutoAppliesThroughFakeBackend() throws {
+        let spec = SandboxSpec(
+            name: try SandboxName("mybox"),
+            allowedFolders: [AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)]
+        )
+        let metadataStore = MemoryMetadataStore(specs: [spec])
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let policy = FolderPolicy(resolvePath: { $0 == "~/Projects/sand" ? "/Users/onur/Projects/sand" : $0 })
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, folderPolicy: policy)
+
+        let result = try coordinator.removeFolder(RemoveFolderRequest(sandboxName: spec.name, displayHostPath: "~/Projects/sand"))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(try metadataStore.readSpec(named: spec.name).allowedFolders, [])
+        XCTAssertEqual(backend.calls, [.status("mybox"), .apply("mybox")])
+    }
+
+    func testRunningConfigChangePromptsBeforeApplyingAndLeavesSpecUntouchedWhenCancelled() throws {
+        let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
+        let metadataStore = MemoryMetadataStore(specs: [spec])
+        let backend = RecordingSandboxBackend(status: .running)
+        let prompt = RecordingPromptConfirmation(decisions: [.cancel])
+        let policy = FolderPolicy(resolvePath: { $0 })
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, folderPolicy: policy, prompt: prompt)
+
+        let result = try coordinator.addFolder(AddFolderRequest(sandboxName: spec.name, displayHostPath: "/Users/onur/Projects/sand", accessMode: "rw"))
+
+        XCTAssertEqual(result, .failure(exitCode: 1))
+        XCTAssertEqual(prompt.requests, [ConfirmationRequest(message: "Apply changes to running Sandbox VM mybox?", destructive: false)])
+        XCTAssertEqual(try metadataStore.readSpec(named: spec.name), spec)
+        XCTAssertEqual(backend.calls, [.status("mybox")])
+    }
+
+    func testRunningConfigChangeAppliesAfterPromptApproval() throws {
+        let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
+        let metadataStore = MemoryMetadataStore(specs: [spec])
+        let backend = RecordingSandboxBackend(status: .running)
+        let prompt = RecordingPromptConfirmation(decisions: [.proceed])
+        let policy = FolderPolicy(resolvePath: { $0 })
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, folderPolicy: policy, prompt: prompt)
+
+        let result = try coordinator.addFolder(AddFolderRequest(sandboxName: spec.name, displayHostPath: "/Users/onur/Projects/sand", accessMode: "rw"))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(prompt.requests, [ConfirmationRequest(message: "Apply changes to running Sandbox VM mybox?", destructive: false)])
+        XCTAssertEqual(try metadataStore.readSpec(named: spec.name).allowedFolders.count, 1)
+        XCTAssertEqual(backend.calls, [.status("mybox"), .apply("mybox")])
+    }
+
     func testNormalRunAndShellAreNotSerializedBehindLifecycleMutationLocks() throws {
         let spec = try specWithAllowedFolder()
         let metadataStore = MemoryMetadataStore(specs: [spec], currentHostDirectory: "/Users/onur/Projects/sand")

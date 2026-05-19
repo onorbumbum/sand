@@ -83,6 +83,18 @@ public struct FolderPolicy {
     }
 }
 
+public struct FolderListPresenter {
+    public init() {}
+
+    public func lines(for folders: [AllowedFolder]) -> [String] {
+        var lines = ["Host Path\tGuest Path\tAccess Mode"]
+        lines += folders.map { folder in
+            "\(folder.displayHostPath)\t\(folder.guestPath.rawValue)\t\(folder.accessMode.rawValue)"
+        }
+        return lines
+    }
+}
+
 public enum FolderPolicyError: Error, Equatable {
     case unsupportedAccessMode(String)
     case duplicateGuestPath(String)

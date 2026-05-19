@@ -2,15 +2,16 @@ import XCTest
 @testable import SandCore
 
 final class AppleContainerCLIBackendDoctorTests: XCTestCase {
-    func testDeleteUsesBackendForceSoDestructiveConfirmationLivesOnlyInSand() throws {
+    func testDeleteUsesBackendForceAndDeletesGuestStateVolumeSoDestructiveConfirmationLivesOnlyInSand() throws {
         let runner = ScriptedBackendCommandRunner(results: [
-            ["delete", "--force", "mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
+            ["delete", "--force", "mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0)),
+            ["volume", "delete", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
         ])
         let backend = AppleContainerCLIBackend(runner: runner)
 
         try backend.delete(try SandboxName("mybox"))
 
-        XCTAssertEqual(runner.calls, [["delete", "--force", "mybox"]])
+        XCTAssertEqual(runner.calls, [["delete", "--force", "mybox"], ["volume", "delete", "sand-state-mybox"]])
     }
 
     func testRunAndShellPassSandboxUserAndWorkdirBeforeSandboxNameForAppleExecSyntaxAndUseInheritedTerminalIO() throws {
@@ -69,20 +70,76 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         XCTAssertEqual(runner.ioModes, [.inherited])
     }
 
-    func testProvisionCreatesNamedStoppedSandboxWithLongLivedInitResourceProfileAndImage() throws {
+    func testProvisionCreatesNamedStoppedSandboxWithGuestStateVolumeAllowedFolderMountsResourceProfileAndImage() throws {
         let runner = ScriptedBackendCommandRunner(results: [
-            ["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "custom:latest", "sleep", "infinity"]: .success(BackendCommandOutput(stdout: "mybox\n", stderr: "", exitCode: 0))
+            ["volume", "inspect", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "not found\n", exitCode: 1)),
+            ["volume", "create", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "sand-state-mybox\n", stderr: "", exitCode: 0)),
+            ["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "--volume", "sand-state-mybox:/state", "--mount", "type=bind,source=/Users/onur/Projects/sand,target=/workspace/sand", "--mount", "type=bind,source=/Users/onur/Downloads,target=/reference,readonly", "custom:latest", "sleep", "infinity"]: .success(BackendCommandOutput(stdout: "mybox\n", stderr: "", exitCode: 0))
         ])
         let backend = AppleContainerCLIBackend(runner: runner)
         let spec = SandboxSpec(
             name: try SandboxName("mybox"),
             image: SandboxImage(reference: "custom:latest"),
-            resourceProfile: ResourceProfile(cpus: 6, memory: MemorySize(gigabytes: 12))
+            resourceProfile: ResourceProfile(cpus: 6, memory: MemorySize(gigabytes: 12)),
+            allowedFolders: [
+                AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite),
+                AllowedFolder(displayHostPath: "~/Downloads", resolvedHostPath: "/Users/onur/Downloads", guestPath: try GuestPath("/reference"), accessMode: .readOnly)
+            ]
         )
 
         try backend.provision(spec)
 
-        XCTAssertEqual(runner.calls, [["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "custom:latest", "sleep", "infinity"]])
+        XCTAssertEqual(runner.calls, [
+            ["volume", "inspect", "sand-state-mybox"],
+            ["volume", "create", "sand-state-mybox"],
+            ["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "--volume", "sand-state-mybox:/state", "--mount", "type=bind,source=/Users/onur/Projects/sand,target=/workspace/sand", "--mount", "type=bind,source=/Users/onur/Downloads,target=/reference,readonly", "custom:latest", "sleep", "infinity"]
+        ])
+    }
+
+    func testApplyRecreatesStoppedRuntimeWithCurrentAllowedFoldersWhilePreservingGuestStateVolume() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["inspect", "mybox"]: .success(BackendCommandOutput(stdout: "[{\"status\":\"stopped\"}]\n", stderr: "", exitCode: 0)),
+            ["delete", "--force", "mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0)),
+            ["volume", "inspect", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "[{\"name\":\"sand-state-mybox\"}]\n", stderr: "", exitCode: 0)),
+            ["create", "--name", "mybox", "--cpus", "4", "--memory", "8192M", "--volume", "sand-state-mybox:/state", "--mount", "type=bind,source=/Users/onur/Projects/sand,target=/workspace/sand", "sand/developer-ready:ubuntu-lts", "sleep", "infinity"]: .success(BackendCommandOutput(stdout: "mybox\n", stderr: "", exitCode: 0))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner)
+        let spec = SandboxSpec(
+            name: try SandboxName("mybox"),
+            allowedFolders: [AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)]
+        )
+
+        try backend.apply(spec)
+
+        XCTAssertEqual(runner.calls, [
+            ["inspect", "mybox"],
+            ["delete", "--force", "mybox"],
+            ["volume", "inspect", "sand-state-mybox"],
+            ["create", "--name", "mybox", "--cpus", "4", "--memory", "8192M", "--volume", "sand-state-mybox:/state", "--mount", "type=bind,source=/Users/onur/Projects/sand,target=/workspace/sand", "sand/developer-ready:ubuntu-lts", "sleep", "infinity"]
+        ])
+    }
+
+    func testApplyRestartsRuntimeAfterRecreatingIfItWasRunning() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["inspect", "mybox"]: .success(BackendCommandOutput(stdout: "[{\"status\":\"running\"}]\n", stderr: "", exitCode: 0)),
+            ["stop", "mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0)),
+            ["delete", "--force", "mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0)),
+            ["volume", "inspect", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "[{\"name\":\"sand-state-mybox\"}]\n", stderr: "", exitCode: 0)),
+            ["create", "--name", "mybox", "--cpus", "4", "--memory", "8192M", "--volume", "sand-state-mybox:/state", "sand/developer-ready:ubuntu-lts", "sleep", "infinity"]: .success(BackendCommandOutput(stdout: "mybox\n", stderr: "", exitCode: 0)),
+            ["start", "mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner)
+
+        try backend.apply(.generated(name: try SandboxName("mybox")))
+
+        XCTAssertEqual(runner.calls, [
+            ["inspect", "mybox"],
+            ["stop", "mybox"],
+            ["delete", "--force", "mybox"],
+            ["volume", "inspect", "sand-state-mybox"],
+            ["create", "--name", "mybox", "--cpus", "4", "--memory", "8192M", "--volume", "sand-state-mybox:/state", "sand/developer-ready:ubuntu-lts", "sleep", "infinity"],
+            ["start", "mybox"]
+        ])
     }
 
     func testProvisionThrowsWhenBackendCreateCommandFails() throws {

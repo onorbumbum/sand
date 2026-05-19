@@ -156,13 +156,15 @@ public struct LifecycleCoordinator: SandboxApplication {
                 accessMode: request.accessMode,
                 guestPath: request.guestPath
             )
-            try applyConfigMutation(current: current, updated: updated)
+            return try applyConfigMutation(current: current, updated: updated) ? .success : .failure(exitCode: 1)
         }
-        return .success
     }
 
     public func listFolders(_ request: NamedSandboxRequest) throws -> CommandResult {
-        _ = try metadataStore.readSpec(named: request.sandboxName).allowedFolders
+        let folders = try metadataStore.readSpec(named: request.sandboxName).allowedFolders
+        for line in FolderListPresenter().lines(for: folders) {
+            writeOutput(line)
+        }
         return .success
     }
 
@@ -170,19 +172,19 @@ public struct LifecycleCoordinator: SandboxApplication {
         try metadataStore.withLifecycleMutationLock {
             let current = try metadataStore.readSpec(named: request.sandboxName)
             let updated = folderPolicy.removeFolder(from: current, displayHostPath: request.displayHostPath)
-            try applyConfigMutation(current: current, updated: updated)
+            return try applyConfigMutation(current: current, updated: updated) ? .success : .failure(exitCode: 1)
         }
-        return .success
     }
 
-    private func applyConfigMutation(current: SandboxSpec, updated: SandboxSpec) throws {
+    private func applyConfigMutation(current: SandboxSpec, updated: SandboxSpec) throws -> Bool {
         try updated.validateUpdate(from: current)
         if try backend.status(current.name) == .running {
             let decision = try prompt.confirm(ConfirmationRequest(message: "Apply changes to running Sandbox VM \(current.name.rawValue)?", destructive: false))
-            guard decision == .proceed else { return }
+            guard decision == .proceed else { return false }
         }
         try metadataStore.writeSpec(updated)
         try backend.apply(updated)
+        return true
     }
 }
 
