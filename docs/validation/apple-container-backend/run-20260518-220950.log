@@ -1,0 +1,352 @@
+
+
+### Versions and backend service
+
+$ which container
+/usr/local/bin/container
+[exit 0]
+
+$ container --version
+container CLI version 0.12.3 (build: release, commit: f989901)
+[exit 0]
+
+$ container system status
+FIELD              VALUE
+status             running
+appRoot            /Users/onorbumbum/Library/Application Support/com.apple.container/
+installRoot        /usr/local/
+logRoot            
+apiserver.version  container-apiserver version 0.12.3 (build: release, commit: f989901)
+apiserver.commit   f9899013fd43dd058fdf89709eed0b0861bfd931
+apiserver.build    release
+apiserver.appName  container-apiserver
+[exit 0]
+
+$ container system start
+Registering API server with launchd...
+Verifying apiserver is running...
+[exit 0]
+
+$ container system status
+FIELD              VALUE
+status             running
+appRoot            /Users/onorbumbum/Library/Application Support/com.apple.container/
+installRoot        /usr/local/
+logRoot            
+apiserver.version  container-apiserver version 0.12.3 (build: release, commit: f989901)
+apiserver.commit   f9899013fd43dd058fdf89709eed0b0861bfd931
+apiserver.build    release
+apiserver.appName  container-apiserver
+[exit 0]
+
+$ container list --all
+ID                     IMAGE                                                OS     ARCH   STATE    ADDR             CPUS  MEMORY   STARTED
+sand-validation-spike  sand-validation-dev:latest                           linux  arm64  running  192.168.64.5/24  4     8192 MB  2026-05-19T05:09:27Z
+buildkit               ghcr.io/apple/container-builder-shim/builder:0.12.0  linux  arm64  running  192.168.64.4/24  2     2048 MB  2026-05-19T05:07:36Z
+[exit 0]
+
+
+### Prepare host folders and clean previous validation resources
+
+$ rm -rf /tmp/sand-backend-validation
+[exit 0]
+
+$ mkdir -p /tmp/sand-backend-validation/rw/subdir /tmp/sand-backend-validation/ro
+[exit 0]
+
+$ echo host-original > '/tmp/sand-backend-validation/rw/host-owned.txt'
+[exit 0]
+
+$ echo readonly-host > '/tmp/sand-backend-validation/ro/read-only-host.txt'
+[exit 0]
+
+$ ls -lna /tmp/sand-backend-validation /tmp/sand-backend-validation/rw /tmp/sand-backend-validation/ro
+/tmp/sand-backend-validation:
+total 0
+drwxr-xr-x@   4 501  0    128 May 18 22:09 .
+drwxrwxrwt  954 0    0  30528 May 18 22:09 ..
+drwxr-xr-x@   3 501  0     96 May 18 22:09 ro
+drwxr-xr-x@   4 501  0    128 May 18 22:09 rw
+
+/tmp/sand-backend-validation/ro:
+total 8
+drwxr-xr-x@ 3 501  0   96 May 18 22:09 .
+drwxr-xr-x@ 4 501  0  128 May 18 22:09 ..
+-rw-r--r--@ 1 501  0   14 May 18 22:09 read-only-host.txt
+
+/tmp/sand-backend-validation/rw:
+total 8
+drwxr-xr-x@ 4 501  0  128 May 18 22:09 .
+drwxr-xr-x@ 4 501  0  128 May 18 22:09 ..
+-rw-r--r--@ 1 501  0   14 May 18 22:09 host-owned.txt
+drwxr-xr-x@ 2 501  0   64 May 18 22:09 subdir
+[exit 0]
+
+
+### Build developer-ready validation image
+
+$ container build --progress plain -t sand-validation-dev:latest /Users/onorbumbum/_PROJECTS/sand/docs/validation/apple-container-backend
+#1 [resolver] fetching image...docker.io/library/ubuntu:24.04
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 774B done
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 oci-layout://docker.io/library/ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b
+#4 resolve docker.io/library/ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b done
+#4 DONE 0.0s
+
+#5 [linux/arm64 2/4] RUN useradd --create-home --shell /bin/bash sandbox     && printf 'sandbox ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/sandbox     && chmod 0440 /etc/sudoers.d/sandbox     && mkdir -p /workspace     && chown sandbox:sandbox /workspace
+#5 CACHED
+
+#6 [linux/arm64 1/4] RUN apt-get update     && apt-get install -y --no-install-recommends         bash         build-essential         ca-certificates         curl         git         nodejs         npm         openssh-client         python3         python3-pip         python3-venv         ripgrep         sudo         tmux     && rm -rf /var/lib/apt/lists/*
+#6 CACHED
+
+#7 [linux/arm64/v8 3/4] WORKDIR /workspace
+#7 CACHED
+
+#8 exporting to oci image format
+#8 exporting layers done
+#8 exporting manifest sha256:f84bb6286b7e3fd510fff379f2bf4db97bddbcf316387b1b6bd0e2b844bbd911 done
+#8 exporting config sha256:4b2ebde530efaa660ac2fb90ee71f8069cdc55082ceb7ad7f972c77ad25c7651 done
+#8 exporting manifest list sha256:8b470f23b034f28116f43a358fff201870be77710570d8243890cec8163cdb6d done
+#8 sending tarball
+#8 sending tarball 0.9s done
+#8 DONE 0.9s
+Successfully built sand-validation-dev:latest
+[exit 0]
+
+
+### Create Guest State volume and runtime with read-write/read-only Allowed Folders
+
+$ container volume create sand-validation-state
+sand-validation-state
+[exit 0]
+
+$ container run --name sand-validation-spike --detach --cpus 4 --memory 8G --volume sand-validation-state:/state --mount type=bind,source=/tmp/sand-backend-validation/rw,target=/workspace/rw --mount type=bind,source=/tmp/sand-backend-validation/ro,target=/workspace/ro,readonly sand-validation-dev:latest sleep 10000
+[0/6] [0s]
+[1/6] Fetching image [0s]
+[2/6] Unpacking image [0s]
+[3/6] Fetching kernel [0s]
+[4/6] Fetching init image [0s]
+[5/6] Unpacking init image [0s]
+[6/6] Starting container [0s]
+[6/6] Starting container [0s]
+sand-validation-spike
+[exit 0]
+
+$ container inspect sand-validation-spike
+[{"startedDate":800860192.956595,"status":"running","networks":[{"hostname":"sand-validation-spike","macAddress":"fa:d1:f3:ce:ab:de","mtu":1280,"ipv6Address":"fd4a:239f:b063:7ff2:f8d1:f3ff:fece:abde\/64","ipv4Gateway":"192.168.64.1","network":"default","ipv4Address":"192.168.64.5\/24"}],"configuration":{"capDrop":[],"sysctls":{},"capAdd":[],"id":"sand-validation-spike","publishedSockets":[],"networks":[{"options":{"hostname":"sand-validation-spike","mtu":1280},"network":"default"}],"virtualization":false,"dns":{"searchDomains":[],"options":[],"nameservers":[]},"image":{"descriptor":{"mediaType":"application\/vnd.oci.image.index.v1+json","digest":"sha256:8b470f23b034f28116f43a358fff201870be77710570d8243890cec8163cdb6d","annotations":{"io.containerd.image.name":"docker.io\/library\/sand-validation-dev:latest","org.opencontainers.image.ref.name":"latest","org.opencontainers.image.created":"2026-05-19T05:09:50Z","com.apple.containerization.image.name":"sand-validation-dev:latest"},"size":375},"reference":"sand-validation-dev:latest"},"initProcess":{"environment":["PATH=\/usr\/local\/sbin:\/usr\/local\/bin:\/usr\/sbin:\/usr\/bin:\/sbin:\/bin","DEBIAN_FRONTEND=noninteractive"],"user":{"raw":{"userString":"sandbox"}},"arguments":["10000"],"workingDirectory":"\/workspace","rlimits":[],"executable":"sleep","supplementalGroups":[],"terminal":false},"ssh":false,"useInit":false,"rosetta":false,"mounts":[{"type":{"volume":{"sync":{"fsync":{}},"name":"sand-validation-state","cache":{"on":{}},"format":"ext4"}},"options":[],"source":"\/Users\/onorbumbum\/Library\/Application Support\/com.apple.container\/volumes\/sand-validation-state\/volume.img","destination":"\/state"},{"type":{"virtiofs":{}},"options":[],"source":"\/tmp\/sand-backend-validation\/rw","destination":"\/workspace\/rw"},{"type":{"virtiofs":{}},"options":["ro"],"source":"\/tmp\/sand-backend-validation\/ro","destination":"\/workspace\/ro"}],"platform":{"os":"linux","architecture":"arm64"},"labels":{},"runtimeHandler":"container-runtime-linux","readOnly":false,"resources":{"memoryInBytes":8589934592,"cpus":4},"publishedPorts":[]}}]
+[exit 0]
+
+
+### Non-root interactive Sandbox Session evidence
+
+$ container exec --tty --user sandbox --workdir /workspace sand-validation-spike bash -lc tty; whoami; pwd
+/dev/pts/0
+sandbox
+/workspace
+[exit 0]
+
+$ container exec --user sandbox sand-validation-spike bash -lc id && test "$(whoami)" = sandbox
+uid=1001(sandbox) gid=1001(sandbox) groups=1001(sandbox)
+[exit 0]
+
+
+### Passwordless sudo inside Sandbox Guest
+
+$ container exec --user sandbox sand-validation-spike bash -lc sudo -n whoami && test "$(sudo -n whoami)" = root
+root
+[exit 0]
+
+$ container exec --user sandbox sand-validation-spike bash -lc sudo -n install -d -o sandbox -g sandbox /state/sandbox && test -w /state/sandbox
+[exit 0]
+
+
+### Read-write Allowed Folder and Host-Safe File Ownership
+
+$ container exec --user sandbox --workdir /workspace/rw sand-validation-spike bash -lc echo guest-created > guest-created.txt && echo guest-modified >> host-owned.txt && pwd
+/workspace/rw
+[exit 0]
+
+$ ls -lna /tmp/sand-backend-validation/rw
+total 16
+drwxr-xr-x@ 5 501  0  160 May 18 22:09 .
+drwxr-xr-x@ 4 501  0  128 May 18 22:09 ..
+-rw-r--r--  1 501  0   14 May 18 22:09 guest-created.txt
+-rw-r--r--@ 1 501  0   29 May 18 22:09 host-owned.txt
+drwxr-xr-x@ 2 501  0   64 May 18 22:09 subdir
+[exit 0]
+
+$ cat /tmp/sand-backend-validation/rw/guest-created.txt /tmp/sand-backend-validation/rw/host-owned.txt
+guest-created
+host-original
+guest-modified
+[exit 0]
+
+$ test "$(stat -f '%u' '/tmp/sand-backend-validation/rw/guest-created.txt')" = '501'
+[exit 0]
+
+$ test "$(stat -f '%u' '/tmp/sand-backend-validation/rw/host-owned.txt')" = '501'
+[exit 0]
+
+
+### Read-only Allowed Folder blocks writes
+
+$ container exec --user sandbox --workdir /workspace/ro 'sand-validation-spike' bash -lc 'echo should-fail > blocked.txt' && exit 1 || exit 0
+bash: line 1: blocked.txt: Read-only file system
+[exit 0]
+
+$ test ! -e '/tmp/sand-backend-validation/ro/blocked.txt'
+[exit 0]
+
+
+### Working Directory Mapping can start inside mounted folder
+
+$ container exec --user sandbox --workdir /workspace/rw/subdir sand-validation-spike bash -lc pwd && echo mapped > mapped.txt
+/workspace/rw/subdir
+[exit 0]
+
+$ cat /tmp/sand-backend-validation/rw/subdir/mapped.txt
+mapped
+[exit 0]
+
+
+### Persistent Guest State survives stop/start
+
+$ container exec --user sandbox sand-validation-spike bash -lc echo before-stop > /state/sandbox/persistent.txt
+[exit 0]
+
+$ container stop sand-validation-spike
+sand-validation-spike
+[exit 0]
+
+$ container start sand-validation-spike
+sand-validation-spike
+[exit 0]
+
+$ container exec --user sandbox sand-validation-spike bash -lc cat /state/sandbox/persistent.txt && test "$(cat /state/sandbox/persistent.txt)" = before-stop
+before-stop
+[exit 0]
+
+
+### Multiple Sandbox Sessions can run concurrently
+
+$ container exec --detach --user sandbox sand-validation-spike bash -lc sleep 3; echo session-one > /state/sandbox/session-one.txt
+sand-validation-spike
+[exit 0]
+
+$ container exec --detach --user sandbox sand-validation-spike bash -lc sleep 3; echo session-two > /state/sandbox/session-two.txt
+sand-validation-spike
+[exit 0]
+
+$ container exec --user sandbox sand-validation-spike bash -lc pgrep -a sleep || true
+1 sleep 10000
+8 sleep 3
+11 sleep 3
+[exit 0]
+
+$ sleep 5
+[exit 0]
+
+$ container exec --user sandbox sand-validation-spike bash -lc cat /state/sandbox/session-one.txt /state/sandbox/session-two.txt
+session-one
+session-two
+[exit 0]
+
+
+### Outbound-only networking without published ports
+
+$ container exec --user sandbox sand-validation-spike bash -lc curl -fsSL https://example.com >/tmp/example.html && test -s /tmp/example.html
+[exit 0]
+
+$ container inspect sand-validation-spike
+[{"configuration":{"image":{"descriptor":{"digest":"sha256:8b470f23b034f28116f43a358fff201870be77710570d8243890cec8163cdb6d","mediaType":"application\/vnd.oci.image.index.v1+json","annotations":{"org.opencontainers.image.created":"2026-05-19T05:09:50Z","org.opencontainers.image.ref.name":"latest","com.apple.containerization.image.name":"sand-validation-dev:latest","io.containerd.image.name":"docker.io\/library\/sand-validation-dev:latest"},"size":375},"reference":"sand-validation-dev:latest"},"id":"sand-validation-spike","rosetta":false,"readOnly":false,"networks":[{"network":"default","options":{"mtu":1280,"hostname":"sand-validation-spike"}}],"ssh":false,"capDrop":[],"virtualization":false,"dns":{"options":[],"nameservers":[],"searchDomains":[]},"labels":{},"runtimeHandler":"container-runtime-linux","publishedPorts":[],"capAdd":[],"publishedSockets":[],"initProcess":{"supplementalGroups":[],"terminal":false,"executable":"sleep","workingDirectory":"\/workspace","rlimits":[],"environment":["PATH=\/usr\/local\/sbin:\/usr\/local\/bin:\/usr\/sbin:\/usr\/bin:\/sbin:\/bin","DEBIAN_FRONTEND=noninteractive"],"user":{"raw":{"userString":"sandbox"}},"arguments":["10000"]},"platform":{"os":"linux","architecture":"arm64"},"mounts":[{"type":{"volume":{"cache":{"on":{}},"format":"ext4","name":"sand-validation-state","sync":{"fsync":{}}}},"options":[],"source":"\/Users\/onorbumbum\/Library\/Application Support\/com.apple.container\/volumes\/sand-validation-state\/volume.img","destination":"\/state"},{"type":{"virtiofs":{}},"options":[],"source":"\/tmp\/sand-backend-validation\/rw","destination":"\/workspace\/rw"},{"type":{"virtiofs":{}},"options":["ro"],"source":"\/tmp\/sand-backend-validation\/ro","destination":"\/workspace\/ro"}],"sysctls":{},"resources":{"memoryInBytes":8589934592,"cpus":4},"useInit":false},"status":"running","networks":[{"hostname":"sand-validation-spike","macAddress":"fe:1f:70:55:94:80","network":"default","ipv6Address":"fd4a:239f:b063:7ff2:fc1f:70ff:fe55:9480\/64","ipv4Gateway":"192.168.64.1","ipv4Address":"192.168.64.6\/24","mtu":1280}],"startedDate":800860199.509481}]
+[exit 0]
+
+
+### Default Toolset smoke test and Pi CLI installation path check
+
+$ container exec --user sandbox sand-validation-spike bash -lc for c in git curl sudo ssh python3 npm node tmux rg gcc make; do printf "%s -> " "$c"; command -v "$c"; done
+git -> /usr/bin/git
+curl -> /usr/bin/curl
+sudo -> /usr/bin/sudo
+ssh -> /usr/bin/ssh
+python3 -> /usr/bin/python3
+npm -> /usr/bin/npm
+node -> /usr/bin/node
+tmux -> /usr/bin/tmux
+rg -> /usr/bin/rg
+gcc -> /usr/bin/gcc
+make -> /usr/bin/make
+[exit 0]
+
+$ container exec --user sandbox 'sand-validation-spike' bash -lc 'npm view @mariozechner/pi-coding-agent version' || true
+0.73.1
+[exit 0]
+
+
+### Runtime recreation preserves Guest State and intended Allowed Folder behavior
+
+$ container delete --force sand-validation-spike
+sand-validation-spike
+[exit 0]
+
+$ container run --name sand-validation-spike --detach --cpus 4 --memory 8G --volume sand-validation-state:/state --mount type=bind,source=/tmp/sand-backend-validation/rw,target=/workspace/rw --mount type=bind,source=/tmp/sand-backend-validation/ro,target=/workspace/ro,readonly sand-validation-dev:latest sleep 10000
+[0/6] [0s]
+[1/6] Fetching image [0s]
+[2/6] Unpacking image [0s]
+[3/6] Fetching kernel [0s]
+[4/6] Fetching init image [0s]
+[5/6] Unpacking init image [0s]
+[6/6] Starting container [0s]
+[6/6] Starting container [0s]
+sand-validation-spike
+[exit 0]
+
+$ container exec --user sandbox sand-validation-spike bash -lc cat /state/sandbox/persistent.txt /state/sandbox/session-one.txt /state/sandbox/session-two.txt
+before-stop
+session-one
+session-two
+[exit 0]
+
+$ container exec --user sandbox --workdir /workspace/rw sand-validation-spike bash -lc echo recreated >> host-owned.txt && cat host-owned.txt
+host-original
+guest-modified
+recreated
+[exit 0]
+
+$ container exec --user sandbox --workdir /workspace/ro 'sand-validation-spike' bash -lc 'echo should-fail-after-recreate > blocked-after-recreate.txt' && exit 1 || exit 0
+bash: line 1: blocked-after-recreate.txt: Read-only file system
+[exit 0]
+
+$ test ! -e '/tmp/sand-backend-validation/ro/blocked-after-recreate.txt'
+[exit 0]
+
+
+### Cleanup validation runtime resources
+
+$ ls -lna /tmp/sand-backend-validation/rw /tmp/sand-backend-validation/ro
+/tmp/sand-backend-validation/ro:
+total 8
+drwxr-xr-x@ 3 501  0   96 May 18 22:09 .
+drwxr-xr-x@ 4 501  0  128 May 18 22:09 ..
+-rw-r--r--@ 1 501  0   14 May 18 22:09 read-only-host.txt
+
+/tmp/sand-backend-validation/rw:
+total 16
+drwxr-xr-x@ 5 501  0  160 May 18 22:09 .
+drwxr-xr-x@ 4 501  0  128 May 18 22:09 ..
+-rw-r--r--  1 501  0   14 May 18 22:09 guest-created.txt
+-rw-r--r--@ 1 501  0   39 May 18 22:10 host-owned.txt
+drwxr-xr-x@ 3 501  0   96 May 18 22:09 subdir
+[exit 0]
+
+
+### Conclusion
+Validation script completed successfully. Log: /Users/onorbumbum/_PROJECTS/sand/docs/validation/apple-container-backend/run-20260518-220950.log
