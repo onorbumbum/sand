@@ -17,20 +17,6 @@ v1 is intentionally small:
 
 - `sand delete <name>` is not fully idempotent yet. If Apple `container` removes the runtime but fails while deleting the persistent state volume, host metadata can remain in `~/.sand`; a later delete may report the runtime as missing instead of completing metadata cleanup. Fix: make delete tolerate already-missing runtime/volume during cleanup, then remove host metadata when cleanup is complete.
 
-## v1 non-goals and limitations
-
-These are out of scope for v1 and are not supported commands or implicit behavior:
-
-- `sand reset`
-- a Pi shortcut command such as `sand <name> pi`
-- inbound networking / port publishing configuration
-- editor integration
-- shell completion
-- default or project-local implicit sandbox selection
-- automatically mounting host `~/.pi`
-- forwarding host credentials, SSH agent sockets, or secrets
-- non-Apple backend fallback
-
 ## Prerequisites
 
 - Apple silicon Mac.
