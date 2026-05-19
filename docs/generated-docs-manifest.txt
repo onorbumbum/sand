@@ -1,0 +1,14 @@
+# Registered Generated Documentation for the Documentation Freshness Gate.
+#
+# List one generated Markdown document path per line once it exists and records
+# the current docs input hash. Blank lines and comments are ignored.
+#
+# Supported hash metadata in each registered document:
+#   <!-- docs-input-hash: <64-char-sha256> -->
+#   docs_input_hash: <64-char-sha256>
+#
+# The first generated set is expected to be registered by follow-up slices:
+#   README.md
+#   docs/cli-reference.md
+#   docs/onboarding.md
+#   docs/developer-guide.md

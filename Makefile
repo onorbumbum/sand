@@ -5,13 +5,20 @@ SWIFT ?= swift
 INSTALL ?= install
 RM ?= rm -f
 
-.PHONY: build test install uninstall
+.PHONY: build test docs-check check install uninstall
 
 build:
 	$(SWIFT) build -c $(CONFIG)
 
 test:
 	$(SWIFT) test
+
+docs-check:
+	scripts/docs-check.sh
+
+check:
+	$(SWIFT) test
+	scripts/docs-check.sh
 
 install: build
 	$(INSTALL) -d "$(DESTDIR)$(BINDIR)"

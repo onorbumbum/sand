@@ -1,0 +1,49 @@
+# Documentation Input Manifest for sand Generated Documentation.
+#
+# The Documentation Freshness Gate hashes this manifest plus the contents of
+# each listed input. Keep this list curated around public behavior, onboarding,
+# domain language, and the Documentation Refresh Workflow.
+#
+# Format:
+#   required <path> [hash-mode]
+#   optional <path> [hash-mode]
+#
+# Hash modes:
+#   full              Hash file contents as-is, except line endings are normalized.
+#   managed-markdown  Hash hand-authored Markdown content while ignoring generated
+#                     docs freshness metadata and Managed Section bodies.
+
+required Package.swift
+required Makefile
+required README.md managed-markdown
+required issues/sand/CONTEXT.md managed-markdown
+
+# CLI command surface and public behavior sources.
+required Sources/sand/main.swift
+required Sources/SandCore/CLI/CLICommandRouter.swift
+required Sources/SandCore/CLI/SandboxApplication.swift
+required Sources/SandCore/Doctor/DoctorChecks.swift
+required Sources/SandCore/Domain/SandboxName.swift
+required Sources/SandCore/Domain/WorkloadCommand.swift
+required Sources/SandCore/FolderPolicy/FolderPolicy.swift
+required Sources/SandCore/Lifecycle/LifecycleCoordinator.swift
+required Sources/SandCore/Spec/SandboxSpec.swift
+required Sources/SandCore/Status/StatusPresenter.swift
+required Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift
+
+# CLI-related executable behavior specs.
+required Tests/SandCoreTests/CLICommandRouterTests.swift
+required Tests/SandCoreTests/DoctorChecksTests.swift
+required Tests/SandCoreTests/FolderPolicyTests.swift
+required Tests/SandCoreTests/LifecycleCoordinatorTests.swift
+required Tests/SandCoreTests/SandboxSpecTests.swift
+required Tests/SandCoreTests/WorkingDirectoryMapperTests.swift
+
+# Onboarding, installation, and documentation gate inputs.
+required scripts/build-developer-ready-image.sh
+required scripts/smoke-developer-ready-image.sh
+required scripts/docs-input-hash.sh
+required scripts/docs-check.sh
+
+# Added by issue 16. Optional now so this gate can land before the workflow prompt.
+optional docs/prompts/refresh-docs.md managed-markdown
