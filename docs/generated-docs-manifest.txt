@@ -14,3 +14,4 @@
 
 docs/cli-reference.md
 docs/onboarding.md
+docs/developer-guide.md
