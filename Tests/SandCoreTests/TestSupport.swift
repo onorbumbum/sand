@@ -3,6 +3,7 @@ import Foundation
 
 final class MemoryMetadataStore: HostMetadataStore {
     private var specsByName: [String: SandboxSpec]
+    private var createdSpecsByName: [String: SandboxSpec]
     private let hostDirectory: String
     private let writable: Bool
     private let lock = NSLock()
@@ -10,6 +11,7 @@ final class MemoryMetadataStore: HostMetadataStore {
 
     init(specs: [SandboxSpec] = [], currentHostDirectory: String = "/workspace", writable: Bool = true) {
         self.specsByName = Dictionary(uniqueKeysWithValues: specs.map { ($0.name.rawValue, $0) })
+        self.createdSpecsByName = Dictionary(uniqueKeysWithValues: specs.map { ($0.name.rawValue, $0) })
         self.hostDirectory = currentHostDirectory
         self.writable = writable
     }
@@ -19,11 +21,25 @@ final class MemoryMetadataStore: HostMetadataStore {
             throw HostMetadataError.duplicateSandboxName(spec.name.rawValue)
         }
         specsByName[spec.name.rawValue] = spec
+        createdSpecsByName[spec.name.rawValue] = spec
     }
 
     func readSpec(named name: SandboxName) throws -> SandboxSpec {
         guard let spec = specsByName[name.rawValue] else {
             throw HostMetadataError.specNotFound(name.rawValue)
+        }
+        guard spec.name == name else {
+            throw HostMetadataError.specNameMismatch(expected: name.rawValue, actual: spec.name.rawValue)
+        }
+        return spec
+    }
+
+    func readCreatedSpec(named name: SandboxName) throws -> SandboxSpec {
+        guard let spec = createdSpecsByName[name.rawValue] else {
+            throw HostMetadataError.specNotFound(name.rawValue)
+        }
+        guard spec.name == name else {
+            throw HostMetadataError.specNameMismatch(expected: name.rawValue, actual: spec.name.rawValue)
         }
         return spec
     }
@@ -34,6 +50,7 @@ final class MemoryMetadataStore: HostMetadataStore {
 
     func deleteSpec(named name: SandboxName) throws {
         specsByName.removeValue(forKey: name.rawValue)
+        createdSpecsByName.removeValue(forKey: name.rawValue)
     }
 
     func listSpecs() throws -> [SandboxSpec] {

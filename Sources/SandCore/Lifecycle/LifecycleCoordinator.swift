@@ -70,9 +70,15 @@ public struct LifecycleCoordinator: SandboxApplication {
     public func apply(_ request: NamedSandboxRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             let spec = try metadataStore.readSpec(named: request.sandboxName)
+            let createdSpec = try metadataStore.readCreatedSpec(named: request.sandboxName)
+            try spec.validateUpdate(from: createdSpec)
+            if try backend.status(request.sandboxName) == .running {
+                let decision = try prompt.confirm(ConfirmationRequest(message: "Apply changes to running Sandbox VM \(request.sandboxName.rawValue)?", destructive: false))
+                guard decision == .proceed else { return .failure(exitCode: 1) }
+            }
             try backend.apply(spec)
+            return .success
         }
-        return .success
     }
 
     public func delete(_ request: DeleteRequest) throws -> CommandResult {
@@ -191,6 +197,8 @@ public struct LifecycleCoordinator: SandboxApplication {
 
     private func applyConfigMutation(current: SandboxSpec, updated: SandboxSpec) throws -> Bool {
         try updated.validateUpdate(from: current)
+        let createdSpec = try metadataStore.readCreatedSpec(named: current.name)
+        try updated.validateUpdate(from: createdSpec)
         if try backend.status(current.name) == .running {
             let decision = try prompt.confirm(ConfirmationRequest(message: "Apply changes to running Sandbox VM \(current.name.rawValue)?", destructive: false))
             guard decision == .proceed else { return false }

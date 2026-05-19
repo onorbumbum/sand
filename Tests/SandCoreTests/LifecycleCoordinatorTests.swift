@@ -90,8 +90,75 @@ final class LifecycleCoordinatorTests: XCTestCase {
         let result = try coordinator.apply(NamedSandboxRequest(sandboxName: spec.name))
 
         XCTAssertEqual(result, .success)
-        XCTAssertEqual(backend.calls, [.apply("mybox")])
+        XCTAssertEqual(backend.calls, [.status("mybox"), .apply("mybox")])
         XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit"])
+    }
+
+    func testApplyOnRunningSandboxPromptsBeforeInterruptingActiveSessions() throws {
+        let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
+        let metadataStore = MemoryMetadataStore(specs: [spec])
+        let backend = RecordingSandboxBackend(status: .running)
+        let prompt = RecordingPromptConfirmation(decisions: [.cancel])
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, prompt: prompt)
+
+        let result = try coordinator.apply(NamedSandboxRequest(sandboxName: spec.name))
+
+        XCTAssertEqual(result, .failure(exitCode: 1))
+        XCTAssertEqual(prompt.requests, [ConfirmationRequest(message: "Apply changes to running Sandbox VM mybox?", destructive: false)])
+        XCTAssertEqual(backend.calls, [.status("mybox")])
+        XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit"])
+    }
+
+    func testApplyRejectsManualCpuEditsAgainstCreatedSpecBeforeTouchingBackend() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let metadataStore = FileHostMetadataStore(root: root)
+        let name = try SandboxName("mybox")
+        let created = SandboxSpec.generated(name: name)
+        try metadataStore.createSpec(created)
+        let manuallyEdited = SandboxSpec(name: name, resourceProfile: ResourceProfile(cpus: 8, memory: MemorySize(gigabytes: 8)))
+        try manuallyEdited.renderedYAML().write(to: root.appendingPathComponent("specs/mybox.yaml"), atomically: true, encoding: .utf8)
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
+
+        XCTAssertThrowsError(try coordinator.apply(NamedSandboxRequest(sandboxName: name))) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .resourceProfileImmutable(field: "cpus"))
+        }
+        XCTAssertEqual(backend.calls, [])
+    }
+
+    func testApplyRejectsManualMemoryEditsAgainstCreatedSpecBeforeTouchingBackend() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let metadataStore = FileHostMetadataStore(root: root)
+        let name = try SandboxName("mybox")
+        let created = SandboxSpec.generated(name: name)
+        try metadataStore.createSpec(created)
+        let manuallyEdited = SandboxSpec(name: name, resourceProfile: ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 16)))
+        try manuallyEdited.renderedYAML().write(to: root.appendingPathComponent("specs/mybox.yaml"), atomically: true, encoding: .utf8)
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
+
+        XCTAssertThrowsError(try coordinator.apply(NamedSandboxRequest(sandboxName: name))) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .resourceProfileImmutable(field: "memory"))
+        }
+        XCTAssertEqual(backend.calls, [])
+    }
+
+    func testFolderMutationRejectsExistingManualResourceEditsBeforeWritingOrApplying() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let metadataStore = FileHostMetadataStore(root: root)
+        let name = try SandboxName("mybox")
+        try metadataStore.createSpec(.generated(name: name))
+        let manuallyEdited = SandboxSpec(name: name, resourceProfile: ResourceProfile(cpus: 8, memory: MemorySize(gigabytes: 8)))
+        try manuallyEdited.renderedYAML().write(to: root.appendingPathComponent("specs/mybox.yaml"), atomically: true, encoding: .utf8)
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let policy = FolderPolicy(resolvePath: { $0 })
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, folderPolicy: policy)
+
+        XCTAssertThrowsError(try coordinator.addFolder(AddFolderRequest(sandboxName: name, displayHostPath: "/Users/onur/Projects/sand", accessMode: "rw"))) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .resourceProfileImmutable(field: "cpus"))
+        }
+        XCTAssertEqual(try metadataStore.readSpec(named: name), manuallyEdited)
+        XCTAssertEqual(backend.calls, [])
     }
 
     func testSpecPrintsActiveSandboxSpec() throws {

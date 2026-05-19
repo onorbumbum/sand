@@ -39,19 +39,30 @@ public struct CLICommandRouter {
     }
 
     private func dispatchCreate(_ arguments: [String]) throws -> CommandResult {
-        guard let nameArgument = arguments.first else { throw CLICommandError.missingSandboxName }
-        let name = try SandboxName(nameArgument)
+        guard let firstArgument = arguments.first else { throw CLICommandError.missingSandboxName }
+        var name: SandboxName?
         var image = SandboxImage.developerReadyDefault
         var resourceProfile = ResourceProfile.default
         var authoredSpecText: String?
-        var index = 1
+        var index = 0
+
+        if !firstArgument.hasPrefix("--") {
+            name = try SandboxName(firstArgument)
+            index = 1
+        }
 
         while index < arguments.count {
             switch arguments[index] {
             case "--from":
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--from") }
-                authoredSpecText = try readTextFile(arguments[index])
+                let text = try readTextFile(arguments[index])
+                let spec = try SandboxSpec.parseYAML(text)
+                if let explicitName = name, explicitName != spec.name {
+                    throw CLICommandError.specNameMismatch(expected: explicitName.rawValue, actual: spec.name.rawValue)
+                }
+                name = spec.name
+                authoredSpecText = text
             case "--cpus":
                 index += 1
                 guard index < arguments.count, let cpus = Int(arguments[index]) else { throw CLICommandError.missingOptionValue("--cpus") }
@@ -72,6 +83,7 @@ public struct CLICommandRouter {
             index += 1
         }
 
+        guard let name else { throw CLICommandError.missingSandboxName }
         return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, resourceProfile: resourceProfile))
     }
 
@@ -174,6 +186,7 @@ public enum CLICommandError: Error, Equatable, CustomStringConvertible {
     case unsupportedCommand(String)
     case unsupportedAction(String)
     case unsupportedOption(String)
+    case specNameMismatch(expected: String, actual: String)
     case unexpectedArguments([String])
 
     public var description: String {
@@ -186,6 +199,7 @@ public enum CLICommandError: Error, Equatable, CustomStringConvertible {
         case .unsupportedCommand(let command): return "unsupported command: \(command)"
         case .unsupportedAction(let action): return "unsupported sandbox action: \(action)"
         case .unsupportedOption(let option): return "unsupported option: \(option)"
+        case .specNameMismatch(let expected, let actual): return "sandbox name mismatch: command expected \(expected), spec declares \(actual)"
         case .unexpectedArguments(let arguments): return "unexpected arguments: \(arguments.joined(separator: " "))"
         }
     }

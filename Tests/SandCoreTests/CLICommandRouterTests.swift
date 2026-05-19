@@ -8,10 +8,21 @@ final class CLICommandRouterTests: XCTestCase {
     }
 
     func testParsesEveryV1CommandShape() throws {
+        let authoredSpecText = """
+        schemaVersion: 1
+        name: mybox
+        image: sand/developer-ready:ubuntu-lts
+        resources:
+          cpus: 4
+          memory: 8GB
+        allowedFolders:
+          []
+        """
         let cases: [(arguments: [String], expected: AppCall)] = [
             (["doctor"], .doctor),
             (["create", "mybox"], .create("mybox", nil, "sand/developer-ready:ubuntu-lts", 4, 8192)),
-            (["create", "mybox", "--from", "spec.yaml"], .create("mybox", "authored", "sand/developer-ready:ubuntu-lts", 4, 8192)),
+            (["create", "mybox", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", 4, 8192)),
+            (["create", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", 4, 8192)),
             (["create", "mybox", "--cpus", "6", "--memory", "12GB", "--image", "custom:latest"], .create("mybox", nil, "custom:latest", 6, 12288)),
             (["list"], .list),
             (["apply", "mybox"], .apply("mybox")),
@@ -34,7 +45,7 @@ final class CLICommandRouterTests: XCTestCase {
             let app = RecordingSandboxApplication()
             let router = CLICommandRouter(application: app, readTextFile: { path in
                 XCTAssertEqual(path, "spec.yaml")
-                return "authored"
+                return authoredSpecText
             })
 
             XCTAssertEqual(try router.dispatch(arguments: testCase.arguments), .success, "\(testCase.arguments)")
@@ -50,6 +61,25 @@ final class CLICommandRouterTests: XCTestCase {
 
         XCTAssertEqual(result, .success)
         XCTAssertEqual(app.calls, [.run("mybox", ["pi", "--model", "gpt-5", "--", "literal"])])
+    }
+
+    func testCreateFromSpecRejectsExplicitNameThatDoesNotMatchSpecName() throws {
+        let router = CLICommandRouter(application: RecordingSandboxApplication(), readTextFile: { _ in
+            """
+            schemaVersion: 1
+            name: declared
+            image: sand/developer-ready:ubuntu-lts
+            resources:
+              cpus: 4
+              memory: 8GB
+            allowedFolders:
+              []
+            """
+        })
+
+        XCTAssertThrowsError(try router.dispatch(arguments: ["create", "requested", "--from", "spec.yaml"])) { error in
+            XCTAssertEqual(error as? CLICommandError, .specNameMismatch(expected: "requested", actual: "declared"))
+        }
     }
 
     func testAbsentV1CommandSurfaceIsRejected() throws {

@@ -4,6 +4,7 @@ import Foundation
 public protocol HostMetadataStore {
     func createSpec(_ spec: SandboxSpec) throws
     func readSpec(named name: SandboxName) throws -> SandboxSpec
+    func readCreatedSpec(named name: SandboxName) throws -> SandboxSpec
     func writeSpec(_ spec: SandboxSpec) throws
     func deleteSpec(named name: SandboxName) throws
     func listSpecs() throws -> [SandboxSpec]
@@ -17,12 +18,14 @@ public enum HostMetadataError: Error, Equatable, CustomStringConvertible {
     case specNotFound(String)
     case duplicateSandboxName(String)
     case unsupportedSchemaVersion(Int)
+    case specNameMismatch(expected: String, actual: String)
 
     public var description: String {
         switch self {
         case .specNotFound(let name): return "sandbox not found: \(name)"
         case .duplicateSandboxName(let name): return "sandbox already exists: \(name)"
         case .unsupportedSchemaVersion(let version): return "unsupported host metadata schema version: \(version)"
+        case .specNameMismatch(let expected, let actual): return "sandbox spec name mismatch: expected \(expected), found \(actual)"
         }
     }
 }
@@ -42,15 +45,15 @@ public final class FileHostMetadataStore: HostMetadataStore {
             throw HostMetadataError.duplicateSandboxName(spec.name.rawValue)
         }
         try writeSpec(spec)
+        try writeCreatedSpec(spec)
     }
 
     public func readSpec(named name: SandboxName) throws -> SandboxSpec {
-        let url = specURL(for: name)
-        guard fileManager.fileExists(atPath: url.path) else {
-            throw HostMetadataError.specNotFound(name.rawValue)
-        }
-        let text = try String(contentsOf: url, encoding: .utf8)
-        return try SandboxSpec.parseYAML(text)
+        try readSpecFile(at: specURL(for: name), named: name)
+    }
+
+    public func readCreatedSpec(named name: SandboxName) throws -> SandboxSpec {
+        try readSpecFile(at: createdSpecURL(for: name), named: name)
     }
 
     public func writeSpec(_ spec: SandboxSpec) throws {
@@ -68,8 +71,13 @@ public final class FileHostMetadataStore: HostMetadataStore {
 
     public func deleteSpec(named name: SandboxName) throws {
         let url = specURL(for: name)
-        guard fileManager.fileExists(atPath: url.path) else { return }
-        try fileManager.removeItem(at: url)
+        if fileManager.fileExists(atPath: url.path) {
+            try fileManager.removeItem(at: url)
+        }
+        let createdURL = createdSpecURL(for: name)
+        if fileManager.fileExists(atPath: createdURL.path) {
+            try fileManager.removeItem(at: createdURL)
+        }
     }
 
     public func listSpecs() throws -> [SandboxSpec] {
@@ -134,6 +142,7 @@ public final class FileHostMetadataStore: HostMetadataStore {
 
     private func ensureDirectories() throws {
         try fileManager.createDirectory(at: specsDirectory(), withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: createdSpecsDirectory(), withIntermediateDirectories: true)
         _ = try schemaVersionIfPresentOrCreate()
     }
 
@@ -160,7 +169,40 @@ public final class FileHostMetadataStore: HostMetadataStore {
         root.appendingPathComponent("specs", isDirectory: true)
     }
 
+    private func createdSpecsDirectory() -> URL {
+        root.appendingPathComponent("created-specs", isDirectory: true)
+    }
+
     private func specURL(for name: SandboxName) -> URL {
         specsDirectory().appendingPathComponent("\(name.rawValue).yaml")
+    }
+
+    private func createdSpecURL(for name: SandboxName) -> URL {
+        createdSpecsDirectory().appendingPathComponent("\(name.rawValue).yaml")
+    }
+
+    private func readSpecFile(at url: URL, named name: SandboxName) throws -> SandboxSpec {
+        guard fileManager.fileExists(atPath: url.path) else {
+            throw HostMetadataError.specNotFound(name.rawValue)
+        }
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let spec = try SandboxSpec.parseYAML(text)
+        guard spec.name == name else {
+            throw HostMetadataError.specNameMismatch(expected: name.rawValue, actual: spec.name.rawValue)
+        }
+        return spec
+    }
+
+    private func writeCreatedSpec(_ spec: SandboxSpec) throws {
+        try spec.validateV1()
+        try ensureDirectories()
+        let destination = createdSpecURL(for: spec.name)
+        let temporary = createdSpecsDirectory().appendingPathComponent(".\(spec.name.rawValue).yaml.tmp")
+        try spec.renderedYAML().write(to: temporary, atomically: true, encoding: .utf8)
+        if fileManager.fileExists(atPath: destination.path) {
+            _ = try fileManager.replaceItemAt(destination, withItemAt: temporary, backupItemName: nil, options: [])
+        } else {
+            try fileManager.moveItem(at: temporary, to: destination)
+        }
     }
 }

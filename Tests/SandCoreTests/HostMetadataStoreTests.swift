@@ -70,6 +70,19 @@ final class HostMetadataStoreTests: XCTestCase {
         XCTAssertFalse(files.contains { $0.hasSuffix(".tmp") })
     }
 
+    func testFileStoreRejectsSpecWhoseDeclaredNameDoesNotMatchRequestedName() throws {
+        let root = temporaryDirectory()
+        let store = FileHostMetadataStore(root: root)
+        let name = try SandboxName("mybox")
+        try store.createSpec(SandboxSpec.generated(name: name))
+        let wrongName = SandboxSpec.generated(name: try SandboxName("other"))
+        try wrongName.renderedYAML().write(to: root.appendingPathComponent("specs/mybox.yaml"), atomically: true, encoding: .utf8)
+
+        XCTAssertThrowsError(try store.readSpec(named: name)) { error in
+            XCTAssertEqual(error as? HostMetadataError, .specNameMismatch(expected: "mybox", actual: "other"))
+        }
+    }
+
     func testLifecycleMutationLockSerializesOperations() throws {
         let store = MemoryMetadataStore()
 
