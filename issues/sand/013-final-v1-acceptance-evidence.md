@@ -3,7 +3,7 @@
 Date: 2026-05-19
 Sandbox name: `sandv1accept519`
 Host fixtures: `/tmp/sand-v1-acceptance-20260519`
-Product CLI: `/Users/onorbumbum/_PROJECTS/sand/.build/debug/sand`
+Product CLI: `/Users/me/Projects/sand/.build/debug/sand`
 
 
 ## Build product
@@ -234,7 +234,7 @@ Test Suite 'All tests' passed at 2026-05-19 00:35:48.128.
 ## sand doctor
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand doctor
+$ /Users/me/Projects/sand/.build/debug/sand doctor
 sand doctor: all Sandbox VM prerequisites OK
 [exit 0]
 ```
@@ -242,14 +242,14 @@ sand doctor: all Sandbox VM prerequisites OK
 ## Create Sandbox VM
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand create sandv1accept519
+$ /Users/me/Projects/sand/.build/debug/sand create sandv1accept519
 [exit 0]
 ```
 
 ## sand list after create
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand list
+$ /Users/me/Projects/sand/.build/debug/sand list
 mybox	running	sand/developer-ready:ubuntu-lts	1 folders
 sandv1accept519	stopped	sand/developer-ready:ubuntu-lts	0 folders
 [exit 0]
@@ -258,7 +258,7 @@ sandv1accept519	stopped	sand/developer-ready:ubuntu-lts	0 folders
 ## sand status after create
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 status
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 status
 name: sandv1accept519
 state: stopped
 image: sand/developer-ready:ubuntu-lts
@@ -270,7 +270,7 @@ allowedFolders: 0
 ## sand spec after create
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 spec
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 spec
 schemaVersion: 1
 name: sandv1accept519
 image: sand/developer-ready:ubuntu-lts
@@ -285,21 +285,21 @@ allowedFolders:
 ## Add read-write project Allowed Folder
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders add sandv1accept519 /tmp/sand-v1-acceptance-20260519/project rw --as /workspace/project
+$ /Users/me/Projects/sand/.build/debug/sand folders add sandv1accept519 /tmp/sand-v1-acceptance-20260519/project rw --as /workspace/project
 [exit 0]
 ```
 
 ## Add read-only reference Allowed Folder
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders add sandv1accept519 /tmp/sand-v1-acceptance-20260519/reference ro --as /workspace/reference
+$ /Users/me/Projects/sand/.build/debug/sand folders add sandv1accept519 /tmp/sand-v1-acceptance-20260519/reference ro --as /workspace/reference
 [exit 0]
 ```
 
 ## Allowed Folder audit
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders list sandv1accept519
+$ /Users/me/Projects/sand/.build/debug/sand folders list sandv1accept519
 Host Path	Guest Path	Access Mode
 /tmp/sand-v1-acceptance-20260519/project	/workspace/project	read-write
 /tmp/sand-v1-acceptance-20260519/reference	/workspace/reference	read-only
@@ -309,7 +309,7 @@ Host Path	Guest Path	Access Mode
 ## Sandbox spec after folders
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 spec
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 spec
 schemaVersion: 1
 name: sandv1accept519
 image: sand/developer-ready:ubuntu-lts
@@ -331,7 +331,7 @@ allowedFolders:
 ## Workload Command from mapped Host Mac cwd
 
 ```console
-$ cd /tmp/sand-v1-acceptance-20260519/project/subdir && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 run bash -lc printf "guest-pwd=%s\\n" "$PWD"; printf "input="; cat input.txt; printf "reference="; cat /workspace/reference/reference.txt
+$ cd /tmp/sand-v1-acceptance-20260519/project/subdir && /Users/me/Projects/sand/.build/debug/sand sandv1accept519 run bash -lc printf "guest-pwd=%s\\n" "$PWD"; printf "input="; cat input.txt; printf "reference="; cat /workspace/reference/reference.txt
 guest-pwd=/workspace/project/subdir
 input=project-data
 reference=reference-data
@@ -341,7 +341,7 @@ reference=reference-data
 ## Interactive Sandbox Session, Sandbox User, passwordless sudo
 
 ```console
-$ cd /tmp/sand-v1-acceptance-20260519/project/subdir && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 shell
+$ cd /tmp/sand-v1-acceptance-20260519/project/subdir && /Users/me/Projects/sand/.build/debug/sand sandv1accept519 shell
 sandbox@sandv1accept519:/workspace/project/subdir$ printf 'interactive-pwd=%s\n'
  "$PWD"; printf 'interactive-user='; whoami; sudo -n true && echo 'passwordless-
 sudo=ok'; echo 'shell-marker' > interactive-shell.txt
@@ -354,7 +354,7 @@ sandbox@sandv1accept519:/workspace/project/subdir$
 ## Concurrent session while interactive shell remained open
 
 ```console
-$ cd /tmp/sand-v1-acceptance-20260519/project/subdir && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 run bash -lc 'echo concurrent-run-ok; pwd; whoami'
+$ cd /tmp/sand-v1-acceptance-20260519/project/subdir && /Users/me/Projects/sand/.build/debug/sand sandv1accept519 run bash -lc 'echo concurrent-run-ok; pwd; whoami'
 concurrent-run-ok
 /workspace/project/subdir
 sandbox
@@ -364,7 +364,7 @@ __EXIT_CODE__:0
 ## Guest write then Host-Safe File Ownership check
 
 ```console
-$ cd /tmp/sand-v1-acceptance-20260519/project/subdir && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 run bash -lc echo guest-write > host-owned.txt && ls -ln host-owned.txt && cat host-owned.txt
+$ cd /tmp/sand-v1-acceptance-20260519/project/subdir && /Users/me/Projects/sand/.build/debug/sand sandv1accept519 run bash -lc echo guest-write > host-owned.txt && ls -ln host-owned.txt && cat host-owned.txt
 -rw-r--r-- 1 1001 1001 12 May 19 07:37 host-owned.txt
 guest-write
 [exit 0]
@@ -384,7 +384,7 @@ guest-write
 ## Write Guest State marker
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 run bash -lc echo persisted-state > "$HOME/.pi/persist.txt" && readlink "$HOME/.pi" && cat "$HOME/.pi/persist.txt"
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 run bash -lc echo persisted-state > "$HOME/.pi/persist.txt" && readlink "$HOME/.pi" && cat "$HOME/.pi/persist.txt"
 Current directory is not inside an Allowed Folder; starting in /workspace.
 /state/sandbox/.pi
 persisted-state
@@ -394,14 +394,14 @@ persisted-state
 ## Stop Sandbox VM
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 stop
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 stop
 [exit 0]
 ```
 
 ## Status after stop
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 status
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 status
 name: sandv1accept519
 state: stopped
 image: sand/developer-ready:ubuntu-lts
@@ -413,14 +413,14 @@ allowedFolders: 2
 ## Start Sandbox VM
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 start
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 start
 [exit 0]
 ```
 
 ## Guest State persists after start
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 run bash -lc cat "$HOME/.pi/persist.txt"
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 run bash -lc cat "$HOME/.pi/persist.txt"
 Current directory is not inside an Allowed Folder; starting in /workspace.
 persisted-state
 [exit 0]
@@ -429,7 +429,7 @@ persisted-state
 ## Manual Sandbox Spec edit
 
 ```console
-$ cat >> /Users/onorbumbum/.sand/specs/sandv1accept519.yaml <<'YAML'
+$ cat >> /Users/me/.sand/specs/sandv1accept519.yaml <<'YAML'
   - hostPath: /tmp/sand-v1-acceptance-20260519/manual
     resolvedHostPath: /tmp/sand-v1-acceptance-20260519/manual
     guestPath: /workspace/manual
@@ -440,14 +440,14 @@ YAML
 ## Apply manual spec edit with running-Sandbox confirmation
 
 ```console
-$ printf 'y\n' | '/Users/onorbumbum/_PROJECTS/sand/.build/debug/sand' apply 'sandv1accept519'
+$ printf 'y\n' | '/Users/me/Projects/sand/.build/debug/sand' apply 'sandv1accept519'
 Apply changes to running Sandbox VM sandv1accept519? Proceed? [y/N] [exit 0]
 ```
 
 ## Spec after manual reconciliation
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 spec
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 spec
 schemaVersion: 1
 name: sandv1accept519
 image: sand/developer-ready:ubuntu-lts
@@ -473,7 +473,7 @@ allowedFolders:
 ## Manual spec mount reconciled into backend
 
 ```console
-$ cd /tmp/sand-v1-acceptance-20260519/manual && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 run bash -lc pwd; cat manual.txt
+$ cd /tmp/sand-v1-acceptance-20260519/manual && /Users/me/Projects/sand/.build/debug/sand sandv1accept519 run bash -lc pwd; cat manual.txt
 /workspace/manual
 manual-data
 [exit 0]
@@ -482,7 +482,7 @@ manual-data
 ## View Sandbox VM logs
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 logs
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 logs
 No logs available for Sandbox VM sandv1accept519.
 [exit 0]
 ```
@@ -490,7 +490,7 @@ No logs available for Sandbox VM sandv1accept519.
 ## Out-of-scope reset command absent
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand reset sandv1accept519
+$ /Users/me/Projects/sand/.build/debug/sand reset sandv1accept519
 sand: unsupported command: reset
 [exit 1]
 ```
@@ -498,7 +498,7 @@ sand: unsupported command: reset
 ## Out-of-scope Pi shortcut command absent
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 pi
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 pi
 sand: unsupported sandbox action: pi
 [exit 1]
 ```
@@ -506,7 +506,7 @@ sand: unsupported sandbox action: pi
 ## Out-of-scope inbound networking config absent
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand create sandv1inbound --inbound 8080:8080
+$ /Users/me/Projects/sand/.build/debug/sand create sandv1inbound --inbound 8080:8080
 sand: unsupported option: --inbound
 [exit 1]
 ```
@@ -514,7 +514,7 @@ sand: unsupported option: --inbound
 ## Out-of-scope editor integration absent
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 edit
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 edit
 sand: unsupported sandbox action: edit
 [exit 1]
 ```
@@ -522,7 +522,7 @@ sand: unsupported sandbox action: edit
 ## Out-of-scope shell completion absent
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand completion
+$ /Users/me/Projects/sand/.build/debug/sand completion
 sand: missing sandbox action
 [exit 1]
 ```
@@ -530,7 +530,7 @@ sand: missing sandbox action
 ## Out-of-scope default implicit selection absent
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand status
+$ /Users/me/Projects/sand/.build/debug/sand status
 sand: missing sandbox action
 [exit 1]
 ```
@@ -538,7 +538,7 @@ sand: missing sandbox action
 ## Out-of-scope project-local implicit selection absent
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand run echo hi
+$ /Users/me/Projects/sand/.build/debug/sand run echo hi
 sand: unsupported sandbox action: echo
 [exit 1]
 ```
@@ -546,7 +546,7 @@ sand: unsupported sandbox action: echo
 ## Host pi mount and credential forwarding absent inside Sandbox
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sandv1accept519 run bash -lc test "$(readlink "$HOME/.pi")" = /state/sandbox/.pi; test ! -e /Users; test ! -e /host; test ! -S /run/host-services/ssh-auth.sock; test -z "${SSH_AUTH_SOCK:-}"; echo credential-boundary-ok
+$ /Users/me/Projects/sand/.build/debug/sand sandv1accept519 run bash -lc test "$(readlink "$HOME/.pi")" = /state/sandbox/.pi; test ! -e /Users; test ! -e /host; test ! -S /run/host-services/ssh-auth.sock; test -z "${SSH_AUTH_SOCK:-}"; echo credential-boundary-ok
 Current directory is not inside an Allowed Folder; starting in /workspace.
 credential-boundary-ok
 [exit 0]
@@ -555,28 +555,28 @@ credential-boundary-ok
 ## No fake backend or env backend selector in product sources
 
 ```console
-$ cd '/Users/onorbumbum/_PROJECTS/sand' && grep -R -n -E 'FakeSandboxBackend|RecordingSandboxBackend|ProcessInfo\.processInfo\.environment|SAND_BACKEND|MOCK|IN_MEMORY' Sources || true
+$ cd '/Users/me/Projects/sand' && grep -R -n -E 'FakeSandboxBackend|RecordingSandboxBackend|ProcessInfo\.processInfo\.environment|SAND_BACKEND|MOCK|IN_MEMORY' Sources || true
 [exit 0]
 ```
 
 ## No raw Apple container string outside backend adapter boundary
 
 ```console
-$ cd '/Users/onorbumbum/_PROJECTS/sand' && find Sources -name '*.swift' ! -path '*/Backend/AppleContainerCLIBackend.swift' -print0 | xargs -0 grep -n 'container' || true
+$ cd '/Users/me/Projects/sand' && find Sources -name '*.swift' ! -path '*/Backend/AppleContainerCLIBackend.swift' -print0 | xargs -0 grep -n 'container' || true
 [exit 0]
 ```
 
 ## Delete Sandbox VM
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand delete sandv1accept519 --force
+$ /Users/me/Projects/sand/.build/debug/sand delete sandv1accept519 --force
 [exit 0]
 ```
 
 ## sand list after delete
 
 ```console
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand list
+$ /Users/me/Projects/sand/.build/debug/sand list
 mybox	running	sand/developer-ready:ubuntu-lts	1 folders
 [exit 0]
 ```
@@ -584,7 +584,7 @@ mybox	running	sand/developer-ready:ubuntu-lts	1 folders
 ## Metadata cleanup after delete
 
 ```console
-$ test ! -e '/Users/onorbumbum/.sand/specs/sandv1accept519.yaml'; test ! -e '/Users/onorbumbum/.sand/created-specs/sandv1accept519.yaml'; echo metadata-cleaned
+$ test ! -e '/Users/me/.sand/specs/sandv1accept519.yaml'; test ! -e '/Users/me/.sand/created-specs/sandv1accept519.yaml'; echo metadata-cleaned
 metadata-cleaned
 [exit 0]
 ```

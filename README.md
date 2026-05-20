@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: eb9ba39b4ba3e4a398cd2dda095cc1be41d0d147044d02c5465ed78c7a361c2e -->
+<!-- docs-input-hash: 4611688f2471ede3a9c27aa0340797287c49354225e6bbf68a7472d6629486cd -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -15,6 +15,12 @@ Modern coding agents and developer CLIs are powerful because they can read code,
 `sand` gives those tools a dedicated workspace. Pi can still work like a capable coding assistant, but the boundary is easier to understand: the Sandbox VM gets its own Linux world, and your Mac only exposes the folders you explicitly allow.
 
 For the longer write-up on why I built it, read [Sand — simple VMs for Mac](https://onuruzunismail.com/blog/sand.html).
+
+## Project status
+
+`sand` is experimental alpha software, released under the [Apache License 2.0](LICENSE). It is provided as-is, without a support guarantee or response SLA.
+
+Public GitHub issues are welcome for bugs, questions, and feature ideas. Please report security vulnerabilities through GitHub private vulnerability reporting, not public issues. External pull requests are not accepted yet.
 
 ## The problem it solves
 
@@ -40,9 +46,9 @@ It does that by making three things explicit:
 | “Pause it without losing its setup.” | `sand demo stop` |
 | “Remove it when I am done.” | `sand delete demo` |
 
-## What you get in v1
+## Current alpha scope
 
-v1 is intentionally focused on the daily loop:
+This alpha is intentionally focused on the daily loop:
 
 - create, list, inspect, start, stop, apply, log, and delete Sandbox VMs
 - add Host Mac folders as read-write or read-only Guest Paths

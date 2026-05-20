@@ -47,7 +47,7 @@ $ .build/debug/sand sand-tdd-230533 run /bin/sh -lc cat /tmp/sand-marker-005 && 
 $ printf no | .build/debug/sand delete sand-tdd-230533
 Delete Sandbox VM sand-tdd-230533? Type 'yes' to continue: [exit 1]
 
-$ test -f /Users/onorbumbum/.sand/specs/sand-tdd-230533.yaml
+$ test -f /Users/me/.sand/specs/sand-tdd-230533.yaml
 [exit 0]
 
 $ container inspect sand-tdd-230533
@@ -57,7 +57,7 @@ $ container inspect sand-tdd-230533
 $ .build/debug/sand delete sand-tdd-230533 --force
 [exit 0]
 
-$ test ! -f '/Users/onorbumbum/.sand/specs/sand-tdd-230533.yaml'
+$ test ! -f '/Users/me/.sand/specs/sand-tdd-230533.yaml'
 [exit 0]
 
 $ test "$(container inspect 'sand-tdd-230533')" = '[]'

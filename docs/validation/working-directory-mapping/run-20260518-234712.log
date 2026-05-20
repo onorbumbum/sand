@@ -2,7 +2,7 @@
 
 ### Build sand and prepare host directories
 
-$ swift build --package-path /Users/onorbumbum/_PROJECTS/sand
+$ swift build --package-path /Users/me/Projects/sand
 [0/1] Planning build
 Building for debugging...
 [0/3] Write swift-version--58304C5D6DBC2206.txt
@@ -25,7 +25,7 @@ container CLI version 0.12.3 (build: release, commit: f989901)
 $ container system status
 FIELD              VALUE
 status             running
-appRoot            /Users/onorbumbum/Library/Application Support/com.apple.container/
+appRoot            /Users/me/Library/Application Support/com.apple.container/
 installRoot        /usr/local/
 logRoot            
 apiserver.version  container-apiserver version 0.12.3 (build: release, commit: f989901)
@@ -41,13 +41,13 @@ $ container image inspect sand/developer-ready:ubuntu-lts
 
 ### Create Sandbox VM with one Allowed Folder
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand create sand-wd-234712 --cpus 2 --memory 1GB
+$ /Users/me/Projects/sand/.build/debug/sand create sand-wd-234712 --cpus 2 --memory 1GB
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders add sand-wd-234712 /tmp/sand-working-directory-sand-wd-234712/project rw --as /workspace/project
+$ /Users/me/Projects/sand/.build/debug/sand folders add sand-wd-234712 /tmp/sand-working-directory-sand-wd-234712/project rw --as /workspace/project
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders list sand-wd-234712
+$ /Users/me/Projects/sand/.build/debug/sand folders list sand-wd-234712
 Host Path	Guest Path	Access Mode
 /tmp/sand-working-directory-sand-wd-234712/project	/workspace/project	read-write
 [exit 0]
@@ -55,28 +55,28 @@ Host Path	Guest Path	Access Mode
 
 ### run maps allowed, nested, symlinked, and outside Host cwd paths
 
-$ (cd /tmp/sand-working-directory-sand-wd-234712/project && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-wd-234712 run pwd)
+$ (cd /tmp/sand-working-directory-sand-wd-234712/project && /Users/me/Projects/sand/.build/debug/sand sand-wd-234712 run pwd)
 [exit 0]
 --- stdout ---
 /workspace/project
 --- stderr ---
 
 
-$ (cd /tmp/sand-working-directory-sand-wd-234712/project/src/module && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-wd-234712 run pwd)
+$ (cd /tmp/sand-working-directory-sand-wd-234712/project/src/module && /Users/me/Projects/sand/.build/debug/sand sand-wd-234712 run pwd)
 [exit 0]
 --- stdout ---
 /workspace/project/src/module
 --- stderr ---
 
 
-$ (cd /tmp/sand-working-directory-sand-wd-234712/project-link/src/module && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-wd-234712 run pwd)
+$ (cd /tmp/sand-working-directory-sand-wd-234712/project-link/src/module && /Users/me/Projects/sand/.build/debug/sand sand-wd-234712 run pwd)
 [exit 0]
 --- stdout ---
 /workspace/project/src/module
 --- stderr ---
 
 
-$ (cd /tmp/sand-working-directory-sand-wd-234712/outside && /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-wd-234712 run pwd)
+$ (cd /tmp/sand-working-directory-sand-wd-234712/outside && /Users/me/Projects/sand/.build/debug/sand sand-wd-234712 run pwd)
 [exit 0]
 --- stdout ---
 /workspace
@@ -103,6 +103,6 @@ SHELL_EXIT:0
 
 ### Cleanup through sand delete
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand delete sand-wd-234712 --force
+$ /Users/me/Projects/sand/.build/debug/sand delete sand-wd-234712 --force
 [exit 0]
-Validation completed successfully. Log: /Users/onorbumbum/_PROJECTS/sand/docs/validation/working-directory-mapping/run-20260518-234712.log
+Validation completed successfully. Log: /Users/me/Projects/sand/docs/validation/working-directory-mapping/run-20260518-234712.log

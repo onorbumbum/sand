@@ -2,7 +2,7 @@
 
 ### Build sand and prepare declarative spec inputs
 
-$ swift build --package-path /Users/onorbumbum/_PROJECTS/sand
+$ swift build --package-path /Users/me/Projects/sand
 [0/1] Planning build
 Building for debugging...
 [0/3] Write swift-version--58304C5D6DBC2206.txt
@@ -40,33 +40,33 @@ allowedFolders:
 
 ### Create real Sandbox VM from user-authored spec without a CLI name
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand create --from /tmp/sand-declarative-apply-sand-apply-235756/spec.yaml
+$ /Users/me/Projects/sand/.build/debug/sand create --from /tmp/sand-declarative-apply-sand-apply-235756/spec.yaml
 [exit 0]
 
-$ test -f '/Users/onorbumbum/.sand/specs/sand-apply-235756.yaml'
+$ test -f '/Users/me/.sand/specs/sand-apply-235756.yaml'
 [exit 0]
 
-$ test -f '/Users/onorbumbum/.sand/created-specs/sand-apply-235756.yaml'
+$ test -f '/Users/me/.sand/created-specs/sand-apply-235756.yaml'
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-apply-235756 start
+$ /Users/me/Projects/sand/.build/debug/sand sand-apply-235756 start
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-apply-235756 run bash -lc cat /code/code.txt && sudo sh -c "echo guest-state-marker > /state/apply-marker"
+$ /Users/me/Projects/sand/.build/debug/sand sand-apply-235756 run bash -lc cat /code/code.txt && sudo sh -c "echo guest-state-marker > /state/apply-marker"
 Current directory is not inside an Allowed Folder; starting in /workspace.
 code-host
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-apply-235756 stop
+$ /Users/me/Projects/sand/.build/debug/sand sand-apply-235756 stop
 [exit 0]
 
 
 ### Manual spec edit applies real backend configuration while preserving Guest State
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand apply sand-apply-235756
+$ /Users/me/Projects/sand/.build/debug/sand apply sand-apply-235756
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-apply-235756 run bash -lc cat /extra/extra.txt && sudo cat /state/apply-marker
+$ /Users/me/Projects/sand/.build/debug/sand sand-apply-235756 run bash -lc cat /extra/extra.txt && sudo cat /state/apply-marker
 Current directory is not inside an Allowed Folder; starting in /workspace.
 extra-host
 guest-state-marker
@@ -81,7 +81,7 @@ cancelled running apply did not expose /running
 
 ### Approved running apply reconciles backend and preserves Guest State
 Apply changes to running Sandbox VM sand-apply-235756? Proceed? [y/N] 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-apply-235756 run bash -lc cat /running/running.txt && sudo cat /state/apply-marker
+$ /Users/me/Projects/sand/.build/debug/sand sand-apply-235756 run bash -lc cat /running/running.txt && sudo cat /state/apply-marker
 Current directory is not inside an Allowed Folder; starting in /workspace.
 running-host
 guest-state-marker
@@ -95,15 +95,15 @@ CPU edit after creation rejected
 
 ### Cleanup through sand delete removes runtime and metadata
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand delete sand-apply-235756 --force
+$ /Users/me/Projects/sand/.build/debug/sand delete sand-apply-235756 --force
 [exit 0]
 
-$ test ! -f '/Users/onorbumbum/.sand/specs/sand-apply-235756.yaml'
+$ test ! -f '/Users/me/.sand/specs/sand-apply-235756.yaml'
 [exit 0]
 
-$ test ! -f '/Users/onorbumbum/.sand/created-specs/sand-apply-235756.yaml'
+$ test ! -f '/Users/me/.sand/created-specs/sand-apply-235756.yaml'
 [exit 0]
 
 $ test "$(container inspect 'sand-apply-235756' 2>/dev/null || true)" = '[]'
 [exit 0]
-Validation completed successfully. Log: /Users/onorbumbum/_PROJECTS/sand/docs/validation/declarative-spec-apply/run-20260518-235756.log
+Validation completed successfully. Log: /Users/me/Projects/sand/docs/validation/declarative-spec-apply/run-20260518-235756.log

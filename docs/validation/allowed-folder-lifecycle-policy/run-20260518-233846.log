@@ -2,7 +2,7 @@
 
 ### Build sand and prepare host folders
 
-$ swift build --package-path /Users/onorbumbum/_PROJECTS/sand
+$ swift build --package-path /Users/me/Projects/sand
 [0/1] Planning build
 Building for debugging...
 [0/3] Write swift-version--58304C5D6DBC2206.txt
@@ -24,50 +24,50 @@ $ ln -s /tmp/sand-allowed-folder-sand-af-233846/rw/subdir /tmp/sand-allowed-fold
 
 ### Create stopped Sandbox VM and add read-write folder with default Guest Path
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand create sand-af-233846 --cpus 2 --memory 1GB
+$ /Users/me/Projects/sand/.build/debug/sand create sand-af-233846 --cpus 2 --memory 1GB
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/rw rw
+$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/rw rw
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders list sand-af-233846
+$ /Users/me/Projects/sand/.build/debug/sand folders list sand-af-233846
 Host Path	Guest Path	Access Mode
 /tmp/sand-allowed-folder-sand-af-233846/rw	/workspace/rw	read-write
 [exit 0]
 
-$ grep -F '/tmp/sand-allowed-folder-sand-af-233846/rw' '/Users/onorbumbum/.sand/specs/sand-af-233846.yaml'
+$ grep -F '/tmp/sand-allowed-folder-sand-af-233846/rw' '/Users/me/.sand/specs/sand-af-233846.yaml'
   - hostPath: /tmp/sand-allowed-folder-sand-af-233846/rw
     resolvedHostPath: /tmp/sand-allowed-folder-sand-af-233846/rw
 [exit 0]
 
-$ grep -F 'guestPath: /workspace/rw' '/Users/onorbumbum/.sand/specs/sand-af-233846.yaml'
+$ grep -F 'guestPath: /workspace/rw' '/Users/me/.sand/specs/sand-af-233846.yaml'
     guestPath: /workspace/rw
 [exit 0]
 
-$ grep -F 'accessMode: read-write' '/Users/onorbumbum/.sand/specs/sand-af-233846.yaml'
+$ grep -F 'accessMode: read-write' '/Users/me/.sand/specs/sand-af-233846.yaml'
     accessMode: read-write
 [exit 0]
 
 
 ### Idempotently update existing host folder Guest Path and add read-only folder
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/rw read-write --as /code
+$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/rw read-write --as /code
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/ro ro --as /reference
+$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/ro ro --as /reference
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders list sand-af-233846
+$ /Users/me/Projects/sand/.build/debug/sand folders list sand-af-233846
 Host Path	Guest Path	Access Mode
 /tmp/sand-allowed-folder-sand-af-233846/rw	/code	read-write
 /tmp/sand-allowed-folder-sand-af-233846/ro	/reference	read-only
 [exit 0]
 
-$ grep -F 'guestPath: /code' '/Users/onorbumbum/.sand/specs/sand-af-233846.yaml'
+$ grep -F 'guestPath: /code' '/Users/me/.sand/specs/sand-af-233846.yaml'
     guestPath: /code
 [exit 0]
 
-$ grep -F 'accessMode: read-only' '/Users/onorbumbum/.sand/specs/sand-af-233846.yaml'
+$ grep -F 'accessMode: read-only' '/Users/me/.sand/specs/sand-af-233846.yaml'
     accessMode: read-only
 [exit 0]
 
@@ -83,24 +83,24 @@ symlink realpath overlap rejected
 
 ### Remove and re-add an Allowed Folder while stopped
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders remove sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/ro
+$ /Users/me/Projects/sand/.build/debug/sand folders remove sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/ro
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders list sand-af-233846
+$ /Users/me/Projects/sand/.build/debug/sand folders list sand-af-233846
 Host Path	Guest Path	Access Mode
 /tmp/sand-allowed-folder-sand-af-233846/rw	/code	read-write
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/ro read-only --as /reference
+$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/ro read-only --as /reference
 [exit 0]
 
 
 ### Real read-write/read-only behavior and Host-Safe File Ownership
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-af-233846 start
+$ /Users/me/Projects/sand/.build/debug/sand sand-af-233846 start
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-af-233846 run bash -lc echo guest-created > /code/guest-created.txt && echo guest-modified >> /code/host-owned.txt && cat /code/guest-created.txt /code/host-owned.txt
+$ /Users/me/Projects/sand/.build/debug/sand sand-af-233846 run bash -lc echo guest-created > /code/guest-created.txt && echo guest-modified >> /code/host-owned.txt && cat /code/guest-created.txt /code/host-owned.txt
 guest-created
 host-original
 guest-modified
@@ -133,15 +133,15 @@ Apply changes to running Sandbox VM sand-af-233846? Proceed? [y/N] running confi
 
 ### Cleanup through sand delete removes runtime metadata
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand sand-af-233846 stop
+$ /Users/me/Projects/sand/.build/debug/sand sand-af-233846 stop
 [exit 0]
 
-$ /Users/onorbumbum/_PROJECTS/sand/.build/debug/sand delete sand-af-233846 --force
+$ /Users/me/Projects/sand/.build/debug/sand delete sand-af-233846 --force
 [exit 0]
 
-$ test ! -e '/Users/onorbumbum/.sand/specs/sand-af-233846.yaml'
+$ test ! -e '/Users/me/.sand/specs/sand-af-233846.yaml'
 [exit 0]
 
 $ test "[]" = '[]'
 [exit 0]
-Validation completed successfully. Log: /Users/onorbumbum/_PROJECTS/sand/docs/validation/allowed-folder-lifecycle-policy/run-20260518-233846.log
+Validation completed successfully. Log: /Users/me/Projects/sand/docs/validation/allowed-folder-lifecycle-policy/run-20260518-233846.log

@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: eb9ba39b4ba3e4a398cd2dda095cc1be41d0d147044d02c5465ed78c7a361c2e -->
+<!-- docs-input-hash: 4611688f2471ede3a9c27aa0340797287c49354225e6bbf68a7472d6629486cd -->
 
 # sand Onboarding Guide
 
@@ -9,6 +9,8 @@
 ## What this repo is
 
 `sand` is a Swift CLI for creating and managing **Sandbox VMs**: isolated Linux machines on a **Host Mac** with persistent **Guest State**, explicit **Allowed Folders**, and generic **Workload Commands**. Pi is the primary workflow, and the same sandbox can run other developer tools when needed.
+
+`sand` is experimental alpha software released under the Apache License 2.0. Public issues are welcome, but there is no support guarantee or response SLA, and external pull requests are not accepted yet.
 
 Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md). Prefer terms like **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Sandbox Session**, and **Workload Command**.
 

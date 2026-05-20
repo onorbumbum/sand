@@ -9,7 +9,7 @@ Build complete! (0.11s)
 container CLI version 0.12.3 (build: release, commit: f989901)
 FIELD              VALUE
 status             running
-appRoot            /Users/onorbumbum/Library/Application Support/com.apple.container/
+appRoot            /Users/me/Library/Application Support/com.apple.container/
 installRoot        /usr/local/
 logRoot            
 apiserver.version  container-apiserver version 0.12.3 (build: release, commit: f989901)
@@ -73,4 +73,4 @@ sandbox@sand007shell:/workspace$
 ## Exit sessions
 
 ## Validation passed
-Raw log: /Users/onorbumbum/_PROJECTS/sand/docs/validation/shell-sessions-sandbox-user/run-20260518-232548.log
+Raw log: /Users/me/Projects/sand/docs/validation/shell-sessions-sandbox-user/run-20260518-232548.log

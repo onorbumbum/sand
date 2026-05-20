@@ -1,6 +1,6 @@
 # Real Apple backend acceptance log for issues/sand/004-create-list-status-spec.md
 
-Working directory: /Users/onorbumbum/_PROJECTS/sand
+Working directory: /Users/me/Projects/sand
 Sandbox name: sand-tdd-225306
 Backend: Apple container CLI 0.12.3
 Image: sand/developer-ready:ubuntu-lts

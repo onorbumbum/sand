@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: eb9ba39b4ba3e4a398cd2dda095cc1be41d0d147044d02c5465ed78c7a361c2e -->
+<!-- docs-input-hash: 4611688f2471ede3a9c27aa0340797287c49354225e6bbf68a7472d6629486cd -->
 
 # sand Developer Guide
 
@@ -11,6 +11,10 @@
 Use [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) as the source of truth for user-facing language. The product is a **Sandbox VM** tool for a **Host Mac** with explicit **Allowed Folders**, persistent **Guest State**, **Sandbox Sessions**, and generic **Workload Commands**. Pi is a workload, not a special `sand` command.
 
 Keep backend-specific wording inside backend implementation and tests. User-facing docs, errors, help, and specs should describe the Sandbox VM domain, not the underlying adapter.
+
+## Public repository stance
+
+`sand` is experimental alpha software under the Apache License 2.0. Public issues are welcome for bugs, questions, and feature ideas, but there is no support guarantee or response SLA. Report security vulnerabilities through GitHub private vulnerability reporting, not public issues. External pull requests are not accepted yet.
 
 ## High-level architecture
 

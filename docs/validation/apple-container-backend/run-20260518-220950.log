@@ -13,7 +13,7 @@ container CLI version 0.12.3 (build: release, commit: f989901)
 $ container system status
 FIELD              VALUE
 status             running
-appRoot            /Users/onorbumbum/Library/Application Support/com.apple.container/
+appRoot            /Users/me/Library/Application Support/com.apple.container/
 installRoot        /usr/local/
 logRoot            
 apiserver.version  container-apiserver version 0.12.3 (build: release, commit: f989901)
@@ -30,7 +30,7 @@ Verifying apiserver is running...
 $ container system status
 FIELD              VALUE
 status             running
-appRoot            /Users/onorbumbum/Library/Application Support/com.apple.container/
+appRoot            /Users/me/Library/Application Support/com.apple.container/
 installRoot        /usr/local/
 logRoot            
 apiserver.version  container-apiserver version 0.12.3 (build: release, commit: f989901)
@@ -85,7 +85,7 @@ drwxr-xr-x@ 2 501  0   64 May 18 22:09 subdir
 
 ### Build developer-ready validation image
 
-$ container build --progress plain -t sand-validation-dev:latest /Users/onorbumbum/_PROJECTS/sand/docs/validation/apple-container-backend
+$ container build --progress plain -t sand-validation-dev:latest /Users/me/Projects/sand/docs/validation/apple-container-backend
 #1 [resolver] fetching image...docker.io/library/ubuntu:24.04
 #1 DONE 0.0s
 
@@ -349,4 +349,4 @@ drwxr-xr-x@ 3 501  0   96 May 18 22:09 subdir
 
 
 ### Conclusion
-Validation script completed successfully. Log: /Users/onorbumbum/_PROJECTS/sand/docs/validation/apple-container-backend/run-20260518-220950.log
+Validation script completed successfully. Log: /Users/me/Projects/sand/docs/validation/apple-container-backend/run-20260518-220950.log
