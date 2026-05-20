@@ -2,20 +2,57 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: c6d43655ea26bb7e6b1e8eae88876c6235b6171d9589ad64ecfe8a81f2797ebb -->
+<!-- docs-input-hash: db289c0a34f8e9659f79aa2228fb5847a33b37a657b54d5644d2b07c704c9777 -->
 
-`sand` creates and manages small isolated Linux computers on an Apple silicon Host Mac. Each Sandbox VM is backed by Apple `container`, has its own Guest State, and only sees Host Mac folders that you explicitly allow. Work is run with generic Workload Commands: `sand <name> run <command> [args...]`.
+> A safer place to run Pi and other developer tools.
 
-## v1 scope
+`sand` creates small, named Linux environments on your Apple silicon Mac. Each environment feels like a little computer: it has its own files, tools, shell state, and login state, but it can only see the Mac folders you choose to share with it.
 
-v1 is intentionally small:
+## Why sand exists
+
+Modern coding agents and developer CLIs are powerful because they can read code, run commands, install packages, and keep working state. That same power is risky when the tool runs directly in your everyday Mac shell, where your home directory, credentials, dotfiles, project history, and local machine state are all nearby.
+
+`sand` gives those tools a dedicated workspace. Pi can still work like a capable coding assistant, but the boundary is easier to understand: the Sandbox VM gets its own Linux world, and your Mac only exposes the folders you explicitly allow.
+
+## The problem it solves
+
+`sand` helps answer a practical question:
+
+> “How do I let a powerful tool work on this project without giving it my whole computer?”
+
+It does that by making three things explicit:
+
+1. **Where work runs** — inside a named Sandbox VM, not directly in your normal shell.
+2. **What the sandbox can see** — only the Allowed Folders you add.
+3. **What persists** — guest tools, package caches, shell config, Pi identity, and other sandbox-local state survive normal stop/start.
+
+## How it works
+
+| Everyday idea | In `sand` |
+| --- | --- |
+| “Make me a little Linux computer for this work.” | `sand create demo` |
+| “Let it work on this project.” | `sand folders add demo ~/Projects/my-project rw --as /workspace` |
+| “Let it read these references, but not edit them.” | `sand folders add demo ~/Reference ro --as /reference` |
+| “Run Pi in the sandbox.” | `sand demo run pi` |
+| “Open a shell in the sandbox.” | `sand demo shell` |
+| “Pause it without losing its setup.” | `sand demo stop` |
+| “Remove it when I am done.” | `sand delete demo` |
+
+## What you get in v1
+
+v1 is intentionally focused on the daily loop:
 
 - create, list, inspect, start, stop, apply, log, and delete Sandbox VMs
-- map explicit Host Mac folders as read-write or read-only Guest Paths
-- run arbitrary Workload Commands inside a Sandbox VM from a mapped Host Mac current working directory
-- open an interactive shell inside a Sandbox VM
-- keep guest state under `/state/sandbox` across stop/start for the same Sandbox VM
-- use the developer-ready Linux image as the default image
+- add Host Mac folders as read-write or read-only Guest Paths
+- run Pi or any other command inside the Sandbox VM with `sand <name> run <command> [args...]`
+- start commands in the matching Guest Path when your Mac current directory is inside an Allowed Folder
+- open an interactive Sandbox Session with `sand <name> shell`
+- keep Guest State under `/state/sandbox` across stop/start for the same Sandbox VM
+- use the Developer-Ready Sandbox image with common development tools already installed
+
+## Current boundaries
+
+In this version, access is intentionally simple: choose folders, run commands, keep guest state. Host credentials and Host Mac Pi config are not shared automatically. Inbound port publishing is not part of the first release, so browser callback logins need the handoff flow described below.
 
 ## Documentation
 
@@ -209,12 +246,12 @@ sand folders list demo
 sand folders remove demo "$HOME/Reference"
 ```
 
-Known v1 non-goals:
+Current v1 boundaries:
 
-- No `sand reset` command. Use explicit delete plus create for destructive reset flows.
-- No Pi-specific shortcut such as `sand <name> pi`. Run Pi as a normal **Workload Command** with `sand <name> run pi [args...]`.
-- No inbound networking or port publishing options such as `--inbound`, `--port`, or `--publish`.
-- No default Sandbox VM or project-local implicit Sandbox VM selection. Commands name the Sandbox VM explicitly.
+- To clear a Sandbox VM completely, delete it and create a new one.
+- To run Pi, use the same command shape as any other tool: `sand <name> run pi [args...]`.
+- Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need the handoff flow described above.
+- Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
 <!-- docs:managed:end -->
 
 ## Specs

@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: c6d43655ea26bb7e6b1e8eae88876c6235b6171d9589ad64ecfe8a81f2797ebb -->
+<!-- docs-input-hash: db289c0a34f8e9659f79aa2228fb5847a33b37a657b54d5644d2b07c704c9777 -->
 
 # sand Onboarding Guide
 
@@ -8,7 +8,7 @@
 
 ## What this repo is
 
-`sand` is a Swift CLI for creating and managing **Sandbox VMs**: isolated Linux machines on a **Host Mac** with persistent **Guest State**, explicit **Allowed Folders**, and generic **Workload Commands**. Pi is an important workload, but `sand` is not a Pi-specific launcher.
+`sand` is a Swift CLI for creating and managing **Sandbox VMs**: isolated Linux machines on a **Host Mac** with persistent **Guest State**, explicit **Allowed Folders**, and generic **Workload Commands**. Pi is the primary workflow, and the same sandbox can run other developer tools when needed.
 
 Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md). Prefer terms like **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Sandbox Session**, and **Workload Command**.
 
@@ -84,7 +84,7 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 
 Read in this order:
 
-1. [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) for names, boundaries, and non-goals.
+1. [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) for product names and implementation boundaries.
 2. [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md) for current user-facing behavior and examples.
 3. [`docs/cli-reference.md`](cli-reference.md) for the generated command surface.
 4. The relevant `Sources/SandCore/` module.

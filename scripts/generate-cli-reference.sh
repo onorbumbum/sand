@@ -59,14 +59,14 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 - Top-level commands: \`doctor\`, \`create\`, \`list\`, \`apply\`, \`delete\`, \`folders\`
 - Sandbox-first actions: \`sand <name> status\`, \`start\`, \`stop\`, \`shell\`, \`run <command> [args...]\`, \`logs\`, \`spec\`
 
-## Known v1 non-goals
+## Current v1 boundaries
 
-These shapes are intentionally outside the supported v1 command surface:
+The v1 command surface is intentionally explicit and small:
 
-- No \`sand reset\` command. Use explicit delete plus create for destructive reset flows.
-- No Pi-specific shortcut such as \`sand <name> pi\`. Run Pi as a normal **Workload Command** with \`sand <name> run pi [args...]\`.
-- No inbound networking or port publishing options such as \`--inbound\`, \`--port\`, or \`--publish\`.
-- No default Sandbox VM or project-local implicit Sandbox VM selection. Commands name the Sandbox VM explicitly.
+- To clear a Sandbox VM completely, delete it and create a new one.
+- To run Pi, use the same command shape as any other tool: \`sand <name> run pi [args...]\`.
+- Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need a handoff flow outside the command surface.
+- Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
 
 ## \`sand --version\`
 

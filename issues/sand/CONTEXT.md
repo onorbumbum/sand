@@ -1,6 +1,6 @@
 # Sandbox VM
 
-This context describes the product language for a macOS app that creates and manages isolated Linux machines with explicit access to selected host folders. The tool is internal and Pi-first, but not limited to Pi as its only possible workload.
+This context describes the product language for a macOS app that creates and manages isolated Linux machines with explicit access to selected host folders.
 
 ## Language
 

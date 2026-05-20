@@ -1,14 +1,22 @@
 # sand Documentation
 
-This is the web-readable landing page for the `sand` Documentation System. It is intentionally plain Markdown so it works on GitHub Pages or any static Markdown renderer without a custom documentation site generator.
+`sand` gives Pi and other developer tools a safer place to work: a small Linux environment on your Mac with its own persistent state and only the project folders you choose to expose.
+
+The short version:
+
+1. Create a named Sandbox VM.
+2. Add the Host Mac folders it is allowed to see.
+3. Run Pi, a shell, or another command inside that sandbox.
+4. Stop and start it without losing the guest setup.
+5. Delete it when the workspace is no longer needed.
 
 ## Start here
 
-- [Project README](https://github.com/onorbumbum/sand/blob/main/README.md) — product overview, prerequisites, install instructions, quickstart, and command surface summary.
-- [Onboarding Guide](onboarding.md) — how humans and AI agents should orient, inspect code/tests, make changes, and verify work.
-- [CLI Reference](cli-reference.md) — generated command reference for the v1 `sand` Control Surface.
-- [Developer Guide](developer-guide.md) — architecture, testing strategy, command-change workflow, agent working rules, and local Definition of Done.
-- [Sandbox VM language](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) — canonical domain language for **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Guest State**, **Sandbox Session**, and **Workload Command**.
+- [Project README](https://github.com/onorbumbum/sand/blob/main/README.md) — best first read for why `sand` exists, what it solves, prerequisites, install instructions, and a quickstart.
+- [CLI Reference](cli-reference.md) — exact command shapes and examples for creating sandboxes, adding folders, running commands, and inspecting state.
+- [Onboarding Guide](onboarding.md) — orientation for humans and AI agents changing the project.
+- [Developer Guide](developer-guide.md) — architecture, tests, command-change workflow, and local Definition of Done.
+- [Sandbox VM language](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) — builder-facing product vocabulary used to keep implementation and documentation consistent.
 
 ## Product and v1 delivery docs
 

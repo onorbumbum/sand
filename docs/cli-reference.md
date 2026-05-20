@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: c6d43655ea26bb7e6b1e8eae88876c6235b6171d9589ad64ecfe8a81f2797ebb -->
+<!-- docs-input-hash: db289c0a34f8e9659f79aa2228fb5847a33b37a657b54d5644d2b07c704c9777 -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 
 ## Generation source
 
-- Docs input hash: `05afb86350b2a28c2d4f15f696cd36e812d87667b711d86486e3d4cdd65bd592`
+- Docs input hash: `db289c0a34f8e9659f79aa2228fb5847a33b37a657b54d5644d2b07c704c9777`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, `sand <name> --help`, and `sand --version` output.
@@ -21,14 +21,14 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 - Top-level commands: `doctor`, `create`, `list`, `apply`, `delete`, `folders`
 - Sandbox-first actions: `sand <name> status`, `start`, `stop`, `shell`, `run <command> [args...]`, `logs`, `spec`
 
-## Known v1 non-goals
+## Current v1 boundaries
 
-These shapes are intentionally outside the supported v1 command surface:
+The v1 command surface is intentionally explicit and small:
 
-- No `sand reset` command. Use explicit delete plus create for destructive reset flows.
-- No Pi-specific shortcut such as `sand <name> pi`. Run Pi as a normal **Workload Command** with `sand <name> run pi [args...]`.
-- No inbound networking or port publishing options such as `--inbound`, `--port`, or `--publish`.
-- No default Sandbox VM or project-local implicit Sandbox VM selection. Commands name the Sandbox VM explicitly.
+- To clear a Sandbox VM completely, delete it and create a new one.
+- To run Pi, use the same command shape as any other tool: `sand <name> run pi [args...]`.
+- Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need a handoff flow outside the command surface.
+- Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
 
 ## `sand --version`
 

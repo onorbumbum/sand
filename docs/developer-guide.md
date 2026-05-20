@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: c6d43655ea26bb7e6b1e8eae88876c6235b6171d9589ad64ecfe8a81f2797ebb -->
+<!-- docs-input-hash: db289c0a34f8e9659f79aa2228fb5847a33b37a657b54d5644d2b07c704c9777 -->
 
 # sand Developer Guide
 
@@ -69,7 +69,7 @@ make check
 - Read the issue and relevant docs before editing.
 - Prefer the smallest change that preserves existing module boundaries.
 - Do not introduce user-facing backend implementation details.
-- Do not add Pi-specific `sand` semantics; Pi remains a normal Workload Command.
+- Keep Pi on the same Workload Command path as other tools, so the user-facing model stays consistent.
 - Do not weaken tests to make a change pass.
 - Do not update docs hashes just to silence `make docs-check`.
 - Record real verification evidence before finishing.
