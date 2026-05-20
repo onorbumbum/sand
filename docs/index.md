@@ -13,6 +13,7 @@ The short version:
 ## Start here
 
 - [Project README](https://github.com/onorbumbum/sand/blob/main/README.md) — best first read for why `sand` exists, what it solves, prerequisites, install instructions, and a quickstart.
+- [Detailed write-up](https://onuruzunismail.com/blog/sand.html) — the less cleaned-up version of why I built it and what tradeoffs led here.
 - [CLI Reference](cli-reference.md) — exact command shapes and examples for creating sandboxes, adding folders, running commands, and inspecting state.
 - [Onboarding Guide](onboarding.md) — orientation for humans and AI agents changing the project.
 - [Developer Guide](developer-guide.md) — architecture, tests, command-change workflow, and local Definition of Done.

@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: db289c0a34f8e9659f79aa2228fb5847a33b37a657b54d5644d2b07c704c9777 -->
+<!-- docs-input-hash: eb9ba39b4ba3e4a398cd2dda095cc1be41d0d147044d02c5465ed78c7a361c2e -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -13,6 +13,8 @@
 Modern coding agents and developer CLIs are powerful because they can read code, run commands, install packages, and keep working state. That same power is risky when the tool runs directly in your everyday Mac shell, where your home directory, credentials, dotfiles, project history, and local machine state are all nearby.
 
 `sand` gives those tools a dedicated workspace. Pi can still work like a capable coding assistant, but the boundary is easier to understand: the Sandbox VM gets its own Linux world, and your Mac only exposes the folders you explicitly allow.
+
+For the longer write-up on why I built it, read [Sand — simple VMs for Mac](https://onuruzunismail.com/blog/sand.html).
 
 ## The problem it solves
 
