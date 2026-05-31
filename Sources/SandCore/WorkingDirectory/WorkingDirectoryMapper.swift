@@ -1,5 +1,9 @@
 import Foundation
 
+/// Maps host working directories to guest paths.
+///
+/// Determines which guest path corresponds to the host's current
+/// working directory based on allowed folders.
 public struct WorkingDirectoryMapper {
     private let fallbackGuestPath: GuestPath
     private let resolvePath: @Sendable (String) -> String
@@ -12,6 +16,10 @@ public struct WorkingDirectoryMapper {
         self.resolvePath = resolvePath
     }
 
+    /// Maps a host path to its corresponding guest path.
+    ///
+    /// Returns the mapped guest path, or falls back to /workspace
+    /// if the host path is not inside an allowed folder.
     public func map(hostCurrentDirectory: String, spec: SandboxSpec) -> WorkingDirectoryMapping {
         let resolvedCurrentDirectory = resolvePath(hostCurrentDirectory)
         for folder in spec.allowedFolders {
@@ -35,6 +43,7 @@ public struct WorkingDirectoryMapper {
     }
 }
 
+/// The result of mapping a working directory.
 public struct WorkingDirectoryMapping: Equatable {
     public var guestPath: GuestPath
     public var warning: String?

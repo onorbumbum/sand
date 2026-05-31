@@ -1,6 +1,9 @@
 import Darwin
 import Foundation
 
+/// Backend implementation using Apple's container CLI.
+///
+/// Interfaces with the container CLI for VM lifecycle operations.
 public struct AppleContainerCLIBackend: SandboxBackend {
     private let runner: any BackendCommandRunner
     private let translator: BackendErrorTranslator
@@ -16,6 +19,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         self.terminal = terminal
     }
 
+    /// Checks if the backend is ready to create and manage VMs.
     public func checkReadiness() throws -> BackendReadiness {
         var findings: [DoctorFinding] = []
 
@@ -61,6 +65,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         }
     }
 
+    // Parses the output of `container system status` to check if the service is running.
     private func backendServiceIsRunning() -> Bool {
         do {
             let output = try runner.run(arguments: ["system", "status"])
@@ -79,11 +84,16 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         }
     }
 
+    /// Provisions a new sandbox VM from the given spec.
     public func provision(_ spec: SandboxSpec) throws {
         try ensureGuestStateVolume(for: spec.name)
         try createRuntime(from: spec)
     }
 
+    /// Applies changes to an existing sandbox VM.
+    ///
+    /// Stops the VM if running, deletes the old runtime, creates a new one,
+    /// then restarts if it was previously running.
     public func apply(_ spec: SandboxSpec) throws {
         let currentStatus = try status(spec.name)
         if currentStatus == .running {
@@ -99,14 +109,17 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         }
     }
 
+    /// Starts a stopped sandbox VM.
     public func start(_ sandboxName: SandboxName) throws {
         _ = try runRequired(arguments: ["start", sandboxName.rawValue])
     }
 
+    /// Stops a running sandbox VM.
     public func stop(_ sandboxName: SandboxName) throws {
         _ = try runRequired(arguments: ["stop", sandboxName.rawValue])
     }
 
+    /// Runs a command in the sandbox VM.
     public func run(_ request: BackendRunRequest) throws -> CommandResult {
         let output = try runner.run(
             arguments: execArguments(
@@ -119,6 +132,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
     }
 
+    /// Opens an interactive shell in the sandbox VM.
     public func shell(_ request: BackendShellRequest) throws -> CommandResult {
         let output = try runner.run(
             arguments: execArguments(
@@ -131,6 +145,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
     }
 
+    // Builds exec arguments, adding --tty if stdin/stdout are terminals.
     private func execArguments(sandboxName: SandboxName, workingDirectory: GuestPath, command: [String]) -> [String] {
         var arguments = ["exec", "--interactive"]
         if terminal.standardInputIsTerminal && terminal.standardOutputIsTerminal {
@@ -141,6 +156,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         return arguments
     }
 
+    /// Returns the current runtime status of the sandbox VM.
     public func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus {
         let output = try runRequired(arguments: ["inspect", sandboxName.rawValue])
         let text = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -151,11 +167,13 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         return .stopped
     }
 
+    /// Returns the logs from the sandbox VM.
     public func logs(_ sandboxName: SandboxName) throws -> SandboxLogs {
         let output = try runRequired(arguments: ["logs", sandboxName.rawValue])
         return SandboxLogs(text: output.stdout)
     }
 
+    /// Deletes the sandbox VM and its associated resources.
     public func delete(_ sandboxName: SandboxName) throws {
         if try status(sandboxName) != .missing {
             try deleteRuntime(sandboxName)
@@ -165,6 +183,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         }
     }
 
+    // Checks if the state volume exists by inspecting it and handling "not found" errors.
     private func guestStateVolumeExists(for sandboxName: SandboxName) throws -> Bool {
         let arguments = ["volume", "inspect", guestStateVolumeName(for: sandboxName)]
         do {
@@ -197,6 +216,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         _ = try runRequired(arguments: ["delete", "--force", sandboxName.rawValue])
     }
 
+    // Builds the arguments for `container create`, including volume mounts for allowed folders.
     private func createArguments(for spec: SandboxSpec) -> [String] {
         var arguments = [
             "create",
@@ -233,6 +253,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         "sand-state-\(sandboxName.rawValue)"
     }
 
+    // Runs a command and translates errors to user-friendly messages.
     private func runRequired(arguments: [String]) throws -> BackendCommandOutput {
         do {
             let output = try runner.run(arguments: arguments)
@@ -249,6 +270,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
     }
 }
 
+/// Errors from the Apple container CLI backend.
 public enum AppleContainerCLIBackendError: Error, Equatable, CustomStringConvertible {
     case commandFailed(arguments: [String], exitCode: Int, stderr: String)
 
@@ -261,11 +283,13 @@ public enum AppleContainerCLIBackendError: Error, Equatable, CustomStringConvert
     }
 }
 
+/// I/O mode for backend command execution.
 public enum BackendCommandIO: Equatable {
     case captured
     case inherited
 }
 
+/// Runs backend commands as processes.
 public protocol BackendCommandRunner {
     func run(arguments: [String], io: BackendCommandIO) throws -> BackendCommandOutput
 }
@@ -276,11 +300,13 @@ public extension BackendCommandRunner {
     }
 }
 
+/// Checks whether stdin/stdout are connected to a terminal.
 public protocol BackendTerminal {
     var standardInputIsTerminal: Bool { get }
     var standardOutputIsTerminal: Bool { get }
 }
 
+/// Terminal detection using isatty.
 public struct ProcessBackendTerminal: BackendTerminal {
     public init() {}
 
@@ -293,6 +319,7 @@ public struct ProcessBackendTerminal: BackendTerminal {
     }
 }
 
+/// Output from a backend command.
 public struct BackendCommandOutput: Equatable {
     public var stdout: String
     public var stderr: String
@@ -305,6 +332,7 @@ public struct BackendCommandOutput: Equatable {
     }
 }
 
+/// Runs backend commands using /usr/bin/env.
 public struct ProcessBackendCommandRunner: BackendCommandRunner {
     private let executable: String
 

@@ -1,9 +1,11 @@
 import Foundation
 
+/// Prompts the user for confirmation before proceeding.
 public protocol PromptConfirmation {
     func confirm(_ request: ConfirmationRequest) throws -> ConfirmationDecision
 }
 
+/// A request for user confirmation.
 public struct ConfirmationRequest: Equatable {
     public var message: String
     public var destructive: Bool
@@ -14,11 +16,16 @@ public struct ConfirmationRequest: Equatable {
     }
 }
 
+/// The user's response to a confirmation request.
 public enum ConfirmationDecision: Equatable {
     case proceed
     case cancel
 }
 
+/// Prompts for confirmation via standard input.
+///
+/// Reads user input from stdin. Requires "yes" for destructive actions,
+/// or "y"/"yes" for non-destructive ones.
 public struct StandardInputPromptConfirmation: PromptConfirmation {
     private let readResponse: () -> String?
     private let writePrompt: (String) -> Void
@@ -44,6 +51,7 @@ public struct StandardInputPromptConfirmation: PromptConfirmation {
         return response == "y" || response == "yes" ? .proceed : .cancel
     }
 
+    // Normalizes user input for comparison.
     private func normalizedResponse() -> String {
         (readResponse() ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }

@@ -1,3 +1,4 @@
+/// Runs diagnostic checks on the host environment.
 public struct DoctorChecks {
     private let backend: any SandboxBackend
     private let metadataStore: any HostMetadataStore
@@ -13,6 +14,7 @@ public struct DoctorChecks {
         self.platform = platform
     }
 
+    /// Executes all diagnostic checks and returns a report.
     public func run() throws -> DoctorReport {
         guard platform.isSupported else {
             return DoctorReport(findings: [
@@ -47,10 +49,12 @@ public struct DoctorChecks {
     }
 }
 
+/// Checks whether the current platform is supported.
 public protocol DoctorPlatform {
     var isSupported: Bool { get }
 }
 
+/// Checks support for the current host platform.
 public struct HostDoctorPlatform: DoctorPlatform {
     public init() {}
 
@@ -63,6 +67,7 @@ public struct HostDoctorPlatform: DoctorPlatform {
     }
 }
 
+/// A report from running diagnostic checks.
 public struct DoctorReport: Equatable {
     public var findings: [DoctorFinding]
 
@@ -75,6 +80,7 @@ public struct DoctorReport: Equatable {
     }
 }
 
+/// Formats doctor reports for display.
 public struct DoctorPresenter {
     public init() {}
 
@@ -86,6 +92,7 @@ public struct DoctorPresenter {
     }
 }
 
+/// A single diagnostic finding.
 public struct DoctorFinding: Equatable {
     public var kind: DoctorFindingKind
     public var message: String
@@ -96,6 +103,7 @@ public struct DoctorFinding: Equatable {
     }
 }
 
+/// The kind of diagnostic finding.
 public enum DoctorFindingKind: Equatable {
     case backendExecutableMissing
     case backendServiceStopped

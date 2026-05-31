@@ -1,5 +1,12 @@
 import Foundation
 
+/// Coordinates the lifecycle of sandbox VMs including creation, deletion,
+/// starting, stopping, and shell access.
+///
+/// Orchestrates between the metadata store, backend, and user prompts.
+/// Handles: create, apply, delete, start, stop, shell, run, and status.
+///
+/// - Note: All mutations are protected by lifecycle locks.
 public struct LifecycleCoordinator: SandboxApplication {
     private let metadataStore: any HostMetadataStore
     private let backend: any SandboxBackend
@@ -10,6 +17,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     private let writeOutput: (String) -> Void
     private let writeWarning: (String) -> Void
 
+    /// Initializes a new lifecycle coordinator.
     public init(
         metadataStore: any HostMetadataStore,
         backend: any SandboxBackend,
@@ -30,6 +38,9 @@ public struct LifecycleCoordinator: SandboxApplication {
         self.writeWarning = writeWarning
     }
 
+    /// Runs diagnostic checks on the host environment.
+    ///
+    /// Verifies backend availability, image accessibility, and disk writability.
     public func doctor() throws -> CommandResult {
         let report = try DoctorChecks(backend: backend, metadataStore: metadataStore, platform: doctorPlatform).run()
         for line in DoctorPresenter().lines(for: report) {
@@ -38,6 +49,10 @@ public struct LifecycleCoordinator: SandboxApplication {
         return report.isHealthy ? .success : .failure(exitCode: 1)
     }
 
+    /// Creates a new sandbox VM with the specified configuration.
+    ///
+    /// Either parses an authored spec from YAML or generates one from
+    /// the provided parameters.
     public func create(_ request: CreateRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             let spec: SandboxSpec
@@ -57,6 +72,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         return .success
     }
 
+    /// Lists all known sandbox VMs with their current status.
     public func list() throws -> CommandResult {
         let presenter = StatusPresenter()
         for spec in try metadataStore.listSpecs() {
@@ -67,6 +83,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         return .success
     }
 
+    /// Applies configuration changes to an existing sandbox VM.
     public func apply(_ request: NamedSandboxRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             let spec = try metadataStore.readSpec(named: request.sandboxName)
@@ -81,6 +98,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         }
     }
 
+    /// Deletes a sandbox VM and its associated metadata.
     public func delete(_ request: DeleteRequest) throws -> CommandResult {
         if !request.force {
             let decision = try prompt.confirm(ConfirmationRequest(message: "Delete Sandbox VM \(request.sandboxName.rawValue)?", destructive: true))
@@ -94,6 +112,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         return .success
     }
 
+    /// Displays detailed status information for a sandbox VM.
     public func status(_ request: NamedSandboxRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)
         let runtimeStatus = try backend.status(request.sandboxName)
@@ -105,6 +124,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         return .success
     }
 
+    /// Starts a stopped sandbox VM.
     public func start(_ request: NamedSandboxRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             try backend.start(request.sandboxName)
@@ -112,6 +132,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         return .success
     }
 
+    /// Stops a running sandbox VM.
     public func stop(_ request: NamedSandboxRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             try backend.stop(request.sandboxName)
@@ -119,6 +140,10 @@ public struct LifecycleCoordinator: SandboxApplication {
         return .success
     }
 
+    /// Opens an interactive shell session in the sandbox VM.
+    ///
+    /// If the VM is stopped, starts it first. Maps the host's current
+    /// working directory to the guest and opens a shell there.
     public func shell(_ request: ShellRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)
         let mapping = workingDirectoryMapper.map(hostCurrentDirectory: metadataStore.currentHostDirectory(), spec: spec)
@@ -131,6 +156,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         return try backend.shell(BackendShellRequest(sandboxName: request.sandboxName, workingDirectory: mapping.guestPath))
     }
 
+    /// Executes a workload command in the sandbox VM.
     public func run(_ request: RunRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)
         let mapping = workingDirectoryMapper.map(hostCurrentDirectory: metadataStore.currentHostDirectory(), spec: spec)
@@ -149,6 +175,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         )
     }
 
+    /// Retrieves and displays logs from the sandbox VM.
     public func logs(_ request: NamedSandboxRequest) throws -> CommandResult {
         let logs = try backend.logs(request.sandboxName)
         let lines = logs.text.split(whereSeparator: \.isNewline).map(String.init)
@@ -162,12 +189,14 @@ public struct LifecycleCoordinator: SandboxApplication {
         return .success
     }
 
+    /// Prints the sandbox specification as YAML.
     public func spec(_ request: NamedSandboxRequest) throws -> CommandResult {
         let yaml = try metadataStore.readSpec(named: request.sandboxName).renderedYAML()
         writeOutput(yaml.trimmingCharacters(in: .newlines))
         return .success
     }
 
+    /// Adds a host folder to the sandbox's allowed folders list.
     public func addFolder(_ request: AddFolderRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             let current = try metadataStore.readSpec(named: request.sandboxName)
@@ -181,6 +210,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         }
     }
 
+    /// Lists all allowed folders for a sandbox.
     public func listFolders(_ request: NamedSandboxRequest) throws -> CommandResult {
         let folders = try metadataStore.readSpec(named: request.sandboxName).allowedFolders
         for line in FolderListPresenter().lines(for: folders) {
@@ -189,6 +219,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         return .success
     }
 
+    /// Removes a host folder from the sandbox's allowed folders.
     public func removeFolder(_ request: RemoveFolderRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             let current = try metadataStore.readSpec(named: request.sandboxName)
@@ -203,6 +234,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         }
     }
 
+    // Validates and applies a configuration mutation, prompting if VM is running.
     private func applyConfigMutation(current: SandboxSpec, updated: SandboxSpec) throws -> Bool {
         try updated.validateUpdate(from: current)
         let createdSpec = try metadataStore.readCreatedSpec(named: current.name)
@@ -217,6 +249,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     }
 }
 
+/// Always-approve prompt for non-interactive use.
 public struct AlwaysProceedPromptConfirmation: PromptConfirmation {
     public init() {}
 

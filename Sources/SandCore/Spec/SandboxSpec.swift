@@ -1,5 +1,9 @@
 import Foundation
 
+/// The specification for a sandbox VM.
+///
+/// Contains configuration including name, image, resources,
+/// and allowed host folders.
 public struct SandboxSpec: Equatable, Sendable {
     public static let supportedSchemaVersion = 1
 
@@ -23,6 +27,7 @@ public struct SandboxSpec: Equatable, Sendable {
         self.allowedFolders = allowedFolders
     }
 
+    /// Creates a spec with default settings.
     public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, resourceProfile: ResourceProfile = .default) -> SandboxSpec {
         SandboxSpec(name: name, image: image, resourceProfile: resourceProfile, allowedFolders: [])
     }
@@ -42,6 +47,7 @@ public struct SandboxSpec: Equatable, Sendable {
         }
     }
 
+    /// Renders the spec as YAML for storage.
     public func renderedYAML() -> String {
         var lines: [String] = []
         lines.append("schemaVersion: \(schemaVersion)")
@@ -64,6 +70,7 @@ public struct SandboxSpec: Equatable, Sendable {
         return lines.joined(separator: "\n") + "\n"
     }
 
+    /// Parses a spec from YAML text.
     public static func parseYAML(_ text: String) throws -> SandboxSpec {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var schemaVersion: Int?
@@ -184,6 +191,7 @@ private struct PartialAllowedFolder {
     }
 }
 
+// Parses a "key: value" line into a tuple.
 private func parseKeyValue(_ line: String) -> (String, String)? {
     guard let colon = line.firstIndex(of: ":") else { return nil }
     let key = String(line[..<colon]).trimmingCharacters(in: .whitespaces)
@@ -191,11 +199,13 @@ private func parseKeyValue(_ line: String) -> (String, String)? {
     return (key, value)
 }
 
+// Validates that a required field is present.
 private func required<T>(_ value: T?, _ field: String) throws -> T {
     guard let value else { throw SandboxSpecError.missingField(field) }
     return value
 }
 
+/// Errors that can occur when parsing or validating a sandbox spec.
 public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
     case unsupportedSchemaVersion(Int)
     case unsupportedField(String)
@@ -214,6 +224,7 @@ public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
     }
 }
 
+/// A sandbox VM image reference.
 public struct SandboxImage: Equatable, Sendable {
     public var reference: String
 
@@ -224,6 +235,7 @@ public struct SandboxImage: Equatable, Sendable {
     public static let developerReadyDefault = SandboxImage(reference: "sand/developer-ready:ubuntu-lts")
 }
 
+/// CPU and memory allocation for a sandbox.
 public struct ResourceProfile: Equatable, Sendable {
     public var cpus: Int
     public var memory: MemorySize
@@ -236,6 +248,7 @@ public struct ResourceProfile: Equatable, Sendable {
     public static let `default` = ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 8))
 }
 
+/// A memory size value.
 public struct MemorySize: Equatable, Sendable, CustomStringConvertible {
     public var megabytes: Int
 
@@ -267,6 +280,7 @@ public struct MemorySize: Equatable, Sendable, CustomStringConvertible {
     }
 }
 
+/// An allowed host folder mapping.
 public struct AllowedFolder: Equatable, Sendable {
     public var displayHostPath: String
     public var resolvedHostPath: String
@@ -281,6 +295,7 @@ public struct AllowedFolder: Equatable, Sendable {
     }
 }
 
+/// An absolute path inside the sandbox guest.
 public struct GuestPath: Equatable, Hashable, Sendable {
     public var rawValue: String
 
@@ -296,6 +311,7 @@ public enum GuestPathError: Error, Equatable {
     case mustBeAbsolute
 }
 
+/// Access mode for a folder mapping.
 public enum AccessMode: String, Equatable, Sendable {
     case readOnly = "read-only"
     case readWrite = "read-write"

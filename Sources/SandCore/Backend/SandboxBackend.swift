@@ -1,3 +1,7 @@
+/// Defines the interface for sandbox VM backend operations.
+///
+/// Implementations handle VM provisioning, starting, stopping,
+/// and execution on the host system.
 public protocol SandboxBackend {
     func checkReadiness() throws -> BackendReadiness
     func provision(_ spec: SandboxSpec) throws
@@ -11,11 +15,13 @@ public protocol SandboxBackend {
     func delete(_ sandboxName: SandboxName) throws
 }
 
+/// The readiness state of the backend.
 public enum BackendReadiness: Equatable {
     case ready
     case notReady([DoctorFinding])
 }
 
+/// A request to run a command in a sandbox VM.
 public struct BackendRunRequest: Equatable {
     public var sandboxName: SandboxName
     public var command: WorkloadCommand
@@ -28,6 +34,7 @@ public struct BackendRunRequest: Equatable {
     }
 }
 
+/// A request to open a shell in a sandbox VM.
 public struct BackendShellRequest: Equatable {
     public var sandboxName: SandboxName
     public var workingDirectory: GuestPath
@@ -38,12 +45,14 @@ public struct BackendShellRequest: Equatable {
     }
 }
 
+/// The runtime status of a sandbox VM.
 public enum SandboxRuntimeStatus: Equatable {
     case missing
     case stopped
     case running
 }
 
+/// Log output from a sandbox VM.
 public struct SandboxLogs: Equatable {
     public var text: String
 

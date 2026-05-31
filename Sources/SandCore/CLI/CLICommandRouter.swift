@@ -1,5 +1,6 @@
 import Foundation
 
+/// Parses and dispatches CLI commands to the application layer.
 public struct CLICommandRouter {
     public static let productVersion = "0.1.0-dev"
 
@@ -7,6 +8,7 @@ public struct CLICommandRouter {
     private let readTextFile: (String) throws -> String
     private let writeOutput: (String) -> Void
 
+    /// Initializes the command router with an application handler.
     public init(
         application: any SandboxApplication,
         readTextFile: @escaping (String) throws -> String = { try String(contentsOfFile: $0, encoding: .utf8) },
@@ -17,6 +19,7 @@ public struct CLICommandRouter {
         self.writeOutput = writeOutput
     }
 
+    /// Parses command-line arguments and dispatches to the appropriate handler.
     @discardableResult
     public func dispatch(arguments: [String]) throws -> CommandResult {
         guard let first = arguments.first else {
@@ -61,6 +64,7 @@ public struct CLICommandRouter {
         }
     }
 
+    // Parses and dispatches the `create` command with its options.
     private func dispatchCreate(_ arguments: [String]) throws -> CommandResult {
         guard let firstArgument = arguments.first else { throw CLICommandError.missingSandboxName }
         var name: SandboxName?
@@ -110,6 +114,7 @@ public struct CLICommandRouter {
         return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, resourceProfile: resourceProfile))
     }
 
+    // Parses and dispatches the `delete` command with its options.
     private func dispatchDelete(_ arguments: [String]) throws -> CommandResult {
         guard let nameArgument = arguments.first else { throw CLICommandError.missingSandboxName }
         let name = try SandboxName(nameArgument)
@@ -123,6 +128,7 @@ public struct CLICommandRouter {
         return try application.delete(DeleteRequest(sandboxName: name, force: force))
     }
 
+    // Parses and dispatches the `folders` subcommand.
     private func dispatchFolders(_ arguments: [String]) throws -> CommandResult {
         guard let action = arguments.first else { throw CLICommandError.missingAction }
         switch action {
@@ -156,6 +162,7 @@ public struct CLICommandRouter {
         }
     }
 
+    // Dispatches sandbox-first commands like `<name> status`.
     private func dispatchSandboxFirst(nameArgument: String, remaining: [String]) throws -> CommandResult {
         let name = try SandboxName(nameArgument)
         guard let action = remaining.first else { throw CLICommandError.missingAction }
@@ -287,6 +294,7 @@ private enum CLIHelp {
     """
 }
 
+/// Errors that can occur during CLI command processing.
 public enum CLICommandError: Error, Equatable, CustomStringConvertible {
     case missingCommand
     case missingSandboxName
