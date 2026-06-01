@@ -1,6 +1,8 @@
+/// Formats sandbox status information for display.
 public struct StatusPresenter {
     public init() {}
 
+    /// Creates a status view from the given parameters.
     public func present(name: SandboxName, spec: SandboxSpec, runtimeStatus: SandboxRuntimeStatus) -> SandboxStatusView {
         SandboxStatusView(
             name: name.rawValue,
@@ -12,10 +14,12 @@ public struct StatusPresenter {
         )
     }
 
+    /// Formats a view as a single-line list entry.
     public func listLine(for view: SandboxStatusView) -> String {
         "\(view.name)\t\(view.runtimeState)\t\(view.image)\t\(view.allowedFolderCount) folders"
     }
 
+    /// Formats a view as multiple detail lines.
     public func detailLines(for view: SandboxStatusView) -> [String] {
         [
             "name: \(view.name)",
@@ -27,6 +31,7 @@ public struct StatusPresenter {
     }
 }
 
+/// A formatted view of sandbox status.
 public struct SandboxStatusView: Equatable {
     public var name: String
     public var runtimeState: String
@@ -45,6 +50,7 @@ public struct SandboxStatusView: Equatable {
     }
 }
 
+// Provides human-readable labels for runtime status.
 private extension SandboxRuntimeStatus {
     var label: String {
         switch self {

@@ -1,5 +1,9 @@
 import Foundation
 
+/// Manages the allowed folder mappings for a sandbox.
+///
+/// Handles adding, removing, and validating folder mappings
+/// to ensure no conflicts or duplicates.
 public struct FolderPolicy {
     private let resolvePath: @Sendable (String) -> String
 
@@ -16,6 +20,10 @@ public struct FolderPolicy {
         return try GuestPath("/workspace/\(name)")
     }
 
+    /// Adds a folder mapping to the spec.
+    ///
+    /// Resolves the host path and creates a new folder entry,
+    /// or updates an existing one if the host path matches.
     public func addFolder(
         to spec: SandboxSpec,
         displayHostPath: String,
@@ -45,6 +53,7 @@ public struct FolderPolicy {
         return updated
     }
 
+    /// Removes a folder mapping from the spec.
     public func removeFolder(from spec: SandboxSpec, displayHostPath: String) -> SandboxSpec {
         let resolvedHostPath = resolvePath(displayHostPath)
         var updated = spec
@@ -52,12 +61,14 @@ public struct FolderPolicy {
         return updated
     }
 
+    // Validates that no existing folder uses the same guest path.
     private func validateNoDuplicateGuestPath(_ guestPath: GuestPath, resolvedHostPath: String, in existing: [AllowedFolder]) throws {
         if let duplicate = existing.first(where: { $0.guestPath == guestPath && $0.resolvedHostPath != resolvedHostPath }) {
             throw FolderPolicyError.duplicateGuestPath(duplicate.guestPath.rawValue)
         }
     }
 
+    // Validates that no existing folder's host path overlaps with the new one.
     private func validateNoOverlappingHostFolders(_ resolvedHostPath: String, in existing: [AllowedFolder]) throws {
         for folder in existing {
             if pathsOverlap(resolvedHostPath, folder.resolvedHostPath) {
@@ -66,6 +77,7 @@ public struct FolderPolicy {
         }
     }
 
+    // Checks if two paths overlap (one is a prefix of the other).
     private func pathsOverlap(_ lhs: String, _ rhs: String) -> Bool {
         lhs == rhs || lhs.hasPrefix(rhs + "/") || rhs.hasPrefix(lhs + "/")
     }
@@ -83,6 +95,7 @@ public struct FolderPolicy {
     }
 }
 
+/// Formats folder lists for display.
 public struct FolderListPresenter {
     public init() {}
 
@@ -95,6 +108,7 @@ public struct FolderListPresenter {
     }
 }
 
+/// Errors that can occur when validating folder policy.
 public enum FolderPolicyError: Error, Equatable {
     case unsupportedAccessMode(String)
     case duplicateGuestPath(String)

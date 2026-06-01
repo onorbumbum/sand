@@ -1,3 +1,6 @@
+/// Defines the interface for sandbox VM operations.
+///
+/// Implementations handle the lifecycle of sandbox VMs.
 public protocol SandboxApplication {
     func doctor() throws -> CommandResult
     func create(_ request: CreateRequest) throws -> CommandResult
@@ -16,6 +19,7 @@ public protocol SandboxApplication {
     func removeFolder(_ request: RemoveFolderRequest) throws -> CommandResult
 }
 
+/// A request containing only a sandbox name.
 public struct NamedSandboxRequest: Equatable {
     public var sandboxName: SandboxName
 
@@ -24,6 +28,7 @@ public struct NamedSandboxRequest: Equatable {
     }
 }
 
+/// A request to create a new sandbox VM.
 public struct CreateRequest: Equatable {
     public var sandboxName: SandboxName
     public var authoredSpecText: String?
@@ -43,6 +48,7 @@ public struct CreateRequest: Equatable {
     }
 }
 
+/// A request to delete a sandbox VM.
 public struct DeleteRequest: Equatable {
     public var sandboxName: SandboxName
     public var force: Bool
@@ -53,6 +59,7 @@ public struct DeleteRequest: Equatable {
     }
 }
 
+/// A request to open a shell in a sandbox VM.
 public struct ShellRequest: Equatable {
     public var sandboxName: SandboxName
 
@@ -61,6 +68,7 @@ public struct ShellRequest: Equatable {
     }
 }
 
+/// A request to run a command in a sandbox VM.
 public struct RunRequest: Equatable {
     public var sandboxName: SandboxName
     public var command: WorkloadCommand
@@ -71,6 +79,7 @@ public struct RunRequest: Equatable {
     }
 }
 
+/// A request to add an allowed folder to a sandbox.
 public struct AddFolderRequest: Equatable {
     public var sandboxName: SandboxName
     public var displayHostPath: String
@@ -85,6 +94,7 @@ public struct AddFolderRequest: Equatable {
     }
 }
 
+/// A request to remove an allowed folder from a sandbox.
 public struct RemoveFolderRequest: Equatable {
     public var sandboxName: SandboxName
     public var displayHostPath: String
@@ -95,6 +105,7 @@ public struct RemoveFolderRequest: Equatable {
     }
 }
 
+/// The result of a command execution.
 public enum CommandResult: Equatable {
     case success
     case failure(exitCode: Int)

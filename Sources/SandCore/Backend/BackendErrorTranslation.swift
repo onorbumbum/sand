@@ -1,6 +1,8 @@
+/// Translates backend errors into user-friendly messages.
 public struct BackendErrorTranslator {
     public init() {}
 
+    /// Translates any error into a BackendTranslatedError.
     public func translate(_ error: any Error) -> BackendTranslatedError {
         if let translated = error as? BackendTranslatedError {
             return translated
@@ -22,6 +24,7 @@ public struct BackendErrorTranslator {
         String(describing: translate(error))
     }
 
+    // Analyzes stderr to determine the specific error type.
     private func translateCommandFailure(arguments: [String], stderr: String) -> BackendTranslatedError {
         let lowercasedDetail = stderr.lowercased()
 
@@ -40,20 +43,24 @@ public struct BackendErrorTranslator {
         return .commandFailed("Could not \(operationDescription(for: arguments)). Run `sand doctor` and retry.")
     }
 
+    // Checks if the error indicates the backend service is unavailable.
     private func backendServiceLooksUnavailable(_ lowercasedDetail: String) -> Bool {
         (lowercasedDetail.contains("service") || lowercasedDetail.contains("daemon") || lowercasedDetail.contains("apiserver"))
             && (lowercasedDetail.contains("not running") || lowercasedDetail.contains("unavailable") || lowercasedDetail.contains("connect") || lowercasedDetail.contains("refused"))
     }
 
+    // Checks if the error indicates a missing runtime.
     private func runtimeLooksMissing(arguments: [String], lowercasedDetail: String) -> Bool {
         guard ["logs", "start", "stop", "inspect", "delete"].contains(arguments.first ?? "") else { return false }
         return lowercasedDetail.contains("notfound") || lowercasedDetail.contains("not found") || lowercasedDetail.contains("no such")
     }
 
+    // Checks if the error indicates a missing image.
     private func imageLooksMissing(arguments: [String], lowercasedDetail: String) -> Bool {
         arguments.first == "create" && lowercasedDetail.contains("image") && lowercasedDetail.contains("not found")
     }
 
+    // Extracts sandbox name from command arguments.
     private func sandboxName(from arguments: [String]) -> String? {
         switch arguments.first {
         case "logs", "start", "stop", "inspect":
@@ -65,6 +72,7 @@ public struct BackendErrorTranslator {
         }
     }
 
+    // Returns a user-friendly message for missing runtime errors.
     private func missingRuntimeMessage(for name: String, arguments: [String]) -> String {
         switch arguments.first {
         case "logs":
@@ -80,11 +88,13 @@ public struct BackendErrorTranslator {
         }
     }
 
+    // Extracts the image reference from create arguments.
     private func imageReference(fromCreateArguments arguments: [String]) -> String? {
         guard arguments.count >= 4, arguments.first == "create" else { return nil }
         return arguments.dropLast(2).last
     }
 
+    // Returns a human-readable operation description for error messages.
     private func operationDescription(for arguments: [String]) -> String {
         switch arguments.first {
         case "logs":
@@ -107,6 +117,7 @@ public struct BackendErrorTranslator {
     }
 }
 
+/// User-friendly backend errors.
 public enum BackendTranslatedError: Error, Equatable, CustomStringConvertible {
     case serviceUnavailable(String)
     case runtimeMissing(String)

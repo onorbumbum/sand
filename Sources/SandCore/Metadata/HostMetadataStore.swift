@@ -1,6 +1,9 @@
 import Darwin
 import Foundation
 
+/// Defines the interface for storing sandbox metadata.
+///
+/// Handles persistence of sandbox specs and metadata in ~/.sand.
 public protocol HostMetadataStore {
     func createSpec(_ spec: SandboxSpec) throws
     func readSpec(named name: SandboxName) throws -> SandboxSpec
@@ -14,6 +17,7 @@ public protocol HostMetadataStore {
     func withLifecycleMutationLock<T>(_ operation: () throws -> T) throws -> T
 }
 
+/// Errors that can occur when accessing host metadata.
 public enum HostMetadataError: Error, Equatable, CustomStringConvertible {
     case specNotFound(String)
     case duplicateSandboxName(String)
@@ -30,6 +34,9 @@ public enum HostMetadataError: Error, Equatable, CustomStringConvertible {
     }
 }
 
+/// Stores sandbox metadata on the filesystem.
+///
+/// Persists specs in YAML files under ~/.sand.
 public final class FileHostMetadataStore: HostMetadataStore {
     private let root: URL
     private let fileManager: FileManager
@@ -128,24 +135,28 @@ public final class FileHostMetadataStore: HostMetadataStore {
         return try operation()
     }
 
+    // Opens the lifecycle lock file for exclusive access.
     private func openLifecycleLockFile() throws -> Int32 {
         let descriptor = open(root.appendingPathComponent("lifecycle.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
         guard descriptor != -1 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         return descriptor
     }
 
+    // Acquires an exclusive lock on the lock file.
     private func acquireLifecycleLock(_ descriptor: Int32) throws {
         while flock(descriptor, LOCK_EX) == -1 {
             guard errno == EINTR else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         }
     }
 
+    // Ensures required directories exist.
     private func ensureDirectories() throws {
         try fileManager.createDirectory(at: specsDirectory(), withIntermediateDirectories: true)
         try fileManager.createDirectory(at: createdSpecsDirectory(), withIntermediateDirectories: true)
         _ = try schemaVersionIfPresentOrCreate()
     }
 
+    // Gets or creates the schema version file.
     private func schemaVersionIfPresentOrCreate() throws -> Int {
         let url = root.appendingPathComponent("schema-version")
         if !fileManager.fileExists(atPath: url.path) {
