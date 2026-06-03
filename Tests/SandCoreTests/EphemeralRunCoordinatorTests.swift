@@ -214,6 +214,150 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
         ])
     }
 
+    func testWorkloadWorkdirDefaultsToFirstReadWriteAllowedFolderGuestPath() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        allowedFolders:
+          - hostPath: ./reference
+            accessMode: read-only
+          - hostPath: ./work
+            accessMode: read-write
+          - hostPath: ./other-work
+            guestPath: /other-workspace
+            accessMode: read-write
+        workload:
+          command: pwd
+        """
+
+        let result = try coordinator.run(
+            EphemeralRunRequest(
+                authoredSpecText: specText,
+                sourcePath: "/Users/onur/ephemeral/spec.yaml"
+            )
+        )
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(backend.calls, [
+            .provision("ephemeral-20260602-abcd"),
+            .start("ephemeral-20260602-abcd"),
+            .run("ephemeral-20260602-abcd", ["pwd"], "/workspace/work"),
+            .stop("ephemeral-20260602-abcd"),
+            .delete("ephemeral-20260602-abcd")
+        ])
+        XCTAssertEqual(runRecordStore.generatedSpecs.first?.allowedFolders.map(\.guestPath.rawValue), [
+            "/workspace/reference",
+            "/workspace/work",
+            "/other-workspace"
+        ])
+    }
+
+    func testImplicitWorkdirFailsBeforeProvisioningWhenOnlyReadOnlyFoldersExist() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        allowedFolders:
+          - hostPath: ./reference
+            accessMode: read-only
+        workload:
+          command: pwd
+        """
+
+        XCTAssertThrowsError(
+            try coordinator.run(
+                EphemeralRunRequest(
+                    authoredSpecText: specText,
+                    sourcePath: "/Users/onur/ephemeral/spec.yaml"
+                )
+            )
+        ) { error in
+            XCTAssertTrue(
+                String(describing: error).contains("no read-write allowed folder is available for default workload workdir"),
+                "got \(error)"
+            )
+        }
+        XCTAssertEqual(events, [])
+        XCTAssertEqual(metadataStore.activeSpecNames, [])
+        XCTAssertEqual(backend.calls, [])
+    }
+
+    func testImplicitWorkdirFailsBeforeProvisioningWhenNoAllowedFoldersExist() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        workload:
+          command: pwd
+        """
+
+        XCTAssertThrowsError(
+            try coordinator.run(
+                EphemeralRunRequest(
+                    authoredSpecText: specText,
+                    sourcePath: "/Users/onur/ephemeral/spec.yaml"
+                )
+            )
+        ) { error in
+            XCTAssertTrue(
+                String(describing: error).contains("no read-write allowed folder is available for default workload workdir"),
+                "got \(error)"
+            )
+        }
+        XCTAssertEqual(events, [])
+        XCTAssertEqual(metadataStore.activeSpecNames, [])
+        XCTAssertEqual(backend.calls, [])
+    }
+
     func testEphemeralAllowedFoldersReuseFolderPolicyDuplicateGuestPathRejection() throws {
         let sandboxName = try SandboxName("ephemeral-20260602-abcd")
         var events: [String] = []

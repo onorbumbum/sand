@@ -216,7 +216,7 @@ public struct EphemeralSpec: Equatable {
     public var image: SandboxImage
     public var resourceProfile: ResourceProfile
     public var allowedFolders: [EphemeralAllowedFolderIntent]
-    public var workload: EphemeralCommandSpec?
+    public var workload: EphemeralWorkloadIntent?
 
     public static func parseYAML(_ text: String) throws -> EphemeralSpec {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
@@ -379,21 +379,34 @@ public struct EphemeralRunPlan: Equatable {
             throw EphemeralSpecError.invalidNamePrefix(spec.namePrefix)
         }
 
-        let workload: EphemeralCommandSpec
+        let command: WorkloadCommand
+        let explicitWorkdir: GuestPath?
         if let override = workloadOverride {
-            let yamlWorkload = try requireYAMLValue(spec.workload, "workload.workdir", missingError: EphemeralSpecError.missingField)
-            workload = EphemeralCommandSpec(command: override, workdir: yamlWorkload.workdir)
+            command = override
+            explicitWorkdir = spec.workload?.workdir
         } else {
-            workload = try requireYAMLValue(spec.workload, "workload.command", missingError: EphemeralSpecError.missingField)
+            let yamlWorkload = try requireYAMLValue(spec.workload, "workload.command", missingError: EphemeralSpecError.missingField)
+            command = yamlWorkload.command
+            explicitWorkdir = yamlWorkload.workdir
         }
+
+        let workdir = try explicitWorkdir ?? defaultWorkdir(from: spec.allowedFolders)
 
         return EphemeralRunPlan(
             namePrefix: spec.namePrefix,
             image: spec.image,
             resourceProfile: spec.resourceProfile,
             allowedFolders: spec.allowedFolders,
-            workload: workload
+            workload: EphemeralCommandSpec(command: command, workdir: workdir)
         )
+    }
+
+    private static func defaultWorkdir(from allowedFolders: [EphemeralAllowedFolderIntent]) throws -> GuestPath {
+        guard let folder = allowedFolders.first(where: { $0.accessMode == .readWrite }) else {
+            throw EphemeralSpecError.missingImplicitWorkdir
+        }
+        if let guestPath = folder.guestPath { return guestPath }
+        return try FolderPolicy().defaultGuestPath(forDisplayHostPath: folder.hostPath)
     }
 
     public func concreteSandboxSpec(name: SandboxName, sourcePath: String) throws -> SandboxSpec {
@@ -472,17 +485,22 @@ private struct PartialEphemeralCommand {
     var args: [String] = []
     var workdir: GuestPath?
 
-    func buildIfPresent() throws -> EphemeralCommandSpec? {
+    func buildIfPresent() throws -> EphemeralWorkloadIntent? {
         guard command != nil || workdir != nil || !args.isEmpty else { return nil }
         let command = try requireYAMLValue(command, "workload.command", missingError: EphemeralSpecError.missingField)
         guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw EphemeralSpecError.emptyCommand
         }
-        return EphemeralCommandSpec(
+        return EphemeralWorkloadIntent(
             command: try WorkloadCommand(arguments: [command] + args),
-            workdir: try requireYAMLValue(workdir, "workload.workdir", missingError: EphemeralSpecError.missingField)
+            workdir: workdir
         )
     }
+}
+
+public struct EphemeralWorkloadIntent: Equatable {
+    public var command: WorkloadCommand
+    public var workdir: GuestPath?
 }
 
 public struct EphemeralCommandSpec: Equatable {
@@ -509,6 +527,7 @@ public enum EphemeralSpecError: Error, Equatable, CustomStringConvertible {
     case emptyCommand
     case unsupportedCommandListShorthand
     case invalidNamePrefix(String)
+    case missingImplicitWorkdir
 
     public var description: String {
         switch self {
@@ -519,6 +538,7 @@ public enum EphemeralSpecError: Error, Equatable, CustomStringConvertible {
         case .emptyCommand: return "ephemeral workload command cannot be empty"
         case .unsupportedCommandListShorthand: return "unsupported v1 ephemeral command-list shorthand"
         case .invalidNamePrefix(let value): return "invalid ephemeral namePrefix: \(value)"
+        case .missingImplicitWorkdir: return "no read-write allowed folder is available for default workload workdir"
         }
     }
 }
