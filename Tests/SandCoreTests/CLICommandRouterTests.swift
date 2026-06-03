@@ -120,6 +120,51 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertEqual(app.calls, [.ephemeral(specText, "ephemeral-spec.yaml", nil)])
     }
 
+    func testEphemeralDoubleDashRoutesOpaqueWorkloadOverride() throws {
+        let specText = """
+        schemaVersion: 1
+        workload:
+          command: echo
+          workdir: /workspace
+        """
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(application: app, readTextFile: { path in
+            XCTAssertEqual(path, "ephemeral-spec.yaml")
+            return specText
+        })
+
+        let result = try router.dispatch(
+            arguments: [
+                "ephemeral", "--from", "ephemeral-spec.yaml", "--",
+                "python", "-m", "pytest", "--maxfail=1", "--", "literal", "--from", "not-a-sand-option"
+            ]
+        )
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(app.calls, [
+            .ephemeral(
+                specText,
+                "ephemeral-spec.yaml",
+                ["python", "-m", "pytest", "--maxfail=1", "--", "literal", "--from", "not-a-sand-option"]
+            )
+        ])
+    }
+
+    func testEphemeralTrailingDoubleDashWithoutWorkloadFailsBeforeReadingSpecOrCallingApplication() throws {
+        let app = RecordingSandboxApplication()
+        var readPaths: [String] = []
+        let router = CLICommandRouter(application: app, readTextFile: { path in
+            readPaths.append(path)
+            return "schemaVersion: 1\n"
+        })
+
+        XCTAssertThrowsError(try router.dispatch(arguments: ["ephemeral", "--from", "ephemeral-spec.yaml", "--"])) { error in
+            XCTAssertEqual(error as? CLICommandError, .missingArgument("ephemeral --from <ephemeral-spec.yaml> -- <command> [args...]"))
+        }
+        XCTAssertEqual(readPaths, [])
+        XCTAssertEqual(app.calls, [])
+    }
+
     func testCreateFromSpecRejectsExplicitNameThatDoesNotMatchSpecName() throws {
         let router = CLICommandRouter(application: RecordingSandboxApplication(), readTextFile: { _ in
             """

@@ -214,6 +214,45 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
         ])
     }
 
+    func testEphemeralRunPlanUsesCLIWorkloadOverrideAndPreservesYAMLWorkdir() throws {
+        let spec = try EphemeralSpec.parseYAML("""
+        schemaVersion: 1
+        allowedFolders:
+          - hostPath: ./work
+            accessMode: read-write
+        workload:
+          command: echo
+          args:
+            - from-yaml
+          workdir: /workspace/custom
+        """)
+
+        let plan = try EphemeralRunPlan.build(
+            from: spec,
+            workloadOverride: try WorkloadCommand(arguments: ["bash", "-lc", "pwd && env"])
+        )
+
+        XCTAssertEqual(plan.workload.command.arguments, ["bash", "-lc", "pwd && env"])
+        XCTAssertEqual(plan.workload.workdir.rawValue, "/workspace/custom")
+    }
+
+    func testEphemeralRunPlanAllowsCLIWorkloadOverrideWhenYAMLHasNoWorkload() throws {
+        let spec = try EphemeralSpec.parseYAML("""
+        schemaVersion: 1
+        allowedFolders:
+          - hostPath: ./work
+            accessMode: read-write
+        """)
+
+        let plan = try EphemeralRunPlan.build(
+            from: spec,
+            workloadOverride: try WorkloadCommand(arguments: ["echo", "from-cli"])
+        )
+
+        XCTAssertEqual(plan.workload.command.arguments, ["echo", "from-cli"])
+        XCTAssertEqual(plan.workload.workdir.rawValue, "/workspace/work")
+    }
+
     func testWorkloadWorkdirDefaultsToFirstReadWriteAllowedFolderGuestPath() throws {
         let sandboxName = try SandboxName("ephemeral-20260602-abcd")
         var events: [String] = []

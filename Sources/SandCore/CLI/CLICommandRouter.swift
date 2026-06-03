@@ -119,11 +119,24 @@ public struct CLICommandRouter {
 
     // Parses and dispatches the `ephemeral` command with its options.
     private func dispatchEphemeral(_ arguments: [String]) throws -> CommandResult {
-        guard arguments.count == 2 else { throw CLICommandError.missingArgument("ephemeral --from <ephemeral-spec.yaml>") }
+        guard arguments.count >= 2 else { throw CLICommandError.missingArgument("ephemeral --from <ephemeral-spec.yaml>") }
         guard arguments[0] == "--from" else { throw CLICommandError.unsupportedOption(arguments[0]) }
         let sourcePath = arguments[1]
+
+        let workloadOverride: WorkloadCommand?
+        if arguments.count == 2 {
+            workloadOverride = nil
+        } else {
+            guard arguments[2] == "--" else { throw CLICommandError.unexpectedArguments(Array(arguments.dropFirst(2))) }
+            let overrideArguments = Array(arguments.dropFirst(3))
+            guard !overrideArguments.isEmpty else {
+                throw CLICommandError.missingArgument("ephemeral --from <ephemeral-spec.yaml> -- <command> [args...]")
+            }
+            workloadOverride = try WorkloadCommand(arguments: overrideArguments)
+        }
+
         let specText = try readTextFile(sourcePath)
-        return try application.ephemeral(EphemeralRunRequest(authoredSpecText: specText, sourcePath: sourcePath))
+        return try application.ephemeral(EphemeralRunRequest(authoredSpecText: specText, sourcePath: sourcePath, workloadOverride: workloadOverride))
     }
 
     // Parses and dispatches the `delete` command with its options.
@@ -273,9 +286,9 @@ private enum CLIHelp {
     """
 
     static let ephemeral = """
-    Usage: sand ephemeral --from <ephemeral-spec.yaml>
+    Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <command> [args...]]
 
-    Creates a temporary Sandbox VM, runs the spec workload, stops and deletes it, and prints the run record path.
+    Creates a temporary Sandbox VM, runs the spec workload or CLI workload override, stops and deletes it, and prints the run record path.
     """
 
     static let apply = """

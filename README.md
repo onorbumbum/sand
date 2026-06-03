@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: bafaf33892ac2bf2beb3a8b9e563d2153ffb533ced60f00152c1e25efbceff1b -->
+<!-- docs-input-hash: b04fce05165bada95e4dedb2a436930eb85dd4596efe48b7a3af85e9b4ccaaa5 -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -229,7 +229,7 @@ For the complete generated reference, see [`docs/cli-reference.md`](docs/cli-ref
 Supported v1 commands:
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`
+- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand ephemeral --from <spec.yaml> [-- <command> [args...]]`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`
 - Sandbox-first actions: `sand <name> status`, `sand <name> start`, `sand <name> stop`, `sand <name> shell`, `sand <name> run <command> [args...]`, `sand <name> logs`, `sand <name> spec`
 
 Command help:
@@ -238,6 +238,7 @@ Command help:
 sand --help
 sand doctor --help
 sand create --help
+sand ephemeral --help
 sand list --help
 sand apply --help
 sand delete --help

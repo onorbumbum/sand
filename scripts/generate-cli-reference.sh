@@ -57,7 +57,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 ## Supported v1 command surface
 
 - Global: \`sand --help\`, \`sand --version\`
-- Top-level commands: \`doctor\`, \`create\`, \`ephemeral --from <spec.yaml>\`, \`list\`, \`apply\`, \`delete\`, \`folders\`
+- Top-level commands: \`doctor\`, \`create\`, \`ephemeral --from <spec.yaml> [-- <command> [args...]]\`, \`list\`, \`apply\`, \`delete\`, \`folders\`
 - Sandbox-first actions: \`sand <name> status\`, \`start\`, \`stop\`, \`shell\`, \`run <command> [args...]\`, \`logs\`, \`spec\`
 
 ## Current v1 boundaries

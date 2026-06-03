@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: bafaf33892ac2bf2beb3a8b9e563d2153ffb533ced60f00152c1e25efbceff1b -->
+<!-- docs-input-hash: b04fce05165bada95e4dedb2a436930eb85dd4596efe48b7a3af85e9b4ccaaa5 -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 
 ## Generation source
 
-- Docs input hash: `bafaf33892ac2bf2beb3a8b9e563d2153ffb533ced60f00152c1e25efbceff1b`
+- Docs input hash: `b04fce05165bada95e4dedb2a436930eb85dd4596efe48b7a3af85e9b4ccaaa5`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, `sand <name> --help`, and `sand --version` output.
@@ -18,7 +18,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 ## Supported v1 command surface
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `doctor`, `create`, `ephemeral --from <spec.yaml>`, `list`, `apply`, `delete`, `folders`
+- Top-level commands: `doctor`, `create`, `ephemeral --from <spec.yaml> [-- <command> [args...]]`, `list`, `apply`, `delete`, `folders`
 - Sandbox-first actions: `sand <name> status`, `start`, `stop`, `shell`, `run <command> [args...]`, `logs`, `spec`
 
 ## Current v1 boundaries
@@ -79,9 +79,9 @@ Creates a Sandbox VM from generated defaults or from an authored spec.
 ## `sand ephemeral`
 
 ```text
-Usage: sand ephemeral --from <ephemeral-spec.yaml>
+Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <command> [args...]]
 
-Creates a temporary Sandbox VM, runs the spec workload, stops and deletes it, and prints the run record path.
+Creates a temporary Sandbox VM, runs the spec workload or CLI workload override, stops and deletes it, and prints the run record path.
 ```
 
 ## `sand list`
