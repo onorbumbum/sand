@@ -545,7 +545,8 @@ public final class FileEphemeralRunRecordStore: EphemeralRunRecordStore {
         var fields = [
             "  \"status\": \"\(escapeJSON(result.status))\"",
             "  \"exitCode\": \(result.exitCode)",
-            "  \"recordPath\": \"\(escapeJSON(result.recordPath))\""
+            "  \"recordPath\": \"\(escapeJSON(result.recordPath))\"",
+            "  \"sandboxName\": \"\(escapeJSON(identity.sandboxName.rawValue))\""
         ]
         if let failedPhase = result.failedPhase {
             fields.append("  \"failedPhase\": \"\(escapeJSON(failedPhase))\"")
