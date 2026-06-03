@@ -1,6 +1,6 @@
 ---
 title: Run After Stop Hooks after workload exit and stop attempt
-status: needs-triage
+status: blocked
 type: issue
 category: enhancement
 labels:
@@ -36,3 +36,13 @@ Add optional After Stop Hooks that run on the Host Mac after the Foreground Work
 ## Blocked by
 
 - `issues/sand/028-before-provision-hooks.md`
+
+## Progress
+
+### 2026-06-02 23:27 PDT — RUN-ONLY: blocked by issue 28
+
+- Files shipped: `issues/sand/029-after-stop-hooks.md`
+- Verification: blocker check only — `issues/sand/028-before-provision-hooks.md` still exists outside `issues/sand/done`, so implementation and tests were intentionally skipped per run-only instructions.
+- TDD evidence: RED not run (blocked before implementation); GREEN not run (blocked before implementation); refactor not run.
+- ACs completed: none.
+- HITL/default decisions: **Stopped instead of implementing because the safer/default run-only rule says unresolved local blockers prevent code changes.**
