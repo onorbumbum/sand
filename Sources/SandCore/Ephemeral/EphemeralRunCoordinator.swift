@@ -249,30 +249,38 @@ public struct EphemeralRunCoordinator {
         )
         try runRecordStore.writeGeneratedSpec(sandboxSpec, identity: identity)
 
+        var startupFailure: (failedPhase: String, cleanupResult: CommandResult)?
         try metadataStore.withLifecycleMutationLock {
             try metadataStore.createSpec(sandboxSpec)
-        }
 
-        do {
-            try metadataStore.withLifecycleMutationLock {
+            do {
                 try backend.provision(sandboxSpec)
+            } catch {
+                startupFailure = (
+                    failedPhase: "provision",
+                    cleanupResult: deleteEphemeralResourcesWithoutLock(named: identity.sandboxName)
+                )
+                return
             }
-        } catch {
-            let cleanupResult = deleteEphemeralResources(named: identity.sandboxName)
-            return try writeFinalOutcome(
-                provisionOrStartFailureOutcome(failedPhase: "provision", cleanupResult: cleanupResult, sandboxName: identity.sandboxName),
-                identity: identity
-            )
+
+            do {
+                try backend.start(identity.sandboxName)
+            } catch {
+                startupFailure = (
+                    failedPhase: "start",
+                    cleanupResult: deleteEphemeralResourcesWithoutLock(named: identity.sandboxName)
+                )
+                return
+            }
         }
 
-        do {
-            try metadataStore.withLifecycleMutationLock {
-                try backend.start(identity.sandboxName)
-            }
-        } catch {
-            let cleanupResult = deleteEphemeralResources(named: identity.sandboxName)
+        if let startupFailure {
             return try writeFinalOutcome(
-                provisionOrStartFailureOutcome(failedPhase: "start", cleanupResult: cleanupResult, sandboxName: identity.sandboxName),
+                provisionOrStartFailureOutcome(
+                    failedPhase: startupFailure.failedPhase,
+                    cleanupResult: startupFailure.cleanupResult,
+                    sandboxName: identity.sandboxName
+                ),
                 identity: identity
             )
         }
@@ -373,13 +381,26 @@ public struct EphemeralRunCoordinator {
     private func deleteEphemeralResources(named sandboxName: SandboxName) -> CommandResult {
         do {
             try metadataStore.withLifecycleMutationLock {
-                try backend.delete(sandboxName)
-                try metadataStore.deleteSpec(named: sandboxName)
+                try deleteEphemeralResourcesWithoutLockOrThrow(named: sandboxName)
             }
             return .success
         } catch {
             return .failure(exitCode: 1)
         }
+    }
+
+    private func deleteEphemeralResourcesWithoutLock(named sandboxName: SandboxName) -> CommandResult {
+        do {
+            try deleteEphemeralResourcesWithoutLockOrThrow(named: sandboxName)
+            return .success
+        } catch {
+            return .failure(exitCode: 1)
+        }
+    }
+
+    private func deleteEphemeralResourcesWithoutLockOrThrow(named sandboxName: SandboxName) throws {
+        try backend.delete(sandboxName)
+        try metadataStore.deleteSpec(named: sandboxName)
     }
 
     private func provisionOrStartFailureOutcome(failedPhase: String, cleanupResult: CommandResult, sandboxName: SandboxName) -> FinalEphemeralOutcome {

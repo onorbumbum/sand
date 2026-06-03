@@ -67,6 +67,149 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
         ])
     }
 
+    func testActiveEphemeralMetadataIsVisibleToNormalListDuringWorkloadAndRemovedAfterSuccessfulDelete() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        let metadataStore = RecordingEphemeralMetadataStore(events: { _ in })
+        var listOutputDuringWorkload: [String] = []
+        var backend: WorkloadObservationBackend!
+        backend = WorkloadObservationBackend(onRun: {
+            let lifecycle = LifecycleCoordinator(
+                metadataStore: metadataStore,
+                backend: backend,
+                writeOutput: { listOutputDuringWorkload.append($0) }
+            )
+            XCTAssertEqual(try lifecycle.list(), .success)
+        })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { _ in }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        workload:
+          command: echo
+          workdir: /workspace
+        """
+
+        let result = try coordinator.run(
+            EphemeralRunRequest(
+                authoredSpecText: specText,
+                sourcePath: "/tmp/ephemeral-spec.yaml"
+            )
+        )
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(listOutputDuringWorkload, [
+            "ephemeral-20260602-abcd\trunning\tsand/developer-ready:ubuntu-lts\t0 folders"
+        ])
+        XCTAssertEqual(metadataStore.activeSpecNames, [])
+        XCTAssertEqual(runRecordStore.resultStatus, "success")
+    }
+
+    func testDuplicateEphemeralNameProtectionComesFromHostMetadataBeforeBackendProvisioning() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        let existingSpec = SandboxSpec.generated(name: sandboxName)
+        let metadataStore = MemoryMetadataStore(specs: [existingSpec])
+        let backend = RecordingSandboxBackend(status: .missing)
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { _ in }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        workload:
+          command: echo
+          workdir: /workspace
+        """
+
+        XCTAssertThrowsError(
+            try coordinator.run(
+                EphemeralRunRequest(
+                    authoredSpecText: specText,
+                    sourcePath: "/tmp/ephemeral-spec.yaml"
+                )
+            )
+        ) { error in
+            XCTAssertEqual(error as? HostMetadataError, .duplicateSandboxName("ephemeral-20260602-abcd"))
+        }
+        XCTAssertEqual(backend.calls, [])
+        XCTAssertEqual(runRecordStore.generatedSpecs.map(\.name), [sandboxName])
+    }
+
+    func testLifecycleLockCoversStartupMutationsButExitsBeforeForegroundWorkload() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = LockTrackingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = LockObservingSandboxBackend(
+            isLockHeld: { metadataStore.isLockHeld },
+            events: { events.append($0) }
+        )
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { _ in }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        workload:
+          command: long-running-workload
+          workdir: /workspace
+        """
+
+        let result = try coordinator.run(
+            EphemeralRunRequest(
+                authoredSpecText: specText,
+                sourcePath: "/tmp/ephemeral-spec.yaml"
+            )
+        )
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(events, [
+            "lock.enter",
+            "metadata.createSpec.ephemeral-20260602-abcd",
+            "backend.provision.ephemeral-20260602-abcd.locked=true",
+            "backend.start.ephemeral-20260602-abcd.locked=true",
+            "lock.exit",
+            "backend.run.ephemeral-20260602-abcd.locked=false",
+            "lock.enter",
+            "backend.stop.ephemeral-20260602-abcd.locked=true",
+            "lock.exit",
+            "lock.enter",
+            "backend.delete.ephemeral-20260602-abcd.locked=true",
+            "metadata.deleteSpec.ephemeral-20260602-abcd",
+            "lock.exit"
+        ])
+    }
+
     func testEphemeralSpecDefaultsRemainValidAndArePlannedBeforeSideEffects() throws {
         let sandboxName = try SandboxName("ephemeral-20260602-abcd")
         var events: [String] = []
@@ -1356,6 +1499,139 @@ private struct AfterStopSkipScenarioResult {
     var backendCalls: [BackendCall]
     var resultFailedPhase: String?
     var activeSpecNames: [String]
+}
+
+private final class WorkloadObservationBackend: SandboxBackend {
+    private let onRun: () throws -> Void
+    private var runtimeStatus: SandboxRuntimeStatus = .missing
+
+    init(onRun: @escaping () throws -> Void) {
+        self.onRun = onRun
+    }
+
+    func checkReadiness() throws -> BackendReadiness { .ready }
+
+    func provision(_ spec: SandboxSpec) throws {
+        runtimeStatus = .stopped
+    }
+
+    func apply(_ spec: SandboxSpec) throws {}
+
+    func start(_ sandboxName: SandboxName) throws {
+        runtimeStatus = .running
+    }
+
+    func stop(_ sandboxName: SandboxName) throws {
+        runtimeStatus = .stopped
+    }
+
+    func run(_ request: BackendRunRequest) throws -> CommandResult {
+        try onRun()
+        return .success
+    }
+
+    func shell(_ request: BackendShellRequest) throws -> CommandResult { .success }
+
+    func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus { runtimeStatus }
+
+    func logs(_ sandboxName: SandboxName) throws -> SandboxLogs { SandboxLogs(text: "") }
+
+    func delete(_ sandboxName: SandboxName) throws {
+        runtimeStatus = .missing
+    }
+}
+
+private final class LockTrackingEphemeralMetadataStore: HostMetadataStore {
+    private var specsByName: [String: SandboxSpec] = [:]
+    private let recordEvent: (String) -> Void
+    private(set) var isLockHeld = false
+
+    init(events: @escaping (String) -> Void) {
+        self.recordEvent = events
+    }
+
+    func createSpec(_ spec: SandboxSpec) throws {
+        recordEvent("metadata.createSpec.\(spec.name.rawValue)")
+        if specsByName[spec.name.rawValue] != nil {
+            throw HostMetadataError.duplicateSandboxName(spec.name.rawValue)
+        }
+        specsByName[spec.name.rawValue] = spec
+    }
+
+    func readSpec(named name: SandboxName) throws -> SandboxSpec {
+        guard let spec = specsByName[name.rawValue] else {
+            throw HostMetadataError.specNotFound(name.rawValue)
+        }
+        return spec
+    }
+
+    func readCreatedSpec(named name: SandboxName) throws -> SandboxSpec { try readSpec(named: name) }
+
+    func writeSpec(_ spec: SandboxSpec) throws { specsByName[spec.name.rawValue] = spec }
+
+    func deleteSpec(named name: SandboxName) throws {
+        recordEvent("metadata.deleteSpec.\(name.rawValue)")
+        specsByName.removeValue(forKey: name.rawValue)
+    }
+
+    func listSpecs() throws -> [SandboxSpec] { Array(specsByName.values) }
+    func currentHostDirectory() -> String { "/workspace" }
+    func schemaVersion() throws -> Int { SandboxSpec.supportedSchemaVersion }
+    func checkWritability() throws {}
+
+    func withLifecycleMutationLock<T>(_ operation: () throws -> T) throws -> T {
+        recordEvent("lock.enter")
+        isLockHeld = true
+        defer {
+            isLockHeld = false
+            recordEvent("lock.exit")
+        }
+        return try operation()
+    }
+}
+
+private final class LockObservingSandboxBackend: SandboxBackend {
+    private let isLockHeld: () -> Bool
+    private let recordEvent: (String) -> Void
+    private var runtimeStatus: SandboxRuntimeStatus = .missing
+
+    init(isLockHeld: @escaping () -> Bool, events: @escaping (String) -> Void) {
+        self.isLockHeld = isLockHeld
+        self.recordEvent = events
+    }
+
+    func checkReadiness() throws -> BackendReadiness { .ready }
+
+    func provision(_ spec: SandboxSpec) throws {
+        recordEvent("backend.provision.\(spec.name.rawValue).locked=\(isLockHeld())")
+        runtimeStatus = .stopped
+    }
+
+    func apply(_ spec: SandboxSpec) throws {}
+
+    func start(_ sandboxName: SandboxName) throws {
+        recordEvent("backend.start.\(sandboxName.rawValue).locked=\(isLockHeld())")
+        runtimeStatus = .running
+    }
+
+    func stop(_ sandboxName: SandboxName) throws {
+        recordEvent("backend.stop.\(sandboxName.rawValue).locked=\(isLockHeld())")
+        runtimeStatus = .stopped
+    }
+
+    func run(_ request: BackendRunRequest) throws -> CommandResult {
+        recordEvent("backend.run.\(request.sandboxName.rawValue).locked=\(isLockHeld())")
+        return .success
+    }
+
+    func shell(_ request: BackendShellRequest) throws -> CommandResult { .success }
+    func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus { runtimeStatus }
+    func logs(_ sandboxName: SandboxName) throws -> SandboxLogs { SandboxLogs(text: "") }
+
+    func delete(_ sandboxName: SandboxName) throws {
+        recordEvent("backend.delete.\(sandboxName.rawValue).locked=\(isLockHeld())")
+        runtimeStatus = .missing
+    }
 }
 
 private final class RecordingEphemeralMetadataStore: HostMetadataStore {

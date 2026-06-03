@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: ac104b128964ab14e3c4bef3859ffe562c1c008136d3043c1a2fd466f597d8af -->
+<!-- docs-input-hash: efa355a2fd66a055e24078320ab023aea8ae8ac68b69b219a88de175adf1c27e -->
 
 # sand Developer Guide
 
@@ -24,7 +24,7 @@ Keep backend-specific wording inside backend implementation and tests. User-faci
 | --- | --- | --- |
 | CLI routing | `Sources/sand/main.swift`, `Sources/SandCore/CLI/CLICommandRouter.swift`, `Sources/SandCore/CLI/SandboxApplication.swift` | Parse `sand` arguments, print help/version, reject unsupported v1 command shapes, and call the application boundary. |
 | Lifecycle coordination | `Sources/SandCore/Lifecycle/LifecycleCoordinator.swift` | Orchestrate create, apply, delete, start, stop, status, logs, spec, shell, run, and folder mutations. Lifecycle Mutations are serialized; normal Sandbox Sessions and Workload Commands are not. |
-| Ephemeral runs | `Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift` | Plan Ephemeral Specs, run Host Mac lifecycle hooks, record attempts, and coordinate bounded create-run-stop-delete workflows. |
+| Ephemeral runs | `Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift` | Plan Ephemeral Specs, run Host Mac lifecycle hooks, record attempts, manage temporary active Host Metadata, and coordinate bounded create-run-stop-delete workflows with scoped lifecycle locks. |
 | Sandbox Specs | `Sources/SandCore/Spec/SandboxSpec.swift` | Model and validate v1 Sandbox Specs, defaults, YAML rendering/parsing, unsupported fields, and immutable Resource Profile updates. |
 | Allowed Folders | `Sources/SandCore/FolderPolicy/FolderPolicy.swift` | Normalize Access Modes, choose default Guest Paths, preserve display paths, resolve real paths, reject overlapping Host Mac folders, and prevent duplicate Guest Paths. |
 | Working Directory Mapping | `Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift` | Map the Host Mac current directory into the matching Guest Path when it is inside an Allowed Folder; otherwise warn and use `/workspace`. |
@@ -46,7 +46,7 @@ Behavior is specified with XCTest under `Tests/SandCoreTests/`. Start with the r
 | Folder policy | `Tests/SandCoreTests/FolderPolicyTests.swift` checks Access Mode aliases, default Guest Path derivation, canonical storage, duplicate Host Mac folder updates, duplicate Guest Path rejection, and overlap rejection using resolved paths. |
 | Working Directory Mapping | `Tests/SandCoreTests/WorkingDirectoryMapperTests.swift` checks exact and nested Allowed Folder mapping, symlink-resolved mapping, and fallback warning behavior outside Allowed Folders. |
 | Lifecycle coordination | `Tests/SandCoreTests/LifecycleCoordinatorTests.swift` checks create rollback, apply prompts, status/list/spec/logs output, run/shell auto-start, folder mutation auto-apply, deletion prompts, lifecycle locks, and concurrent session boundaries. |
-| Ephemeral run coordination | `Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift` checks Ephemeral Spec parsing, Host Mac lifecycle hook ordering/output capture, foreground workload outcomes, stop/delete attempts, delete-failure manual cleanup guidance, result precedence, and generated Sandbox Specs. |
+| Ephemeral run coordination | `Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift` checks Ephemeral Spec parsing, Host Mac lifecycle hook ordering/output capture, foreground workload outcomes, active Host Metadata/list visibility, duplicate-name protection, scoped lifecycle lock boundaries, stop/delete attempts, delete-failure manual cleanup guidance, result precedence, and generated Sandbox Specs. |
 | Doctor Checks | `Tests/SandCoreTests/DoctorChecksTests.swift` and `Tests/SandCoreTests/AppleContainerCLIBackendDoctorTests.swift` check platform gating, Host Metadata writability, backend readiness, default Sandbox Image checks, and backend command construction. |
 | Backend error translation | `Tests/SandCoreTests/BackendErrorTranslationTests.swift` checks that raw backend failures become actionable Sandbox VM messages without leaking adapter internals. |
 | Architecture boundaries | `Tests/SandCoreTests/ArchitectureBoundaryTests.swift` checks that fake backends stay out of product sources and backend-specific implementation wording stays inside the adapter. |
