@@ -19,7 +19,7 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertTrue(output[0].contains("doctor"))
         XCTAssertTrue(output[0].contains("sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]"))
         XCTAssertTrue(output[0].contains("<name> run"))
-        XCTAssertEqual(output[1], "sand 0.1.0-dev")
+        XCTAssertEqual(output[1], "sand 0.2.0-dev")
         XCTAssertEqual(app.calls, [])
     }
 
