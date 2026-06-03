@@ -1,6 +1,6 @@
 ---
 title: Preserve durable lifecycle behavior and enforce v1 ephemeral omissions
-status: needs-triage
+status: blocked
 type: issue
 category: enhancement
 labels:
@@ -43,3 +43,13 @@ Prove that Ephemeral Sandbox Runs do not make durable Sandbox VM commands surpri
 - `issues/sand/030-ephemeral-failure-cleanup-result-precedence.md`
 - `issues/sand/031-full-ephemeral-run-record-artifacts.md`
 - `issues/sand/032-ephemeral-lifecycle-lock-active-metadata.md`
+
+## Progress
+
+### 2026-06-02 23:35 PDT — RUN-ONLY: blocked by prerequisite issues
+
+- Files shipped: `issues/sand/033-durable-lifecycle-non-regression-v1-omissions.md`
+- Verification: blocker check failed because prerequisite issue files still exist outside `issues/sand/done`: `issues/sand/029-after-stop-hooks.md`, `issues/sand/030-ephemeral-failure-cleanup-result-precedence.md`, `issues/sand/031-full-ephemeral-run-record-artifacts.md`, `issues/sand/032-ephemeral-lifecycle-lock-active-metadata.md`.
+- TDD evidence: RED not run; GREEN not run; refactor not run because the issue is blocked before implementation per run-only instructions.
+- ACs completed: none.
+- HITL/default decisions: **Marked the issue blocked rather than implementing dependent regression coverage** because local blocker files are still open and AFK run-only mode requires the safer default.
