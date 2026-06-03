@@ -1,10 +1,10 @@
 ---
 title: Add Ephemeral Sandbox Runs for bounded create-run-cleanup-delete workflows
-status: needs-triage
+status: done
 type: prd
 category: enhancement
+completed: 2026-06-03
 labels:
-  - needs-triage
   - enhancement
   - sand
   - sandbox-vm
@@ -298,8 +298,22 @@ Ephemeral Run Records live under Host Metadata and are kept indefinitely by defa
 - Pi-specific ephemeral shortcuts.
 - Desktop UI.
 
+## Completion Record
+
+Completed on 2026-06-03 through the local issue queue from `issues/sand/022-minimal-ephemeral-command-happy-path.md` through `issues/sand/034-ephemeral-docs-cli-help-acceptance-evidence.md`.
+
+Delivered scope:
+
+- Added the explicit `sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]` command.
+- Implemented Ephemeral Spec parsing, shape validation, generated run identity, CLI workload override, default workload workdir behavior, lifecycle hooks, cleanup semantics, result precedence, run records, active metadata visibility, and durable lifecycle regression coverage.
+- Preserved the durable-vs-ephemeral boundary documented in `docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md`.
+- Refreshed generated docs and CLI help/reference for the new command surface.
+- Bumped installed development version to `0.2.0-dev` after completion.
+
+Verification recorded by the closing issues includes deterministic XCTest coverage, documentation freshness checks, `make check`, and final live acceptance evidence in `issues/sand/done/034-ephemeral-docs-cli-help-acceptance-evidence.md`.
+
 ## Further Notes
 
-This feature should be implemented test-first. The architectural goal is a deep EphemeralRunCoordinator with a small interface that hides a complicated saga. Avoid scattering `ephemeral` conditionals across normal lifecycle code. Reuse existing domain types and policies where they represent real shared rules, but keep Ephemeral Spec, run planning, host hooks, and run records as separate concepts.
+This feature was implemented test-first. The architectural goal was a deep EphemeralRunCoordinator with a small interface that hides a complicated saga. Avoid scattering `ephemeral` conditionals across normal lifecycle code. Reuse existing domain types and policies where they represent real shared rules, but keep Ephemeral Spec, run planning, host hooks, and run records as separate concepts.
 
 The key product distinction is durable versus ephemeral: durable Sandbox VMs are reusable named environments managed by normal lifecycle commands; Ephemeral Sandbox Runs are bounded workflows that create, use, post-process, delete, and record what happened.
