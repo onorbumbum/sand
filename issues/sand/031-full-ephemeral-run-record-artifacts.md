@@ -1,6 +1,6 @@
 ---
 title: Write complete immutable Ephemeral Run Record artifacts
-status: needs-triage
+status: blocked
 type: issue
 category: enhancement
 labels:
@@ -40,3 +40,13 @@ Complete Ephemeral Run Record storage so every real run attempt leaves inspectab
 - `issues/sand/028-before-provision-hooks.md`
 - `issues/sand/029-after-stop-hooks.md`
 - `issues/sand/030-ephemeral-failure-cleanup-result-precedence.md`
+
+## Progress
+
+### 2026-06-02 23:31 PDT — RUN-ONLY: blocked by prerequisite issues
+
+- Files shipped: `issues/sand/031-full-ephemeral-run-record-artifacts.md` only.
+- Verification: blocker check only; implementation and tests skipped because open blockers remain.
+- TDD evidence: RED not run; GREEN not run; refactor not run because issue is blocked before implementation.
+- ACs completed: none.
+- HITL/default decisions: **Blocked rather than implementing** — run-only instructions require stopping when `Blocked by` issue files still exist outside `issues/sand/done`; `issues/sand/029-after-stop-hooks.md` and `issues/sand/030-ephemeral-failure-cleanup-result-precedence.md` are still open.
