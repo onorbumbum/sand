@@ -87,11 +87,13 @@ final class RecordingSandboxBackend: SandboxBackend {
     var runtimeStatus: SandboxRuntimeStatus
     var provisionError: (any Error)?
     var logsText: String
+    private let recordEvent: ((String) -> Void)?
 
-    init(status: SandboxRuntimeStatus = .running, provisionError: (any Error)? = nil, logsText: String = "") {
+    init(status: SandboxRuntimeStatus = .running, provisionError: (any Error)? = nil, logsText: String = "", events: ((String) -> Void)? = nil) {
         self.runtimeStatus = status
         self.provisionError = provisionError
         self.logsText = logsText
+        self.recordEvent = events
     }
 
     func checkReadiness() throws -> BackendReadiness {
@@ -101,31 +103,37 @@ final class RecordingSandboxBackend: SandboxBackend {
 
     func provision(_ spec: SandboxSpec) throws {
         calls.append(.provision(spec.name.rawValue))
+        recordEvent?("backend.provision.\(spec.name.rawValue)")
         if let provisionError = provisionError { throw provisionError }
         runtimeStatus = .stopped
     }
 
     func apply(_ spec: SandboxSpec) throws {
         calls.append(.apply(spec.name.rawValue))
+        recordEvent?("backend.apply.\(spec.name.rawValue)")
     }
 
     func start(_ sandboxName: SandboxName) throws {
         calls.append(.start(sandboxName.rawValue))
+        recordEvent?("backend.start.\(sandboxName.rawValue)")
         runtimeStatus = .running
     }
 
     func stop(_ sandboxName: SandboxName) throws {
         calls.append(.stop(sandboxName.rawValue))
+        recordEvent?("backend.stop.\(sandboxName.rawValue)")
         runtimeStatus = .stopped
     }
 
     func run(_ request: BackendRunRequest) throws -> CommandResult {
         calls.append(.run(request.sandboxName.rawValue, request.command.arguments, request.workingDirectory.rawValue))
+        recordEvent?("backend.run.\(request.sandboxName.rawValue).\(request.command.arguments.joined(separator: " ")).\(request.workingDirectory.rawValue)")
         return .success
     }
 
     func shell(_ request: BackendShellRequest) throws -> CommandResult {
         calls.append(.shell(request.sandboxName.rawValue, request.workingDirectory.rawValue))
+        recordEvent?("backend.shell.\(request.sandboxName.rawValue).\(request.workingDirectory.rawValue)")
         return .success
     }
 
@@ -141,6 +149,7 @@ final class RecordingSandboxBackend: SandboxBackend {
 
     func delete(_ sandboxName: SandboxName) throws {
         calls.append(.delete(sandboxName.rawValue))
+        recordEvent?("backend.delete.\(sandboxName.rawValue)")
         runtimeStatus = .missing
     }
 }

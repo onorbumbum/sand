@@ -47,6 +47,9 @@ public struct CLICommandRouter {
         case "create":
             if try printHelpIfRequested(arguments, CLIHelp.create) { return .success }
             return try dispatchCreate(Array(arguments.dropFirst()))
+        case "ephemeral":
+            if try printHelpIfRequested(arguments, CLIHelp.ephemeral) { return .success }
+            return try dispatchEphemeral(Array(arguments.dropFirst()))
         case "apply":
             if try printHelpIfRequested(arguments, CLIHelp.apply) { return .success }
             let name = try singleNameArgument(arguments, command: "apply")
@@ -112,6 +115,15 @@ public struct CLICommandRouter {
 
         guard let name else { throw CLICommandError.missingSandboxName }
         return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, resourceProfile: resourceProfile))
+    }
+
+    // Parses and dispatches the `ephemeral` command with its options.
+    private func dispatchEphemeral(_ arguments: [String]) throws -> CommandResult {
+        guard arguments.count == 2 else { throw CLICommandError.missingArgument("ephemeral --from <ephemeral-spec.yaml>") }
+        guard arguments[0] == "--from" else { throw CLICommandError.unsupportedOption(arguments[0]) }
+        let sourcePath = arguments[1]
+        let specText = try readTextFile(sourcePath)
+        return try application.ephemeral(EphemeralRunRequest(authoredSpecText: specText, sourcePath: sourcePath))
     }
 
     // Parses and dispatches the `delete` command with its options.
@@ -226,6 +238,7 @@ private enum CLIHelp {
     Commands:
       doctor                         Verify host prerequisites
       create <name> [options]        Create a Sandbox VM
+      ephemeral --from <spec.yaml>   Run a bounded Ephemeral Sandbox Run
       list                           List Sandbox VMs
       apply <name>                   Apply spec changes
       delete <name> [--force]        Delete a Sandbox VM
@@ -257,6 +270,12 @@ private enum CLIHelp {
     Usage: sand create <name> [--image <image>] [--cpus <count>] [--memory <size>] [--from <spec.yaml>]
 
     Creates a Sandbox VM from generated defaults or from an authored spec.
+    """
+
+    static let ephemeral = """
+    Usage: sand ephemeral --from <ephemeral-spec.yaml>
+
+    Creates a temporary Sandbox VM, runs the spec workload, stops and deletes it, and prints the run record path.
     """
 
     static let apply = """

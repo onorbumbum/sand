@@ -14,6 +14,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     private let folderPolicy: FolderPolicy
     private let prompt: any PromptConfirmation
     private let doctorPlatform: any DoctorPlatform
+    private let ephemeralRunRecordStore: any EphemeralRunRecordStore
     private let writeOutput: (String) -> Void
     private let writeWarning: (String) -> Void
 
@@ -25,6 +26,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         folderPolicy: FolderPolicy = FolderPolicy(),
         prompt: any PromptConfirmation = AlwaysProceedPromptConfirmation(),
         doctorPlatform: any DoctorPlatform = HostDoctorPlatform(),
+        ephemeralRunRecordStore: any EphemeralRunRecordStore = FileEphemeralRunRecordStore(),
         writeOutput: @escaping (String) -> Void = { Swift.print($0) },
         writeWarning: @escaping (String) -> Void = { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
     ) {
@@ -34,6 +36,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         self.folderPolicy = folderPolicy
         self.prompt = prompt
         self.doctorPlatform = doctorPlatform
+        self.ephemeralRunRecordStore = ephemeralRunRecordStore
         self.writeOutput = writeOutput
         self.writeWarning = writeWarning
     }
@@ -70,6 +73,16 @@ public struct LifecycleCoordinator: SandboxApplication {
             }
         }
         return .success
+    }
+
+    /// Runs an explicit bounded Ephemeral Sandbox Run.
+    public func ephemeral(_ request: EphemeralRunRequest) throws -> CommandResult {
+        try EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: ephemeralRunRecordStore,
+            writeOutput: writeOutput
+        ).run(request)
     }
 
     /// Lists all known sandbox VMs with their current status.

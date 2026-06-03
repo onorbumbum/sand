@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: 4611688f2471ede3a9c27aa0340797287c49354225e6bbf68a7472d6629486cd -->
+<!-- docs-input-hash: 490020fc53812d479c6f9004d6d3d1179a1ab9c103acf8b4ae54e8877f180f82 -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 
 ## Generation source
 
-- Docs input hash: `4611688f2471ede3a9c27aa0340797287c49354225e6bbf68a7472d6629486cd`
+- Docs input hash: `490020fc53812d479c6f9004d6d3d1179a1ab9c103acf8b4ae54e8877f180f82`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, `sand <name> --help`, and `sand --version` output.
@@ -18,7 +18,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 ## Supported v1 command surface
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `doctor`, `create`, `list`, `apply`, `delete`, `folders`
+- Top-level commands: `doctor`, `create`, `ephemeral --from <spec.yaml>`, `list`, `apply`, `delete`, `folders`
 - Sandbox-first actions: `sand <name> status`, `start`, `stop`, `shell`, `run <command> [args...]`, `logs`, `spec`
 
 ## Current v1 boundaries
@@ -44,6 +44,7 @@ Usage: sand <command> [options]
 Commands:
   doctor                         Verify host prerequisites
   create <name> [options]        Create a Sandbox VM
+  ephemeral --from <spec.yaml>   Run a bounded Ephemeral Sandbox Run
   list                           List Sandbox VMs
   apply <name>                   Apply spec changes
   delete <name> [--force]        Delete a Sandbox VM
@@ -73,6 +74,14 @@ Verifies host support, backend readiness, default image availability, and ~/.san
 Usage: sand create <name> [--image <image>] [--cpus <count>] [--memory <size>] [--from <spec.yaml>]
 
 Creates a Sandbox VM from generated defaults or from an authored spec.
+```
+
+## `sand ephemeral`
+
+```text
+Usage: sand ephemeral --from <ephemeral-spec.yaml>
+
+Creates a temporary Sandbox VM, runs the spec workload, stops and deletes it, and prints the run record path.
 ```
 
 ## `sand list`

@@ -25,6 +25,7 @@ required Sources/SandCore/CLI/SandboxApplication.swift
 required Sources/SandCore/Doctor/DoctorChecks.swift
 required Sources/SandCore/Domain/SandboxName.swift
 required Sources/SandCore/Domain/WorkloadCommand.swift
+required Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift
 required Sources/SandCore/FolderPolicy/FolderPolicy.swift
 required Sources/SandCore/Lifecycle/LifecycleCoordinator.swift
 required Sources/SandCore/Spec/SandboxSpec.swift
@@ -34,6 +35,7 @@ required Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift
 # CLI-related executable behavior specs.
 required Tests/SandCoreTests/CLICommandRouterTests.swift
 required Tests/SandCoreTests/DoctorChecksTests.swift
+required Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift
 required Tests/SandCoreTests/FolderPolicyTests.swift
 required Tests/SandCoreTests/LifecycleCoordinatorTests.swift
 required Tests/SandCoreTests/SandboxSpecTests.swift

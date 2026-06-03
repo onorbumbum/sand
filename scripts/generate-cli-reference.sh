@@ -27,6 +27,7 @@ version_output="$(capture_sand --version)"
 top_help="$(capture_sand --help)"
 doctor_help="$(capture_sand doctor --help)"
 create_help="$(capture_sand create --help)"
+ephemeral_help="$(capture_sand ephemeral --help)"
 list_help="$(capture_sand list --help)"
 apply_help="$(capture_sand apply --help)"
 delete_help="$(capture_sand delete --help)"
@@ -56,7 +57,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 ## Supported v1 command surface
 
 - Global: \`sand --help\`, \`sand --version\`
-- Top-level commands: \`doctor\`, \`create\`, \`list\`, \`apply\`, \`delete\`, \`folders\`
+- Top-level commands: \`doctor\`, \`create\`, \`ephemeral --from <spec.yaml>\`, \`list\`, \`apply\`, \`delete\`, \`folders\`
 - Sandbox-first actions: \`sand <name> status\`, \`start\`, \`stop\`, \`shell\`, \`run <command> [args...]\`, \`logs\`, \`spec\`
 
 ## Current v1 boundaries
@@ -90,6 +91,12 @@ $doctor_help
 
 \`\`\`text
 $create_help
+\`\`\`
+
+## \`sand ephemeral\`
+
+\`\`\`text
+$ephemeral_help
 \`\`\`
 
 ## \`sand list\`

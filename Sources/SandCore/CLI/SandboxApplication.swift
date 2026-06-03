@@ -17,6 +17,7 @@ public protocol SandboxApplication {
     func addFolder(_ request: AddFolderRequest) throws -> CommandResult
     func listFolders(_ request: NamedSandboxRequest) throws -> CommandResult
     func removeFolder(_ request: RemoveFolderRequest) throws -> CommandResult
+    func ephemeral(_ request: EphemeralRunRequest) throws -> CommandResult
 }
 
 /// A request containing only a sandbox name.

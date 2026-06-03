@@ -101,6 +101,25 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertEqual(app.calls, [.run("mybox", ["pi", "--model", "gpt-5", "--", "literal"])])
     }
 
+    func testEphemeralFromSpecRoutesAsExplicitTopLevelCommand() throws {
+        let specText = """
+        schemaVersion: 1
+        workload:
+          command: echo
+          workdir: /workspace
+        """
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(application: app, readTextFile: { path in
+            XCTAssertEqual(path, "ephemeral-spec.yaml")
+            return specText
+        })
+
+        let result = try router.dispatch(arguments: ["ephemeral", "--from", "ephemeral-spec.yaml"])
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(app.calls, [.ephemeral(specText, "ephemeral-spec.yaml", nil)])
+    }
+
     func testCreateFromSpecRejectsExplicitNameThatDoesNotMatchSpecName() throws {
         let router = CLICommandRouter(application: RecordingSandboxApplication(), readTextFile: { _ in
             """
@@ -167,6 +186,7 @@ private final class RecordingSandboxApplication: SandboxApplication {
     func addFolder(_ request: AddFolderRequest) throws -> CommandResult { calls.append(.addFolder(request.sandboxName.rawValue, request.displayHostPath, request.accessMode, request.guestPath?.rawValue)); return .success }
     func listFolders(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.listFolders(request.sandboxName.rawValue)); return .success }
     func removeFolder(_ request: RemoveFolderRequest) throws -> CommandResult { calls.append(.removeFolder(request.sandboxName.rawValue, request.displayHostPath)); return .success }
+    func ephemeral(_ request: EphemeralRunRequest) throws -> CommandResult { calls.append(.ephemeral(request.authoredSpecText, request.sourcePath, request.workloadOverride?.arguments)); return .success }
 }
 
 private enum AppCall: Equatable {
@@ -185,4 +205,5 @@ private enum AppCall: Equatable {
     case addFolder(String, String, String, String?)
     case listFolders(String)
     case removeFolder(String, String)
+    case ephemeral(String, String, [String]?)
 }
