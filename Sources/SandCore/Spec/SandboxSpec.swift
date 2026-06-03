@@ -105,13 +105,13 @@ public struct SandboxSpec: Equatable, Sendable {
                 currentFolder = PartialAllowedFolder()
                 let remainder = String(line.dropFirst(2))
                 if !remainder.isEmpty {
-                    guard let (key, value) = parseKeyValue(remainder) else { throw SandboxSpecError.malformedLine(rawLine) }
+                    guard let (key, value) = parseYAMLKeyValue(remainder) else { throw SandboxSpecError.malformedLine(rawLine) }
                     try currentFolder?.set(key: key, value: value)
                 }
                 continue
             }
 
-            guard let (key, value) = parseKeyValue(line) else {
+            guard let (key, value) = parseYAMLKeyValue(line) else {
                 if line == "[]" && inAllowedFolders { continue }
                 throw SandboxSpecError.malformedLine(rawLine)
             }
@@ -155,9 +155,9 @@ public struct SandboxSpec: Equatable, Sendable {
 
         let spec = SandboxSpec(
             schemaVersion: schemaVersion ?? SandboxSpec.supportedSchemaVersion,
-            name: try required(name, "name"),
+            name: try requireYAMLValue(name, "name", missingError: SandboxSpecError.missingField),
             image: image ?? .developerReadyDefault,
-            resourceProfile: ResourceProfile(cpus: try required(cpus, "resources.cpus"), memory: try required(memory, "resources.memory")),
+            resourceProfile: ResourceProfile(cpus: try requireYAMLValue(cpus, "resources.cpus", missingError: SandboxSpecError.missingField), memory: try requireYAMLValue(memory, "resources.memory", missingError: SandboxSpecError.missingField)),
             allowedFolders: allowedFolders
         )
         try spec.validateV1()
@@ -183,26 +183,12 @@ private struct PartialAllowedFolder {
 
     func build() throws -> AllowedFolder {
         AllowedFolder(
-            displayHostPath: try required(displayHostPath, "allowedFolders.hostPath"),
-            resolvedHostPath: try required(resolvedHostPath, "allowedFolders.resolvedHostPath"),
-            guestPath: try GuestPath(try required(guestPath, "allowedFolders.guestPath")),
-            accessMode: try AccessMode.parse(try required(accessMode, "allowedFolders.accessMode"))
+            displayHostPath: try requireYAMLValue(displayHostPath, "allowedFolders.hostPath", missingError: SandboxSpecError.missingField),
+            resolvedHostPath: try requireYAMLValue(resolvedHostPath, "allowedFolders.resolvedHostPath", missingError: SandboxSpecError.missingField),
+            guestPath: try GuestPath(try requireYAMLValue(guestPath, "allowedFolders.guestPath", missingError: SandboxSpecError.missingField)),
+            accessMode: try AccessMode.parse(try requireYAMLValue(accessMode, "allowedFolders.accessMode", missingError: SandboxSpecError.missingField))
         )
     }
-}
-
-// Parses a "key: value" line into a tuple.
-private func parseKeyValue(_ line: String) -> (String, String)? {
-    guard let colon = line.firstIndex(of: ":") else { return nil }
-    let key = String(line[..<colon]).trimmingCharacters(in: .whitespaces)
-    let value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
-    return (key, value)
-}
-
-// Validates that a required field is present.
-private func required<T>(_ value: T?, _ field: String) throws -> T {
-    guard let value else { throw SandboxSpecError.missingField(field) }
-    return value
 }
 
 /// Errors that can occur when parsing or validating a sandbox spec.

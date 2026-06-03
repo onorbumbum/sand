@@ -68,14 +68,14 @@ public struct EphemeralRunCoordinator {
 
     public func run(_ request: EphemeralRunRequest) throws -> CommandResult {
         let spec = try EphemeralSpec.parseYAML(request.authoredSpecText)
-        let identity = try runRecordStore.allocateIdentity(namePrefix: spec.namePrefix)
+        let plan = try EphemeralRunPlan.build(from: spec, workloadOverride: request.workloadOverride)
+        let identity = try runRecordStore.allocateIdentity(namePrefix: plan.namePrefix)
         try runRecordStore.createAttempt(identity: identity, sourceSpecText: request.authoredSpecText, sourcePath: request.sourcePath)
 
-        let workloadCommand = request.workloadOverride ?? spec.workload.command
         let sandboxSpec = SandboxSpec(
             name: identity.sandboxName,
-            image: spec.image,
-            resourceProfile: spec.resourceProfile,
+            image: plan.image,
+            resourceProfile: plan.resourceProfile,
             allowedFolders: []
         )
         try runRecordStore.writeGeneratedSpec(sandboxSpec, identity: identity)
@@ -89,8 +89,8 @@ public struct EphemeralRunCoordinator {
         let workloadResult = try backend.run(
             BackendRunRequest(
                 sandboxName: identity.sandboxName,
-                command: workloadCommand,
-                workingDirectory: spec.workload.workdir
+                command: plan.workload.command,
+                workingDirectory: plan.workload.workdir
             )
         )
 
@@ -173,48 +173,88 @@ public final class FileEphemeralRunRecordStore: EphemeralRunRecordStore {
     }
 }
 
-private struct EphemeralSpec {
-    var schemaVersion: Int
-    var namePrefix: String
-    var image: SandboxImage
-    var resourceProfile: ResourceProfile
-    var workload: EphemeralCommandSpec
+public struct EphemeralSpec: Equatable {
+    public var schemaVersion: Int
+    public var description: String?
+    public var namePrefix: String
+    public var image: SandboxImage
+    public var resourceProfile: ResourceProfile
+    public var allowedFolders: [EphemeralAllowedFolderIntent]
+    public var workload: EphemeralCommandSpec?
 
-    static func parseYAML(_ text: String) throws -> EphemeralSpec {
+    public static func parseYAML(_ text: String) throws -> EphemeralSpec {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var schemaVersion: Int?
+        var description: String?
         var namePrefix = "ephemeral"
         var image = SandboxImage.developerReadyDefault
         var resourceProfile = ResourceProfile.default
         var workload = PartialEphemeralCommand()
+        var allowedFolders: [EphemeralAllowedFolderIntent] = []
+        var currentFolder: PartialEphemeralAllowedFolder?
         var inWorkload = false
         var inWorkloadArgs = false
         var inResources = false
+        var inAllowedFolders = false
         var cpus: Int?
         var memory: MemorySize?
+
+        func finishCurrentFolder() throws {
+            if let folder = currentFolder {
+                allowedFolders.append(try folder.build())
+                currentFolder = nil
+            }
+        }
 
         for rawLine in lines {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             if line.isEmpty || line.hasPrefix("#") { continue }
 
             if !rawLine.hasPrefix(" ") {
+                try finishCurrentFolder()
                 inWorkload = false
                 inWorkloadArgs = false
                 inResources = false
+                inAllowedFolders = false
             }
 
-            if inWorkloadArgs, line.hasPrefix("- ") {
-                workload.args.append(String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces))
+            if inWorkloadArgs {
+                if line.hasPrefix("- ") {
+                    let argument = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                    try rejectCommandListShorthand(argument)
+                    workload.args.append(argument)
+                    continue
+                }
+                inWorkloadArgs = false
+            }
+
+            if inWorkload, line.hasPrefix("- ") {
+                throw EphemeralSpecError.unsupportedCommandListShorthand
+            }
+
+            if inAllowedFolders, line.hasPrefix("- ") {
+                try finishCurrentFolder()
+                currentFolder = PartialEphemeralAllowedFolder()
+                let remainder = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                if !remainder.isEmpty {
+                    guard let (key, value) = parseYAMLKeyValue(remainder) else {
+                        throw EphemeralSpecError.malformedLine(rawLine)
+                    }
+                    try currentFolder?.set(key: key, value: value)
+                }
                 continue
             }
 
-            guard let (key, value) = parseEphemeralKeyValue(line) else {
+            guard let (key, value) = parseYAMLKeyValue(line) else {
+                if inAllowedFolders, line == "[]" { continue }
                 throw EphemeralSpecError.malformedLine(rawLine)
             }
 
             if inResources {
                 switch key {
-                case "cpus": cpus = Int(value)
+                case "cpus":
+                    guard let value = Int(value) else { throw EphemeralSpecError.malformedLine(rawLine) }
+                    cpus = value
                 case "memory": memory = try MemorySize.parse(value)
                 default: throw EphemeralSpecError.unsupportedField("resources.\(key)")
                 }
@@ -223,7 +263,9 @@ private struct EphemeralSpec {
 
             if inWorkload {
                 switch key {
-                case "command": workload.command = value
+                case "command":
+                    try rejectCommandListShorthand(value)
+                    workload.command = value
                 case "workdir": workload.workdir = try GuestPath(value)
                 case "args":
                     if value == "[]" { workload.args = [] }
@@ -236,34 +278,115 @@ private struct EphemeralSpec {
                 continue
             }
 
+            if inAllowedFolders {
+                guard currentFolder != nil else { throw EphemeralSpecError.malformedLine(rawLine) }
+                try currentFolder?.set(key: key, value: value)
+                continue
+            }
+
             switch key {
-            case "schemaVersion": schemaVersion = Int(value)
+            case "schemaVersion":
+                guard let value = Int(value) else { throw EphemeralSpecError.malformedLine(rawLine) }
+                schemaVersion = value
+            case "description": description = value
             case "namePrefix": namePrefix = value
             case "image": image = SandboxImage(reference: value)
             case "resources":
                 guard value.isEmpty else { throw EphemeralSpecError.malformedLine(rawLine) }
                 inResources = true
             case "workload":
+                if isCommandListShorthand(value) { throw EphemeralSpecError.unsupportedCommandListShorthand }
                 guard value.isEmpty else { throw EphemeralSpecError.malformedLine(rawLine) }
                 inWorkload = true
+            case "allowedFolders":
+                if value == "[]" { inAllowedFolders = false }
+                else {
+                    guard value.isEmpty else { throw EphemeralSpecError.malformedLine(rawLine) }
+                    inAllowedFolders = true
+                }
             default:
                 throw EphemeralSpecError.unsupportedField(key)
             }
         }
 
-        let version = try requireEphemeral(schemaVersion, "schemaVersion")
+        try finishCurrentFolder()
+
+        let version = try requireYAMLValue(schemaVersion, "schemaVersion", missingError: EphemeralSpecError.missingField)
         guard version == SandboxSpec.supportedSchemaVersion else {
             throw EphemeralSpecError.unsupportedSchemaVersion(version)
         }
-        _ = try SandboxName(namePrefix)
         if let cpus { resourceProfile.cpus = cpus }
         if let memory { resourceProfile.memory = memory }
         return EphemeralSpec(
             schemaVersion: version,
+            description: description,
             namePrefix: namePrefix,
             image: image,
             resourceProfile: resourceProfile,
-            workload: try workload.build()
+            allowedFolders: allowedFolders,
+            workload: try workload.buildIfPresent()
+        )
+    }
+}
+
+public struct EphemeralRunPlan: Equatable {
+    public var namePrefix: String
+    public var image: SandboxImage
+    public var resourceProfile: ResourceProfile
+    public var allowedFolders: [EphemeralAllowedFolderIntent]
+    public var workload: EphemeralCommandSpec
+
+    public static func build(from spec: EphemeralSpec, workloadOverride: WorkloadCommand? = nil) throws -> EphemeralRunPlan {
+        do {
+            _ = try SandboxName(spec.namePrefix)
+        } catch {
+            throw EphemeralSpecError.invalidNamePrefix(spec.namePrefix)
+        }
+
+        let workload: EphemeralCommandSpec
+        if let override = workloadOverride {
+            let yamlWorkload = try requireYAMLValue(spec.workload, "workload.workdir", missingError: EphemeralSpecError.missingField)
+            workload = EphemeralCommandSpec(command: override, workdir: yamlWorkload.workdir)
+        } else {
+            workload = try requireYAMLValue(spec.workload, "workload.command", missingError: EphemeralSpecError.missingField)
+        }
+
+        return EphemeralRunPlan(
+            namePrefix: spec.namePrefix,
+            image: spec.image,
+            resourceProfile: spec.resourceProfile,
+            allowedFolders: spec.allowedFolders,
+            workload: workload
+        )
+    }
+}
+
+public struct EphemeralAllowedFolderIntent: Equatable {
+    public var hostPath: String
+    public var guestPath: GuestPath?
+    public var accessMode: AccessMode
+}
+
+private struct PartialEphemeralAllowedFolder {
+    var hostPath: String?
+    var guestPath: GuestPath?
+    var accessMode: AccessMode = .readWrite
+
+    mutating func set(key: String, value: String) throws {
+        switch key {
+        case "hostPath": hostPath = value
+        case "guestPath": guestPath = try GuestPath(value)
+        case "accessMode": accessMode = try AccessMode.parse(value)
+        case "resolvedHostPath": throw EphemeralSpecError.unsupportedField("allowedFolders.resolvedHostPath")
+        default: throw EphemeralSpecError.unsupportedField("allowedFolders.\(key)")
+        }
+    }
+
+    func build() throws -> EphemeralAllowedFolderIntent {
+        EphemeralAllowedFolderIntent(
+            hostPath: try requireYAMLValue(hostPath, "allowedFolders.hostPath", missingError: EphemeralSpecError.missingField),
+            guestPath: guestPath,
+            accessMode: accessMode
         )
     }
 }
@@ -273,33 +396,33 @@ private struct PartialEphemeralCommand {
     var args: [String] = []
     var workdir: GuestPath?
 
-    func build() throws -> EphemeralCommandSpec {
-        let command = try requireEphemeral(command, "workload.command")
+    func buildIfPresent() throws -> EphemeralCommandSpec? {
+        guard command != nil || workdir != nil || !args.isEmpty else { return nil }
+        let command = try requireYAMLValue(command, "workload.command", missingError: EphemeralSpecError.missingField)
         guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw EphemeralSpecError.emptyCommand
         }
         return EphemeralCommandSpec(
             command: try WorkloadCommand(arguments: [command] + args),
-            workdir: try requireEphemeral(workdir, "workload.workdir")
+            workdir: try requireYAMLValue(workdir, "workload.workdir", missingError: EphemeralSpecError.missingField)
         )
     }
 }
 
-private struct EphemeralCommandSpec {
-    var command: WorkloadCommand
-    var workdir: GuestPath
+public struct EphemeralCommandSpec: Equatable {
+    public var command: WorkloadCommand
+    public var workdir: GuestPath
 }
 
-private func parseEphemeralKeyValue(_ line: String) -> (String, String)? {
-    guard let colon = line.firstIndex(of: ":") else { return nil }
-    let key = String(line[..<colon]).trimmingCharacters(in: .whitespaces)
-    let value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
-    return (key, value)
+private func rejectCommandListShorthand(_ value: String) throws {
+    if isCommandListShorthand(value) {
+        throw EphemeralSpecError.unsupportedCommandListShorthand
+    }
 }
 
-private func requireEphemeral<T>(_ value: T?, _ field: String) throws -> T {
-    guard let value else { throw EphemeralSpecError.missingField(field) }
-    return value
+private func isCommandListShorthand(_ value: String) -> Bool {
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.hasPrefix("[") || trimmed.hasPrefix("- ")
 }
 
 public enum EphemeralSpecError: Error, Equatable, CustomStringConvertible {
@@ -308,6 +431,8 @@ public enum EphemeralSpecError: Error, Equatable, CustomStringConvertible {
     case missingField(String)
     case malformedLine(String)
     case emptyCommand
+    case unsupportedCommandListShorthand
+    case invalidNamePrefix(String)
 
     public var description: String {
         switch self {
@@ -316,6 +441,8 @@ public enum EphemeralSpecError: Error, Equatable, CustomStringConvertible {
         case .missingField(let field): return "missing ephemeral spec field: \(field)"
         case .malformedLine(let line): return "malformed ephemeral spec line: \(line)"
         case .emptyCommand: return "ephemeral workload command cannot be empty"
+        case .unsupportedCommandListShorthand: return "unsupported v1 ephemeral command-list shorthand"
+        case .invalidNamePrefix(let value): return "invalid ephemeral namePrefix: \(value)"
         }
     }
 }
