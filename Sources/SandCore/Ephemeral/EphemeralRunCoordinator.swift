@@ -291,7 +291,8 @@ public struct EphemeralRunCoordinator {
                 BackendRunRequest(
                     sandboxName: identity.sandboxName,
                     command: plan.workload.command,
-                    workingDirectory: plan.workload.workdir
+                    workingDirectory: plan.workload.workdir,
+                    replaceCurrentProcess: false
                 )
             )
         } catch {

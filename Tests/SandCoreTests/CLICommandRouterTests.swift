@@ -17,6 +17,7 @@ final class CLICommandRouterTests: XCTestCase {
 
         XCTAssertTrue(output[0].contains("Usage: sand <command>"))
         XCTAssertTrue(output[0].contains("doctor"))
+        XCTAssertTrue(output[0].contains("sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]"))
         XCTAssertTrue(output[0].contains("<name> run"))
         XCTAssertEqual(output[1], "sand 0.1.0-dev")
         XCTAssertEqual(app.calls, [])
@@ -31,6 +32,7 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertEqual(try router.dispatch(arguments: ["delete", "--help"]), .success)
         XCTAssertEqual(try router.dispatch(arguments: ["apply", "--help"]), .success)
         XCTAssertEqual(try router.dispatch(arguments: ["folders", "--help"]), .success)
+        XCTAssertEqual(try router.dispatch(arguments: ["ephemeral", "--help"]), .success)
         XCTAssertEqual(try router.dispatch(arguments: ["mybox", "--help"]), .success)
 
         XCTAssertTrue(output[0].contains("Usage: sand create <name>"))
@@ -40,8 +42,9 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertTrue(output[2].contains("Usage: sand apply <name>"))
         XCTAssertTrue(output[3].contains("Usage: sand folders <action>"))
         XCTAssertTrue(output[3].contains("folders add <name> <host-path> <rw|ro>"))
-        XCTAssertTrue(output[4].contains("Usage: sand <name> <action>"))
-        XCTAssertTrue(output[4].contains("run <command> [args...]"))
+        XCTAssertTrue(output[4].contains("Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]"))
+        XCTAssertTrue(output[5].contains("Usage: sand <name> <action>"))
+        XCTAssertTrue(output[5].contains("run <command> [args...]"))
         XCTAssertEqual(app.calls, [])
     }
 

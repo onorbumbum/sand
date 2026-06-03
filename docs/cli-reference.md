@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: 84b5dcd59bfea5f8c56d4932beeed50f19151f9e91b89d3fe92d0dc7afdc2028 -->
+<!-- docs-input-hash: 08a7ee58f6be189ce8b9c410e0024feffdb797c1785b7a94fb6860e965f2a80c -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 
 ## Generation source
 
-- Docs input hash: `84b5dcd59bfea5f8c56d4932beeed50f19151f9e91b89d3fe92d0dc7afdc2028`
+- Docs input hash: `08a7ee58f6be189ce8b9c410e0024feffdb797c1785b7a94fb6860e965f2a80c`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, `sand <name> --help`, and `sand --version` output.
@@ -18,7 +18,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 ## Supported v1 command surface
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `doctor`, `create`, `ephemeral --from <spec.yaml> [-- <command> [args...]]`, `list`, `apply`, `delete`, `folders`
+- Top-level commands: `doctor`, `create`, `sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]`, `list`, `apply`, `delete`, `folders`
 - Sandbox-first actions: `sand <name> status`, `start`, `stop`, `shell`, `run <command> [args...]`, `logs`, `spec`
 
 ## Current v1 boundaries
@@ -29,6 +29,7 @@ The v1 command surface is intentionally explicit and small:
 - To run Pi, use the same command shape as any other tool: `sand <name> run pi [args...]`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need a handoff flow outside the command surface.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
+- Durable Sandbox Specs describe reusable Sandbox VMs; Ephemeral Specs describe bounded create-run-stop-delete workflows and preserve Ephemeral Run Records. See `docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md` for the durable-vs-ephemeral boundary.
 
 ## `sand --version`
 
@@ -44,7 +45,8 @@ Usage: sand <command> [options]
 Commands:
   doctor                         Verify host prerequisites
   create <name> [options]        Create a Sandbox VM
-  ephemeral --from <spec.yaml>   Run a bounded Ephemeral Sandbox Run
+  sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]
+                             Run a bounded Ephemeral Sandbox Run
   list                           List Sandbox VMs
   apply <name>                   Apply spec changes
   delete <name> [--force]        Delete a Sandbox VM
@@ -79,7 +81,7 @@ Creates a Sandbox VM from generated defaults or from an authored spec.
 ## `sand ephemeral`
 
 ```text
-Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <command> [args...]]
+Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]
 
 Creates a temporary Sandbox VM, runs the spec workload or CLI workload override, stops and deletes it, and prints the run record path.
 ```

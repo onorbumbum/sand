@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: 84b5dcd59bfea5f8c56d4932beeed50f19151f9e91b89d3fe92d0dc7afdc2028 -->
+<!-- docs-input-hash: 08a7ee58f6be189ce8b9c410e0024feffdb797c1785b7a94fb6860e965f2a80c -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -229,7 +229,7 @@ For the complete generated reference, see [`docs/cli-reference.md`](docs/cli-ref
 Supported v1 commands:
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand ephemeral --from <spec.yaml> [-- <command> [args...]]`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`
+- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`
 - Sandbox-first actions: `sand <name> status`, `sand <name> start`, `sand <name> stop`, `sand <name> shell`, `sand <name> run <command> [args...]`, `sand <name> logs`, `sand <name> spec`
 
 Command help:
@@ -261,6 +261,7 @@ Current v1 boundaries:
 - To run Pi, use the same command shape as any other tool: `sand <name> run pi [args...]`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need the handoff flow described above.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
+- Durable Sandbox Specs describe reusable Sandbox VMs; Ephemeral Specs describe bounded create-run-stop-delete workflows and preserve Ephemeral Run Records. See [`docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md`](docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md) for the durable-vs-ephemeral boundary.
 - Failed Ephemeral Sandbox Runs report the failed phase and final exit code; delete failures include manual cleanup guidance for the generated Sandbox Name.
 <!-- docs:managed:end -->
 

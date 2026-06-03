@@ -57,7 +57,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 ## Supported v1 command surface
 
 - Global: \`sand --help\`, \`sand --version\`
-- Top-level commands: \`doctor\`, \`create\`, \`ephemeral --from <spec.yaml> [-- <command> [args...]]\`, \`list\`, \`apply\`, \`delete\`, \`folders\`
+- Top-level commands: \`doctor\`, \`create\`, \`sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]\`, \`list\`, \`apply\`, \`delete\`, \`folders\`
 - Sandbox-first actions: \`sand <name> status\`, \`start\`, \`stop\`, \`shell\`, \`run <command> [args...]\`, \`logs\`, \`spec\`
 
 ## Current v1 boundaries
@@ -68,6 +68,7 @@ The v1 command surface is intentionally explicit and small:
 - To run Pi, use the same command shape as any other tool: \`sand <name> run pi [args...]\`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need a handoff flow outside the command surface.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
+- Durable Sandbox Specs describe reusable Sandbox VMs; Ephemeral Specs describe bounded create-run-stop-delete workflows and preserve Ephemeral Run Records. See \`docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md\` for the durable-vs-ephemeral boundary.
 
 ## \`sand --version\`
 

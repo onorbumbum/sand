@@ -254,7 +254,8 @@ private enum CLIHelp {
     Commands:
       doctor                         Verify host prerequisites
       create <name> [options]        Create a Sandbox VM
-      ephemeral --from <spec.yaml>   Run a bounded Ephemeral Sandbox Run
+      sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]
+                                 Run a bounded Ephemeral Sandbox Run
       list                           List Sandbox VMs
       apply <name>                   Apply spec changes
       delete <name> [--force]        Delete a Sandbox VM
@@ -289,7 +290,7 @@ private enum CLIHelp {
     """
 
     static let ephemeral = """
-    Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <command> [args...]]
+    Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]
 
     Creates a temporary Sandbox VM, runs the spec workload or CLI workload override, stops and deletes it, and prints the run record path.
     """

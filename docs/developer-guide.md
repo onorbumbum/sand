@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 84b5dcd59bfea5f8c56d4932beeed50f19151f9e91b89d3fe92d0dc7afdc2028 -->
+<!-- docs-input-hash: 08a7ee58f6be189ce8b9c410e0024feffdb797c1785b7a94fb6860e965f2a80c -->
 
 # sand Developer Guide
 
@@ -11,6 +11,8 @@
 Use [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) as the source of truth for user-facing language. The product is a **Sandbox VM** tool for a **Host Mac** with explicit **Allowed Folders**, persistent **Guest State**, **Sandbox Sessions**, and generic **Workload Commands**. Pi is a workload, not a special `sand` command.
 
 Keep backend-specific wording inside backend implementation and tests. User-facing docs, errors, help, and specs should describe the Sandbox VM domain, not the underlying adapter.
+
+Durable Sandbox Specs describe reusable Sandbox VMs. Ephemeral Specs describe bounded create-run-stop-delete workflows and leave Ephemeral Run Records after the temporary Sandbox VM is deleted. Preserve that boundary in code and docs; see [`docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md`](adr/0001-separate-ephemeral-spec-from-sandbox-spec.md).
 
 ## Public repository stance
 

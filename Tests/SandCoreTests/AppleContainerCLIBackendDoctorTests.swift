@@ -75,7 +75,7 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
             ["exec", "--interactive", "--tty", "--user", "sandbox", "--workdir", "/workspace", "mybox", "echo", "hello"],
             ["exec", "--interactive", "--tty", "--user", "sandbox", "--workdir", "/workspace", "mybox", "/bin/bash"]
         ])
-        XCTAssertEqual(runner.ioModes, [.inherited, .inherited])
+        XCTAssertEqual(runner.ioModes, [.inheritedReplacingCurrentProcess, .inheritedReplacingCurrentProcess])
     }
 
     func testRunDoesNotAllocateTTYForRedirectedUsageButKeepsStandardInputOpen() throws {
@@ -94,7 +94,27 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
 
         XCTAssertEqual(result, .success)
         XCTAssertEqual(runner.calls, [["exec", "--interactive", "--user", "sandbox", "--workdir", "/workspace", "mybox", "grep", "needle"]])
-        XCTAssertEqual(runner.ioModes, [.inherited])
+        XCTAssertEqual(runner.ioModes, [.inheritedReplacingCurrentProcess])
+    }
+
+    func testForegroundRunCanAvoidReplacingSandProcessSoEphemeralCleanupCanResume() throws {
+        let runner = ScriptedBackendCommandRunner(results: [
+            ["exec", "--interactive", "--user", "sandbox", "--workdir", "/workspace", "mybox", "echo", "done"]: .success(BackendCommandOutput(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = AppleContainerCLIBackend(runner: runner, terminal: FixedBackendTerminal(inputIsTerminal: false, outputIsTerminal: false))
+
+        let result = try backend.run(
+            BackendRunRequest(
+                sandboxName: try SandboxName("mybox"),
+                command: try WorkloadCommand(arguments: ["echo", "done"]),
+                workingDirectory: try GuestPath("/workspace"),
+                replaceCurrentProcess: false
+            )
+        )
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(runner.calls, [["exec", "--interactive", "--user", "sandbox", "--workdir", "/workspace", "mybox", "echo", "done"]])
+        XCTAssertEqual(runner.ioModes, [.inheritedChildProcess])
     }
 
     func testMissingWorkloadCommandReturnsBackendExitCodeWithoutSwallowingContainerErrorOutput() throws {
@@ -112,7 +132,7 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         )
 
         XCTAssertEqual(result, .failure(exitCode: 127))
-        XCTAssertEqual(runner.ioModes, [.inherited])
+        XCTAssertEqual(runner.ioModes, [.inheritedReplacingCurrentProcess])
     }
 
     func testProvisionCreatesNamedStoppedSandboxWithGuestStateVolumeAllowedFolderMountsResourceProfileAndImage() throws {

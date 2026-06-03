@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 84b5dcd59bfea5f8c56d4932beeed50f19151f9e91b89d3fe92d0dc7afdc2028 -->
+<!-- docs-input-hash: 08a7ee58f6be189ce8b9c410e0024feffdb797c1785b7a94fb6860e965f2a80c -->
 
 # sand Onboarding Guide
 
@@ -18,7 +18,7 @@ Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbu
 
 1. Read [`README.md`](https://github.com/onorbumbum/sand/blob/main/README.md) for product scope, prerequisites, install steps, and quickstart.
 2. Read [`docs/cli-reference.md`](cli-reference.md) when you need exact command shapes.
-3. Read [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) before naming user-facing behavior.
+3. Read [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) before naming user-facing behavior. For Ephemeral Sandbox Runs, also read [`docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md`](adr/0001-separate-ephemeral-spec-from-sandbox-spec.md) so the durable-vs-ephemeral boundary stays explicit.
 4. If changing implementation, start from the relevant `Sources/SandCore/` module and its matching tests under `Tests/SandCoreTests/`.
 5. Run the local completion gate before considering work done:
 
@@ -75,6 +75,7 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 | `docs/docs-input-manifest.txt` | Curated Documentation Input Manifest used to compute freshness. |
 | `docs/generated-docs-manifest.txt` | Registry of generated/managed docs checked by the freshness gate. |
 | `docs/prompts/refresh-docs.md` | Only for refreshing generated/managed docs when a change has Documentation Impact. |
+| `docs/adr/` | Architecture Decision Records, including the separation between durable Sandbox Specs and Ephemeral Specs. |
 | `docs/validation/` | Backend and behavior validation evidence that supports implementation decisions. |
 | `scripts/build-developer-ready-image.sh` | Builds the Developer-Ready Sandbox Image. |
 | `scripts/smoke-developer-ready-image.sh` | Smoke-tests the Developer-Ready Sandbox Image. |

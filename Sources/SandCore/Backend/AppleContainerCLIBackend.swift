@@ -127,7 +127,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
                 workingDirectory: request.workingDirectory,
                 command: request.command.arguments
             ),
-            io: .inherited
+            io: request.replaceCurrentProcess ? .inheritedReplacingCurrentProcess : .inheritedChildProcess
         )
         return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
     }
@@ -140,7 +140,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
                 workingDirectory: request.workingDirectory,
                 command: ["/bin/bash"]
             ),
-            io: .inherited
+            io: .inheritedReplacingCurrentProcess
         )
         return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
     }
@@ -286,7 +286,8 @@ public enum AppleContainerCLIBackendError: Error, Equatable, CustomStringConvert
 /// I/O mode for backend command execution.
 public enum BackendCommandIO: Equatable {
     case captured
-    case inherited
+    case inheritedReplacingCurrentProcess
+    case inheritedChildProcess
 }
 
 /// Runs backend commands as processes.
@@ -358,13 +359,20 @@ public struct ProcessBackendCommandRunner: BackendCommandRunner {
             let stdout = String(data: standardOutput.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             let stderr = String(data: standardError.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             return BackendCommandOutput(stdout: stdout, stderr: stderr, exitCode: Int(process.terminationStatus))
-        case .inherited:
+        case .inheritedReplacingCurrentProcess:
             // Interactive Apple `container exec --tty` needs to own the controlling
             // terminal. A Foundation Process child can print the guest prompt, but
             // keystrokes sent to the terminal do not reliably reach the guest shell.
-            // Replace `sand` with the backend command for inherited-IO sessions so
-            // stdin/stdout/stderr and terminal control are exactly the user's shell.
+            // Replace `sand` with the backend command for durable inherited-IO sessions
+            // so stdin/stdout/stderr and terminal control are exactly the user's shell.
             try execReplacingCurrentProcess(arguments: [executable] + arguments)
+        case .inheritedChildProcess:
+            process.standardInput = FileHandle.standardInput
+            process.standardOutput = FileHandle.standardOutput
+            process.standardError = FileHandle.standardError
+            try process.run()
+            process.waitUntilExit()
+            return BackendCommandOutput(stdout: "", stderr: "", exitCode: Int(process.terminationStatus))
         }
     }
 

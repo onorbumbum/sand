@@ -26,11 +26,13 @@ public struct BackendRunRequest: Equatable {
     public var sandboxName: SandboxName
     public var command: WorkloadCommand
     public var workingDirectory: GuestPath
+    public var replaceCurrentProcess: Bool
 
-    public init(sandboxName: SandboxName, command: WorkloadCommand, workingDirectory: GuestPath) {
+    public init(sandboxName: SandboxName, command: WorkloadCommand, workingDirectory: GuestPath, replaceCurrentProcess: Bool = true) {
         self.sandboxName = sandboxName
         self.command = command
         self.workingDirectory = workingDirectory
+        self.replaceCurrentProcess = replaceCurrentProcess
     }
 }
 
