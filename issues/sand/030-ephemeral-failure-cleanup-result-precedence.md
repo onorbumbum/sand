@@ -1,6 +1,6 @@
 ---
 title: Enforce Ephemeral Sandbox Run cleanup semantics and result precedence
-status: needs-triage
+status: blocked
 type: issue
 category: enhancement
 labels:
@@ -39,3 +39,13 @@ Make the EphemeralRunCoordinator own the full create-run-stop-post-work-delete s
 - `issues/sand/022-minimal-ephemeral-command-happy-path.md`
 - `issues/sand/028-before-provision-hooks.md`
 - `issues/sand/029-after-stop-hooks.md`
+
+## Progress
+
+### 2026-06-02 23:29 PDT — RUN-ONLY: blocked by prerequisite issue 029
+
+- Files shipped: `issues/sand/030-ephemeral-failure-cleanup-result-precedence.md`
+- Verification: blocker check only; `issues/sand/029-after-stop-hooks.md` still exists outside `issues/sand/done`, so implementation was not started per run-only instructions.
+- TDD evidence: RED not run because blocker gate failed; GREEN not run because blocker gate failed; refactor not run.
+- ACs completed: none.
+- HITL/default decisions: **Stopped at blocker gate** because the safer default in AFK run-only mode is to respect `Blocked by` exactly and avoid implementing on top of incomplete prerequisite issue 029.
