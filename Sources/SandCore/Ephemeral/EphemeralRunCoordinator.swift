@@ -119,16 +119,37 @@ public struct EphemeralRunCoordinator {
 public final class FileEphemeralRunRecordStore: EphemeralRunRecordStore {
     private let root: URL
     private let fileManager: FileManager
+    private let timestampProvider: () -> String
+    private let suffixGenerator: () -> String
 
-    public init(root: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sand/ephemeral-runs", isDirectory: true), fileManager: FileManager = .default) {
+    public convenience init(
+        root: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sand/ephemeral-runs", isDirectory: true),
+        fileManager: FileManager = .default
+    ) {
+        self.init(
+            root: root,
+            fileManager: fileManager,
+            timestampProvider: FileEphemeralRunRecordStore.timestampString,
+            suffixGenerator: FileEphemeralRunRecordStore.randomSuffix
+        )
+    }
+
+    public init(
+        root: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".sand/ephemeral-runs", isDirectory: true),
+        fileManager: FileManager = .default,
+        timestampProvider: @escaping () -> String,
+        suffixGenerator: @escaping () -> String
+    ) {
         self.root = root
         self.fileManager = fileManager
+        self.timestampProvider = timestampProvider
+        self.suffixGenerator = suffixGenerator
     }
 
     public func allocateIdentity(namePrefix: String) throws -> EphemeralRunIdentity {
         _ = try SandboxName(namePrefix)
-        let timestamp = Self.timestampString()
-        let suffix = String(UUID().uuidString.lowercased().prefix(6))
+        let timestamp = timestampProvider()
+        let suffix = suffixGenerator()
         let sandboxName = try SandboxName("\(namePrefix)-\(timestamp)-\(suffix)")
         let runID = "\(timestamp)-\(suffix)"
         let recordURL = root.appendingPathComponent(runID, isDirectory: true)
@@ -138,6 +159,7 @@ public final class FileEphemeralRunRecordStore: EphemeralRunRecordStore {
     public func createAttempt(identity: EphemeralRunIdentity, sourceSpecText: String, sourcePath: String) throws {
         let directory = URL(fileURLWithPath: identity.recordPath, isDirectory: true)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        try identityJSON(for: identity).write(to: directory.appendingPathComponent("identity.json"), atomically: true, encoding: .utf8)
         try sourceSpecText.write(to: directory.appendingPathComponent("source-ephemeral-spec.yaml"), atomically: true, encoding: .utf8)
         try (sourcePath + "\n").write(to: directory.appendingPathComponent("source-path.txt"), atomically: true, encoding: .utf8)
     }
@@ -161,11 +183,25 @@ public final class FileEphemeralRunRecordStore: EphemeralRunRecordStore {
         try (json + "\n").write(to: directory.appendingPathComponent("result.json"), atomically: true, encoding: .utf8)
     }
 
-    private static func timestampString(date: Date = Date()) -> String {
+    private static func timestampString() -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return formatter.string(from: date)
+        return formatter.string(from: Date())
+    }
+
+    private static func randomSuffix() -> String {
+        String(UUID().uuidString.lowercased().filter { $0.isLetter || $0.isNumber }.prefix(6))
+    }
+
+    private func identityJSON(for identity: EphemeralRunIdentity) -> String {
+        """
+        {
+          "runID": "\(escapeJSON(identity.runID))",
+          "sandboxName": "\(escapeJSON(identity.sandboxName.rawValue))",
+          "recordPath": "\(escapeJSON(identity.recordPath))"
+        }
+        """ + "\n"
     }
 
     private func escapeJSON(_ value: String) -> String {
@@ -174,6 +210,8 @@ public final class FileEphemeralRunRecordStore: EphemeralRunRecordStore {
 }
 
 public struct EphemeralSpec: Equatable {
+    public static let defaultNamePrefix = "ephemeral"
+
     public var schemaVersion: Int
     public var description: String?
     public var namePrefix: String
@@ -186,7 +224,7 @@ public struct EphemeralSpec: Equatable {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var schemaVersion: Int?
         var description: String?
-        var namePrefix = "ephemeral"
+        var namePrefix = EphemeralSpec.defaultNamePrefix
         var image = SandboxImage.developerReadyDefault
         var resourceProfile = ResourceProfile.default
         var workload = PartialEphemeralCommand()
