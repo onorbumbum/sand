@@ -84,6 +84,38 @@ _Avoid_: SSH-only workflow, embedded Pi runner, manual login
 A change that creates, deletes, resets, starts, stops, applies, or reconfigures a Sandbox VM or its Runtime Instance.
 _Avoid_: Normal session, workload run
 
+**Lifecycle Hook**:
+A user-defined command configured to run setup or cleanup around an orchestrated Sandbox VM run.
+_Avoid_: Plugin, callback, machine script
+
+**Ephemeral Sandbox Run**:
+An orchestrated run that creates a Sandbox VM for a bounded task, runs a Workload Command, stops the Sandbox VM, performs cleanup, and deletes the Sandbox VM afterward.
+_Avoid_: Normal lifecycle command, permanent sandbox setup
+
+**Ephemeral Command**:
+The explicit Control Surface action that executes an Ephemeral Sandbox Run without changing normal Sandbox VM lifecycle behavior.
+_Avoid_: run-lifecycle, hidden run flag, shorthand destructive mode
+
+**Ephemeral Spec**:
+A YAML definition for an Ephemeral Sandbox Run, including the Sandbox VM template, Lifecycle Hooks, foreground Workload Command, and failure behavior.
+_Avoid_: Durable Sandbox Spec, global VM config
+
+**Foreground Workload**:
+The Workload Command whose process lifetime controls when an Ephemeral Sandbox Run moves from guest work to cleanup.
+_Avoid_: After Start Hook, special shell mode
+
+**Ephemeral Run Record**:
+An immutable Host Metadata record of an Ephemeral Sandbox Run, including the source Ephemeral Spec, generated Sandbox Spec, phase logs, and result summary.
+_Avoid_: Active Sandbox Spec, reusable VM config
+
+**Before Provision Hook**:
+A Lifecycle Hook that runs on the Host Mac before backend resources are provisioned for a Sandbox VM.
+_Avoid_: Pre-VM generation, pre-create command
+
+**After Stop Hook**:
+A Lifecycle Hook that runs on the Host Mac after the Foreground Workload exits and after sand attempts to stop the Sandbox VM.
+_Avoid_: After close hook, cleanup-only hook
+
 **Apply**:
 The declarative reconciliation action that makes backend reality match a Sandbox Spec, using runtime recreation internally only when required.
 _Avoid_: User-facing recreate, manual backend repair
@@ -203,6 +235,39 @@ _Avoid_: Parent machine, main computer
 - CLI configuration mutations update the **Sandbox Spec** and auto-apply by default.
 - Configuration changes that require runtime recreation apply immediately when stopped and ask before interrupting a running **Sandbox VM**.
 - **Lifecycle Mutations** are serialized, but normal **Sandbox Sessions** and **Workload Commands** are concurrent.
+- An **Ephemeral Sandbox Run** always creates, stops, and deletes its Sandbox VM as part of the bounded workflow; reusable Sandbox VMs use normal lifecycle commands instead.
+- The **Ephemeral Command** is explicit so normal `create`, `start`, `stop`, `run`, and `shell` commands remain boring and unsurprising.
+- An **Ephemeral Spec** is separate from a durable **Sandbox Spec** because it describes a bounded create-run-cleanup-delete workflow rather than a reusable Sandbox VM.
+- A **Before Provision Hook** runs on the **Host Mac** before folder path resolution and provisioning because the **Sandbox Guest** does not exist yet.
+- The main command run inside the **Sandbox Guest** is a **Foreground Workload**, not a **Lifecycle Hook**.
+- Ephemeral cleanup begins when the **Foreground Workload** exits; if the user wants an interactive shell, the shell itself is the Foreground Workload.
+- The **Foreground Workload** working directory defaults to the first read-write **Allowed Folder**'s **Guest Path** and may be overridden explicitly.
+- If no read-write **Allowed Folder** exists and the **Foreground Workload** has no explicit working directory, the **Ephemeral Sandbox Run** fails instead of defaulting silently.
+- An **After Stop Hook** runs on the **Host Mac** after sand attempts to stop the Sandbox VM; it does not require stop to have succeeded.
+- **After Stop Hooks** operate on Host Mac files, especially files produced through read-write **Allowed Folders** during the Foreground Workload, and are not limited to cleanup.
+- **Before Provision Hooks** and **After Stop Hooks** are optional, may be omitted or empty, use the same structured command shape as the **Foreground Workload**, and run relative to the directory containing the **Ephemeral Spec**.
+- Hook commands run on the **Host Mac** as the Host Mac user, inherit the `sand` process environment, resolve commands through `PATH`, use captured non-interactive IO, and do not receive special `SAND_*` environment variables in the first version.
+- Hook stdout and stderr are recorded in the **Ephemeral Run Record** without automatic redaction, so hook authors must avoid printing secrets.
+- The **Foreground Workload** runs inside the **Sandbox Guest** using the normal workload IO/TTY behavior so interactive Pi, shell, or script sessions work naturally; workload transcript capture is omitted in the first version.
+- Guest workload environment customization is omitted in the first version to preserve the Host Mac credential boundary.
+- **Before Provision Hook** failure aborts the **Ephemeral Sandbox Run** before provisioning, does not run **After Stop Hooks**, and records the failure.
+- If provisioning or start fails before the **Foreground Workload** starts, **After Stop Hooks** do not run, but any partially created resources are still cleaned up if possible.
+- If the **Foreground Workload** exits nonzero, the **Ephemeral Sandbox Run** still attempts to stop the Sandbox VM, runs **After Stop Hooks**, deletes the Sandbox VM, and reports failure afterward.
+- **After Stop Hook** failure stops remaining after-stop hooks, still attempts Sandbox VM deletion, and reports the hook failure afterward.
+- Delete failure leaves enough active metadata and backend resources for manual cleanup, and the **Ephemeral Run Record** records the generated Sandbox Name and cleanup command.
+- Ephemeral Sandbox VM active **Sandbox Specs** may exist temporarily while the run is active, but successful deletion removes them from active Host Metadata.
+- **Ephemeral Sandbox Runs** create immutable **Ephemeral Run Records** under Host Metadata rather than active reusable Sandbox Specs.
+- **Ephemeral Run Records** keep both the source **Ephemeral Spec** and the generated concrete **Sandbox Spec** so past runs can be inspected or reused later.
+- **Ephemeral Run Records** are kept indefinitely by default in the first version.
+- The **Ephemeral Command** is shaped as `sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]`.
+- The first version omits ephemeral dry-run and validate subcommands; validation errors are reported at run start.
+- `namePrefix` in an **Ephemeral Spec** is optional and defaults to `ephemeral`; the generated Sandbox Name uses the prefix plus a timestamp and short random suffix, and must satisfy **Sandbox Name** validation.
+- Invalid `namePrefix` values fail validation rather than being silently sanitized.
+- **Ephemeral Specs** may include an optional description for human context; it is copied into the run record and does not affect execution.
+- **Ephemeral Specs** may omit image and resources, using the same defaults as normal Sandbox VM creation.
+- **Ephemeral Specs** may omit Allowed Folders only when the **Foreground Workload** provides an explicit working directory.
+- Ephemeral Allowed Folder `hostPath` values are resolved relative to the directory containing the **Ephemeral Spec** after **Before Provision Hooks** run.
+- Ephemeral Allowed Folders reject user-authored `resolvedHostPath`; resolved paths appear only in the generated concrete **Sandbox Spec** stored in the **Ephemeral Run Record**.
 - **Pi Identity** lives in **Guest State** by default, not in the Host Mac's Pi configuration.
 - Credentials used by the **Sandbox VM** are **Guest Secrets** only in the first version.
 - Pi is the primary internal workload for the default **Sandbox VM**, but not the product boundary itself.
@@ -256,3 +321,18 @@ _Avoid_: Parent machine, main computer
 - "Pi Sandbox" was initially used for the product concept, but that over-coupled the app to Pi. Resolved: use **Sandbox VM** for the product concept, with Pi as a workload inside it.
 - "documentation" was used broadly to mean onboarding, behavior reference, domain language, architecture rationale, and web-readable pages. Resolved: use **Documentation System** for the integrated whole and **Documentation Impact** for per-change obligations.
 - "Bosun workflow" was considered for documentation generation, but that may be premature automation. Resolved: start with a manual agent-run **Documentation Refresh Workflow** and introduce Bosun only when the workflow proves complex enough.
+- "machine" was used casually for **Sandbox VM**, and "closed" was ambiguous between stop and delete. Resolved: use **Before Provision Hook** and **After Stop Hook** for the first lifecycle hook points.
+- "after start" was initially used to mean a hook, but the intended concept is the main command run inside the **Sandbox Guest**. Resolved: use existing **Workload Command**, not **After Start Hook**.
+- "config file" was overloaded between durable **Sandbox Spec**, hook configuration, and command invocation. Resolved: use a separate **Ephemeral Spec** for bounded create-run-cleanup-delete workflows; keep the durable **Sandbox Spec** for reusable Sandbox VMs.
+- "run-lifecycle" was too abstract for the bounded task use case, while `--ephemeral` on normal `run` made workload argument parsing and user expectations confusing. Resolved: use the explicit **Ephemeral Command** spelling `sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]`.
+- "workload failure" was too batch-script-specific because the Foreground Workload may be interactive Pi, a shell, or a script. Resolved: cleanup begins when the **Foreground Workload** exits.
+- Ephemeral hook syntax was considered as shell strings, but that would diverge from structured workload commands. Resolved: **Before Provision Hooks**, **After Stop Hooks**, and the **Foreground Workload** use the same structured command shape.
+- Ephemeral workload working directory was initially assumed to be explicit, but Allowed Folders already define Guest Paths. Resolved: default to the first read-write **Allowed Folder**'s **Guest Path**, allow explicit override, and fail if neither exists.
+- Ephemeral history must be preserved without making ephemeral sandboxes reusable. Resolved: write immutable **Ephemeral Run Records** separate from active **Sandbox Specs**.
+- `preserveOnFailure` was reconsidered, but it weakens the meaning of ephemeral and contradicts the create-run-stop-cleanup-delete flow. Resolved: do not support preserve-on-failure in the first version; failures are recorded, and deletion is still attempted after provisioning starts.
+- "After Stop Hook" sounded like it required a successful stop and implied cleanup only. Resolved: keep the name, but define it as a host-side hook that runs after the stop attempt and may perform any post-work action.
+- Ephemeral `resolvedHostPath` was considered for parity with stored Sandbox Specs. Resolved: reject it in user-authored **Ephemeral Specs** because path resolution happens after **Before Provision Hooks** and is recorded in the generated concrete **Sandbox Spec**.
+- Ephemeral command spelling and workload override are resolved as `sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]`; `run` is omitted because ephemeral is the full create-run-stop-delete operation.
+- The effective **Foreground Workload** comes from the CLI override when present, otherwise from the **Ephemeral Spec**; workload and hook `args` are optional and default to empty, `command` must be non-empty, command-list shorthands are omitted, and CLI override preserves YAML `workdir` when present.
+- **Ephemeral Spec** shape validation runs before creating an **Ephemeral Run Record** or running **Before Provision Hooks**; malformed specs, invalid `namePrefix`, user-authored `resolvedHostPath`, and missing effective workloads fail immediately without a run record.
+- **Ephemeral Run Records** are created after shape validation but before **Before Provision Hooks**, and record the generated Sandbox Name before hooks run.
