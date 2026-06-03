@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: 9a0d7707d6f62a38aa0dd7cc23ba25fe791644d1b778c2205fe83a0a79304a9d -->
+<!-- docs-input-hash: fce0e122a0905550d896beb200bb294eb68c32ef7583c2549a204d31743a73d4 -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 
 ## Generation source
 
-- Docs input hash: `9a0d7707d6f62a38aa0dd7cc23ba25fe791644d1b778c2205fe83a0a79304a9d`
+- Docs input hash: `fce0e122a0905550d896beb200bb294eb68c32ef7583c2549a204d31743a73d4`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, `sand <name> --help`, and `sand --version` output.
@@ -83,6 +83,24 @@ Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <command> [args...]]
 
 Creates a temporary Sandbox VM, runs the spec workload or CLI workload override, stops and deletes it, and prints the run record path.
 ```
+
+## Ephemeral Spec lifecycle hooks
+
+Ephemeral Specs may omit Host Mac lifecycle hook lists or provide empty lists with `beforeProvision: []` and `afterStop: []`. Hook entries use the same structured command shape as a Foreground Workload: a non-empty `command` plus optional `args`.
+
+```yaml
+beforeProvision:
+  - command: mkdir
+    args:
+      - -p
+      - work
+afterStop:
+  - command: archive-output
+    args:
+      - work/output.txt
+```
+
+`beforeProvision` hooks run on the Host Mac before Allowed Folder resolution and provisioning. `afterStop` hooks run on the Host Mac after the Foreground Workload exits and after `sand` attempts to stop the Sandbox VM, including when the workload exits nonzero or the stop attempt fails. Hook output is captured in the Ephemeral Run Record. A failing `afterStop` hook stops remaining after-stop hooks, but delete is still attempted.
 
 ## `sand list`
 

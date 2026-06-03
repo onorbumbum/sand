@@ -86,12 +86,29 @@ final class RecordingSandboxBackend: SandboxBackend {
     var calls: [BackendCall] = []
     var runtimeStatus: SandboxRuntimeStatus
     var provisionError: (any Error)?
+    var startError: (any Error)?
+    var stopError: (any Error)?
+    var deleteError: (any Error)?
+    var runResult: CommandResult
     var logsText: String
     private let recordEvent: ((String) -> Void)?
 
-    init(status: SandboxRuntimeStatus = .running, provisionError: (any Error)? = nil, logsText: String = "", events: ((String) -> Void)? = nil) {
+    init(
+        status: SandboxRuntimeStatus = .running,
+        provisionError: (any Error)? = nil,
+        startError: (any Error)? = nil,
+        stopError: (any Error)? = nil,
+        deleteError: (any Error)? = nil,
+        runResult: CommandResult = .success,
+        logsText: String = "",
+        events: ((String) -> Void)? = nil
+    ) {
         self.runtimeStatus = status
         self.provisionError = provisionError
+        self.startError = startError
+        self.stopError = stopError
+        self.deleteError = deleteError
+        self.runResult = runResult
         self.logsText = logsText
         self.recordEvent = events
     }
@@ -116,19 +133,21 @@ final class RecordingSandboxBackend: SandboxBackend {
     func start(_ sandboxName: SandboxName) throws {
         calls.append(.start(sandboxName.rawValue))
         recordEvent?("backend.start.\(sandboxName.rawValue)")
+        if let startError = startError { throw startError }
         runtimeStatus = .running
     }
 
     func stop(_ sandboxName: SandboxName) throws {
         calls.append(.stop(sandboxName.rawValue))
         recordEvent?("backend.stop.\(sandboxName.rawValue)")
+        if let stopError = stopError { throw stopError }
         runtimeStatus = .stopped
     }
 
     func run(_ request: BackendRunRequest) throws -> CommandResult {
         calls.append(.run(request.sandboxName.rawValue, request.command.arguments, request.workingDirectory.rawValue))
         recordEvent?("backend.run.\(request.sandboxName.rawValue).\(request.command.arguments.joined(separator: " ")).\(request.workingDirectory.rawValue)")
-        return .success
+        return runResult
     }
 
     func shell(_ request: BackendShellRequest) throws -> CommandResult {
@@ -150,12 +169,16 @@ final class RecordingSandboxBackend: SandboxBackend {
     func delete(_ sandboxName: SandboxName) throws {
         calls.append(.delete(sandboxName.rawValue))
         recordEvent?("backend.delete.\(sandboxName.rawValue)")
+        if let deleteError = deleteError { throw deleteError }
         runtimeStatus = .missing
     }
 }
 
 enum BackendTestError: Error, Equatable {
     case provisionFailed
+    case startFailed
+    case stopFailed
+    case deleteFailed
 }
 
 enum BackendCall: Equatable {

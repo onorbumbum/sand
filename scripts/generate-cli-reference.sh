@@ -99,6 +99,24 @@ $create_help
 $ephemeral_help
 \`\`\`
 
+## Ephemeral Spec lifecycle hooks
+
+Ephemeral Specs may omit Host Mac lifecycle hook lists or provide empty lists with \`beforeProvision: []\` and \`afterStop: []\`. Hook entries use the same structured command shape as a Foreground Workload: a non-empty \`command\` plus optional \`args\`.
+
+\`\`\`yaml
+beforeProvision:
+  - command: mkdir
+    args:
+      - -p
+      - work
+afterStop:
+  - command: archive-output
+    args:
+      - work/output.txt
+\`\`\`
+
+\`beforeProvision\` hooks run on the Host Mac before Allowed Folder resolution and provisioning. \`afterStop\` hooks run on the Host Mac after the Foreground Workload exits and after \`sand\` attempts to stop the Sandbox VM, including when the workload exits nonzero or the stop attempt fails. Hook output is captured in the Ephemeral Run Record. A failing \`afterStop\` hook stops remaining after-stop hooks, but delete is still attempted.
+
 ## \`sand list\`
 
 \`\`\`text

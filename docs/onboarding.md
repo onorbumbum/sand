@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 9a0d7707d6f62a38aa0dd7cc23ba25fe791644d1b778c2205fe83a0a79304a9d -->
+<!-- docs-input-hash: fce0e122a0905550d896beb200bb294eb68c32ef7583c2549a204d31743a73d4 -->
 
 # sand Onboarding Guide
 
@@ -58,6 +58,7 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 | `Sources/SandCore/Backend/` | Sandbox Backend interfaces and Apple `container` backend plumbing. Backend details should not leak into user-facing language. |
 | `Sources/SandCore/Doctor/` | Doctor Checks for Host Mac support, backend readiness, default image availability, and Host Metadata writability. |
 | `Sources/SandCore/Domain/` | Small domain types such as Sandbox Name and Workload Command. |
+| `Sources/SandCore/Ephemeral/` | Ephemeral Sandbox Run planning, Host Mac lifecycle hooks, run records, and create-run-stop-delete coordination. |
 | `Sources/SandCore/FolderPolicy/` | Allowed Folder validation, Access Mode handling, Guest Path rules, duplicate and overlap policy. |
 | `Sources/SandCore/Lifecycle/` | Lifecycle Mutation coordination around create, apply, start, stop, delete, and run flows. |
 | `Sources/SandCore/Metadata/` | Host Metadata storage under `~/.sand/`. |

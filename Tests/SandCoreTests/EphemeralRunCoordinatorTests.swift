@@ -676,6 +676,290 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
         ])
     }
 
+    func testAfterStopHooksAreOptionalAndUseStructuredCommandShape() throws {
+        let omitted = try EphemeralSpec.parseYAML("""
+        schemaVersion: 1
+        workload:
+          command: echo
+          workdir: /workspace
+        """)
+        XCTAssertEqual(omitted.afterStopHooks, [])
+
+        let empty = try EphemeralSpec.parseYAML("""
+        schemaVersion: 1
+        afterStop: []
+        workload:
+          command: echo
+          workdir: /workspace
+        """)
+        XCTAssertEqual(empty.afterStopHooks, [])
+
+        let spec = try EphemeralSpec.parseYAML("""
+        schemaVersion: 1
+        afterStop:
+          - command: cp
+            args:
+              - output.txt
+              - archive/output.txt
+          - command: git
+            args:
+              - status
+        workload:
+          command: echo
+          workdir: /workspace
+        """)
+        XCTAssertEqual(spec.afterStopHooks.map(\.command.arguments), [
+            ["cp", "output.txt", "archive/output.txt"],
+            ["git", "status"]
+        ])
+
+        XCTAssertThrowsError(
+            try EphemeralSpec.parseYAML("""
+            schemaVersion: 1
+            afterStop:
+              - command:
+            workload:
+              command: echo
+              workdir: /workspace
+            """)
+        ) { error in
+            XCTAssertTrue(String(describing: error).contains("ephemeral afterStop hook command cannot be empty"), "got \(error)")
+        }
+    }
+
+    func testAfterStopHooksRunAfterWorkloadExitAndStopAttemptWithCapturedOutputEvents() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { events.append($0) }
+        )
+        let hostRunner = RecordingHostCommandRunner(
+            results: [HostCommandResult(commandResult: .success, stdout: "archived\n", stderr: "note\n")],
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            hostCommandRunner: hostRunner,
+            processEnvironment: { ["PATH": "/custom/bin", "SAND_TEST_SENTINEL": "inherited"] },
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        afterStop:
+          - command: archive-output
+            args:
+              - output.txt
+        workload:
+          command: echo
+          workdir: /workspace
+        """
+
+        let result = try coordinator.run(
+            EphemeralRunRequest(authoredSpecText: specText, sourcePath: "/tmp/ephemeral-project/specs/ephemeral.yaml")
+        )
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(hostRunner.invocations.map(\.commandArguments), [["archive-output", "output.txt"]])
+        XCTAssertEqual(hostRunner.invocations.map(\.workingDirectory), ["/tmp/ephemeral-project/specs"])
+        XCTAssertEqual(hostRunner.invocations.first?.environment["PATH"], "/custom/bin")
+        XCTAssertEqual(hostRunner.invocations.first?.environment["SAND_TEST_SENTINEL"], "inherited")
+        XCTAssertEqual(runRecordStore.hookOutputs.map(\.phase), ["afterStop"])
+        XCTAssertEqual(runRecordStore.hookOutputs.map(\.stdout), ["archived\n"])
+        XCTAssertEqual(runRecordStore.hookOutputs.map(\.stderr), ["note\n"])
+        XCTAssertEqual(runRecordStore.hookEvents.map(\.phase), ["afterStop"])
+        XCTAssertEqual(runRecordStore.hookEvents.map(\.status), ["success"])
+        XCTAssertEqual(runRecordStore.hookEvents.map(\.stdoutPath), ["/tmp/sand-runs/run-001/afterStop-0.stdout"])
+        XCTAssertEqual(events, [
+            "record.allocateIdentity.ephemeral",
+            "record.createAttempt",
+            "record.writeGeneratedSpec",
+            "metadata.createSpec.ephemeral-20260602-abcd",
+            "backend.provision.ephemeral-20260602-abcd",
+            "backend.start.ephemeral-20260602-abcd",
+            "backend.run.ephemeral-20260602-abcd.echo./workspace",
+            "backend.stop.ephemeral-20260602-abcd",
+            "host.run.archive-output output.txt./tmp/ephemeral-project/specs",
+            "record.writeHookOutput.afterStop.0",
+            "record.appendEvent.afterStop.success",
+            "backend.delete.ephemeral-20260602-abcd",
+            "metadata.deleteSpec.ephemeral-20260602-abcd",
+            "record.writeResult.success"
+        ])
+    }
+
+    func testAfterStopHooksRunAfterNonzeroWorkloadAndFailedStopThenDeleteStillRuns() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(
+            status: .missing,
+            stopError: BackendTestError.stopFailed,
+            runResult: .failure(exitCode: 7),
+            events: { events.append($0) }
+        )
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(runID: "run-001", sandboxName: sandboxName, recordPath: "/tmp/sand-runs/run-001"),
+            events: { events.append($0) }
+        )
+        let hostRunner = RecordingHostCommandRunner(
+            results: [HostCommandResult(commandResult: .success, stdout: "copied partial\n", stderr: "")],
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            hostCommandRunner: hostRunner,
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        afterStop:
+          - command: copy-partial
+        workload:
+          command: failing-workload
+          workdir: /workspace
+        """
+
+        let result = try coordinator.run(EphemeralRunRequest(authoredSpecText: specText, sourcePath: "/tmp/spec.yaml"))
+
+        XCTAssertEqual(result, .failure(exitCode: 1))
+        XCTAssertEqual(hostRunner.invocations.map(\.commandArguments), [["copy-partial"]])
+        XCTAssertEqual(backend.calls, [
+            .provision("ephemeral-20260602-abcd"),
+            .start("ephemeral-20260602-abcd"),
+            .run("ephemeral-20260602-abcd", ["failing-workload"], "/workspace"),
+            .stop("ephemeral-20260602-abcd"),
+            .delete("ephemeral-20260602-abcd")
+        ])
+        XCTAssertEqual(events, [
+            "record.allocateIdentity.ephemeral",
+            "record.createAttempt",
+            "record.writeGeneratedSpec",
+            "metadata.createSpec.ephemeral-20260602-abcd",
+            "backend.provision.ephemeral-20260602-abcd",
+            "backend.start.ephemeral-20260602-abcd",
+            "backend.run.ephemeral-20260602-abcd.failing-workload./workspace",
+            "backend.stop.ephemeral-20260602-abcd",
+            "host.run.copy-partial./tmp",
+            "record.writeHookOutput.afterStop.0",
+            "record.appendEvent.afterStop.success",
+            "backend.delete.ephemeral-20260602-abcd",
+            "metadata.deleteSpec.ephemeral-20260602-abcd",
+            "record.writeResult.failure"
+        ])
+    }
+
+    func testAfterStopHookFailureStopsRemainingHooksButStillDeletes() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(runID: "run-001", sandboxName: sandboxName, recordPath: "/tmp/sand-runs/run-001"),
+            events: { events.append($0) }
+        )
+        let hostRunner = RecordingHostCommandRunner(
+            results: [
+                HostCommandResult(commandResult: .failure(exitCode: 23), stdout: "", stderr: "archive failed\n"),
+                HostCommandResult(commandResult: .success, stdout: "should not run\n", stderr: "")
+            ],
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            hostCommandRunner: hostRunner,
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        afterStop:
+          - command: archive-output
+          - command: upload-output
+        workload:
+          command: echo
+          workdir: /workspace
+        """
+
+        let result = try coordinator.run(EphemeralRunRequest(authoredSpecText: specText, sourcePath: "/tmp/spec.yaml"))
+
+        XCTAssertEqual(result, .failure(exitCode: 23))
+        XCTAssertEqual(hostRunner.invocations.map(\.commandArguments), [["archive-output"]])
+        XCTAssertEqual(runRecordStore.hookEvents.map(\.status), ["failure"])
+        XCTAssertEqual(backend.calls, [
+            .provision("ephemeral-20260602-abcd"),
+            .start("ephemeral-20260602-abcd"),
+            .run("ephemeral-20260602-abcd", ["echo"], "/workspace"),
+            .stop("ephemeral-20260602-abcd"),
+            .delete("ephemeral-20260602-abcd")
+        ])
+    }
+
+    func testAfterStopHooksDoNotRunWhenBeforeProvisionProvisionOrStartFailsBeforeWorkloadStarts() throws {
+        let beforeFailure = try runAfterStopSkipScenario(
+            specText: """
+            schemaVersion: 1
+            beforeProvision:
+              - command: prepare
+            afterStop:
+              - command: archive-output
+            workload:
+              command: echo
+              workdir: /workspace
+            """,
+            beforeProvisionResults: [HostCommandResult(commandResult: .failure(exitCode: 31), stdout: "", stderr: "failed\n")]
+        )
+        XCTAssertEqual(beforeFailure.hostInvocations, [["prepare"]])
+        XCTAssertEqual(beforeFailure.backendCalls, [])
+        XCTAssertEqual(beforeFailure.result, .failure(exitCode: 31))
+
+        let provisionFailure = try runAfterStopSkipScenario(
+            specText: """
+            schemaVersion: 1
+            afterStop:
+              - command: archive-output
+            workload:
+              command: echo
+              workdir: /workspace
+            """,
+            provisionError: BackendTestError.provisionFailed
+        )
+        XCTAssertEqual(provisionFailure.hostInvocations, [])
+        XCTAssertEqual(provisionFailure.backendCalls, [.provision("ephemeral-20260602-abcd")])
+        XCTAssertNil(provisionFailure.result)
+        XCTAssertNotNil(provisionFailure.thrownError)
+
+        let startFailure = try runAfterStopSkipScenario(
+            specText: """
+            schemaVersion: 1
+            afterStop:
+              - command: archive-output
+            workload:
+              command: echo
+              workdir: /workspace
+            """,
+            startError: BackendTestError.startFailed
+        )
+        XCTAssertEqual(startFailure.hostInvocations, [])
+        XCTAssertEqual(startFailure.backendCalls, [
+            .provision("ephemeral-20260602-abcd"),
+            .start("ephemeral-20260602-abcd")
+        ])
+        XCTAssertNil(startFailure.result)
+        XCTAssertNotNil(startFailure.thrownError)
+    }
+
     func testProcessHostCommandRunnerUsesPathWorkingDirectoryEnvironmentAndCapturedNonInteractiveIO() throws {
         let fileManager = FileManager.default
         let root = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
@@ -838,6 +1122,59 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
             XCTAssertEqual(metadataStore.activeSpecNames, [], invalidSpec.name)
         }
     }
+
+    private func runAfterStopSkipScenario(
+        specText: String,
+        beforeProvisionResults: [HostCommandResult] = [],
+        provisionError: (any Error)? = nil,
+        startError: (any Error)? = nil
+    ) throws -> AfterStopSkipScenarioResult {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(
+            status: .missing,
+            provisionError: provisionError,
+            startError: startError,
+            events: { events.append($0) }
+        )
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(runID: "run-001", sandboxName: sandboxName, recordPath: "/tmp/sand-runs/run-001"),
+            events: { events.append($0) }
+        )
+        let hostRunner = RecordingHostCommandRunner(results: beforeProvisionResults, events: { events.append($0) })
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            hostCommandRunner: hostRunner,
+            writeOutput: { _ in }
+        )
+
+        do {
+            let result = try coordinator.run(EphemeralRunRequest(authoredSpecText: specText, sourcePath: "/tmp/spec.yaml"))
+            return AfterStopSkipScenarioResult(
+                result: result,
+                thrownError: nil,
+                hostInvocations: hostRunner.invocations.map(\.commandArguments),
+                backendCalls: backend.calls
+            )
+        } catch {
+            return AfterStopSkipScenarioResult(
+                result: nil,
+                thrownError: error,
+                hostInvocations: hostRunner.invocations.map(\.commandArguments),
+                backendCalls: backend.calls
+            )
+        }
+    }
+}
+
+private struct AfterStopSkipScenarioResult {
+    var result: CommandResult?
+    var thrownError: (any Error)?
+    var hostInvocations: [[String]]
+    var backendCalls: [BackendCall]
 }
 
 private final class RecordingEphemeralMetadataStore: HostMetadataStore {

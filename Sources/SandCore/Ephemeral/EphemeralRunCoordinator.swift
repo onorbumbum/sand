@@ -247,27 +247,64 @@ public struct EphemeralRunCoordinator {
             )
         )
 
-        try metadataStore.withLifecycleMutationLock {
-            try backend.stop(identity.sandboxName)
-            try backend.delete(identity.sandboxName)
-            try metadataStore.deleteSpec(named: identity.sandboxName)
+        let stopResult: CommandResult
+        do {
+            try metadataStore.withLifecycleMutationLock {
+                try backend.stop(identity.sandboxName)
+            }
+            stopResult = .success
+        } catch {
+            stopResult = .failure(exitCode: 1)
         }
 
-        let result: EphemeralRunResult
-        switch workloadResult {
-        case .success:
-            result = EphemeralRunResult(status: "success", exitCode: 0, recordPath: identity.recordPath)
-        case .failure(let exitCode):
-            result = EphemeralRunResult(status: "failure", exitCode: exitCode, recordPath: identity.recordPath)
+        let afterStopResult = try runHostHooks(
+            plan.afterStopHooks,
+            phase: "afterStop",
+            identity: identity,
+            sourcePath: request.sourcePath
+        )
+
+        let deleteResult: CommandResult
+        do {
+            try metadataStore.withLifecycleMutationLock {
+                try backend.delete(identity.sandboxName)
+                try metadataStore.deleteSpec(named: identity.sandboxName)
+            }
+            deleteResult = .success
+        } catch {
+            deleteResult = .failure(exitCode: 1)
         }
+
+        let finalResult = dominantResult(
+            workloadResult: workloadResult,
+            stopResult: stopResult,
+            afterStopResult: afterStopResult,
+            deleteResult: deleteResult
+        )
+        let result = EphemeralRunResult(
+            status: finalResult == .success ? "success" : "failure",
+            exitCode: finalResult.ephemeralExitCode,
+            recordPath: identity.recordPath
+        )
         try runRecordStore.writeResult(result, identity: identity)
 
         writeOutput("Ephemeral run status: \(result.status)")
         writeOutput("Run record: \(identity.recordPath)")
-        return workloadResult
+        return finalResult
     }
 
     private func runBeforeProvisionHooks(_ hooks: [EphemeralHookIntent], identity: EphemeralRunIdentity, sourcePath: String) throws -> CommandResult {
+        let hookResult = try runHostHooks(hooks, phase: "beforeProvision", identity: identity, sourcePath: sourcePath)
+        if hookResult != .success {
+            let result = EphemeralRunResult(status: "failure", exitCode: hookResult.ephemeralExitCode, recordPath: identity.recordPath)
+            try runRecordStore.writeResult(result, identity: identity)
+            writeOutput("Ephemeral run status: \(result.status)")
+            writeOutput("Run record: \(identity.recordPath)")
+        }
+        return hookResult
+    }
+
+    private func runHostHooks(_ hooks: [EphemeralHookIntent], phase: String, identity: EphemeralRunIdentity, sourcePath: String) throws -> CommandResult {
         let workingDirectory = URL(fileURLWithPath: sourcePath)
             .deletingLastPathComponent()
             .standardizedFileURL
@@ -287,7 +324,7 @@ public struct EphemeralRunCoordinator {
                 hookResult = HostCommandResult(commandResult: .failure(exitCode: 1), stdout: "", stderr: "\(error)\n")
             }
             let outputReference = try runRecordStore.writeHookOutput(
-                phase: "beforeProvision",
+                phase: phase,
                 index: index,
                 stdout: hookResult.stdout,
                 stderr: hookResult.stderr,
@@ -297,7 +334,7 @@ public struct EphemeralRunCoordinator {
             let status = hookResult.commandResult == .success ? "success" : "failure"
             try runRecordStore.appendEvent(
                 EphemeralRunEvent(
-                    phase: "beforeProvision",
+                    phase: phase,
                     status: status,
                     command: hook.command.arguments,
                     workingDirectory: workingDirectory,
@@ -309,15 +346,23 @@ public struct EphemeralRunCoordinator {
             )
 
             if hookResult.commandResult != .success {
-                let result = EphemeralRunResult(status: "failure", exitCode: exitCode, recordPath: identity.recordPath)
-                try runRecordStore.writeResult(result, identity: identity)
-                writeOutput("Ephemeral run status: \(result.status)")
-                writeOutput("Run record: \(identity.recordPath)")
                 return hookResult.commandResult
             }
         }
 
         return .success
+    }
+
+    private func dominantResult(
+        workloadResult: CommandResult,
+        stopResult: CommandResult,
+        afterStopResult: CommandResult,
+        deleteResult: CommandResult
+    ) -> CommandResult {
+        if deleteResult != .success { return deleteResult }
+        if afterStopResult != .success { return afterStopResult }
+        if stopResult != .success { return stopResult }
+        return workloadResult
     }
 }
 
@@ -469,6 +514,7 @@ public struct EphemeralSpec: Equatable {
     public var resourceProfile: ResourceProfile
     public var allowedFolders: [EphemeralAllowedFolderIntent]
     public var beforeProvisionHooks: [EphemeralHookIntent]
+    public var afterStopHooks: [EphemeralHookIntent]
     public var workload: EphemeralWorkloadIntent?
 
     public static func parseYAML(_ text: String) throws -> EphemeralSpec {
@@ -481,12 +527,16 @@ public struct EphemeralSpec: Equatable {
         var workload = PartialEphemeralCommand(context: "workload")
         var beforeProvisionHooks: [EphemeralHookIntent] = []
         var currentBeforeProvisionHook: PartialEphemeralCommand?
+        var afterStopHooks: [EphemeralHookIntent] = []
+        var currentAfterStopHook: PartialEphemeralCommand?
         var allowedFolders: [EphemeralAllowedFolderIntent] = []
         var currentFolder: PartialEphemeralAllowedFolder?
         var inWorkload = false
         var inWorkloadArgs = false
         var inBeforeProvision = false
         var inBeforeProvisionArgs = false
+        var inAfterStop = false
+        var inAfterStopArgs = false
         var inResources = false
         var inAllowedFolders = false
         var cpus: Int?
@@ -506,6 +556,13 @@ public struct EphemeralSpec: Equatable {
             }
         }
 
+        func finishCurrentAfterStopHook() throws {
+            if let hook = currentAfterStopHook {
+                afterStopHooks.append(EphemeralHookIntent(command: try hook.buildRequired().command))
+                currentAfterStopHook = nil
+            }
+        }
+
         func setHookField(key: String, value: String, rawLine: String) throws {
             switch key {
             case "command":
@@ -522,6 +579,22 @@ public struct EphemeralSpec: Equatable {
             }
         }
 
+        func setAfterStopHookField(key: String, value: String, rawLine: String) throws {
+            switch key {
+            case "command":
+                try rejectCommandListShorthand(value)
+                currentAfterStopHook?.command = value
+            case "args":
+                if value == "[]" { currentAfterStopHook?.args = [] }
+                else {
+                    guard value.isEmpty else { throw EphemeralSpecError.malformedLine(rawLine) }
+                    inAfterStopArgs = true
+                }
+            default:
+                throw EphemeralSpecError.unsupportedField("afterStop.\(key)")
+            }
+        }
+
         for rawLine in lines {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             if line.isEmpty || line.hasPrefix("#") { continue }
@@ -529,10 +602,13 @@ public struct EphemeralSpec: Equatable {
             if !rawLine.hasPrefix(" ") {
                 try finishCurrentFolder()
                 try finishCurrentBeforeProvisionHook()
+                try finishCurrentAfterStopHook()
                 inWorkload = false
                 inWorkloadArgs = false
                 inBeforeProvision = false
                 inBeforeProvisionArgs = false
+                inAfterStop = false
+                inAfterStopArgs = false
                 inResources = false
                 inAllowedFolders = false
             }
@@ -559,6 +635,18 @@ public struct EphemeralSpec: Equatable {
                 inBeforeProvisionArgs = false
             }
 
+            if inAfterStopArgs {
+                if line.hasPrefix("- ") {
+                    let argument = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                    if parseYAMLKeyValue(argument)?.0 != "command" {
+                        try rejectCommandListShorthand(argument)
+                        currentAfterStopHook?.args.append(argument)
+                        continue
+                    }
+                }
+                inAfterStopArgs = false
+            }
+
             if inWorkload, line.hasPrefix("- ") {
                 throw EphemeralSpecError.unsupportedCommandListShorthand
             }
@@ -572,6 +660,19 @@ public struct EphemeralSpec: Equatable {
                         throw EphemeralSpecError.malformedLine(rawLine)
                     }
                     try setHookField(key: key, value: value, rawLine: rawLine)
+                }
+                continue
+            }
+
+            if inAfterStop, line.hasPrefix("- ") {
+                try finishCurrentAfterStopHook()
+                currentAfterStopHook = PartialEphemeralCommand(context: "afterStop hook")
+                let remainder = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                if !remainder.isEmpty {
+                    guard let (key, value) = parseYAMLKeyValue(remainder) else {
+                        throw EphemeralSpecError.malformedLine(rawLine)
+                    }
+                    try setAfterStopHookField(key: key, value: value, rawLine: rawLine)
                 }
                 continue
             }
@@ -628,6 +729,12 @@ public struct EphemeralSpec: Equatable {
                 continue
             }
 
+            if inAfterStop {
+                guard currentAfterStopHook != nil else { throw EphemeralSpecError.malformedLine(rawLine) }
+                try setAfterStopHookField(key: key, value: value, rawLine: rawLine)
+                continue
+            }
+
             if inAllowedFolders {
                 guard currentFolder != nil else { throw EphemeralSpecError.malformedLine(rawLine) }
                 try currentFolder?.set(key: key, value: value)
@@ -655,6 +762,13 @@ public struct EphemeralSpec: Equatable {
                     guard value.isEmpty else { throw EphemeralSpecError.malformedLine(rawLine) }
                     inBeforeProvision = true
                 }
+            case "afterStop":
+                if value == "[]" { inAfterStop = false }
+                else {
+                    if isCommandListShorthand(value) { throw EphemeralSpecError.unsupportedCommandListShorthand }
+                    guard value.isEmpty else { throw EphemeralSpecError.malformedLine(rawLine) }
+                    inAfterStop = true
+                }
             case "allowedFolders":
                 if value == "[]" { inAllowedFolders = false }
                 else {
@@ -668,6 +782,7 @@ public struct EphemeralSpec: Equatable {
 
         try finishCurrentFolder()
         try finishCurrentBeforeProvisionHook()
+        try finishCurrentAfterStopHook()
 
         let version = try requireYAMLValue(schemaVersion, "schemaVersion", missingError: EphemeralSpecError.missingField)
         guard version == SandboxSpec.supportedSchemaVersion else {
@@ -683,6 +798,7 @@ public struct EphemeralSpec: Equatable {
             resourceProfile: resourceProfile,
             allowedFolders: allowedFolders,
             beforeProvisionHooks: beforeProvisionHooks,
+            afterStopHooks: afterStopHooks,
             workload: try workload.buildIfPresent()
         )
     }
@@ -694,6 +810,7 @@ public struct EphemeralRunPlan: Equatable {
     public var resourceProfile: ResourceProfile
     public var allowedFolders: [EphemeralAllowedFolderIntent]
     public var beforeProvisionHooks: [EphemeralHookIntent]
+    public var afterStopHooks: [EphemeralHookIntent]
     public var workload: EphemeralCommandSpec
 
     public static func build(from spec: EphemeralSpec, workloadOverride: WorkloadCommand? = nil) throws -> EphemeralRunPlan {
@@ -722,6 +839,7 @@ public struct EphemeralRunPlan: Equatable {
             resourceProfile: spec.resourceProfile,
             allowedFolders: spec.allowedFolders,
             beforeProvisionHooks: spec.beforeProvisionHooks,
+            afterStopHooks: spec.afterStopHooks,
             workload: EphemeralCommandSpec(command: command, workdir: workdir)
         )
     }
@@ -824,7 +942,7 @@ private struct PartialEphemeralCommand {
         let command = try requireYAMLValue(command, "\(context).command", missingError: EphemeralSpecError.missingField)
         guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             if context == "workload" { throw EphemeralSpecError.emptyCommand }
-            throw EphemeralSpecError.emptyHookCommand("beforeProvision")
+            throw EphemeralSpecError.emptyHookCommand(context.replacingOccurrences(of: " hook", with: ""))
         }
         return EphemeralWorkloadIntent(
             command: try WorkloadCommand(arguments: [command] + args),
