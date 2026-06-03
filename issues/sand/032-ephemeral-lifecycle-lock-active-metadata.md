@@ -1,6 +1,6 @@
 ---
 title: Scope lifecycle locks and active metadata for Ephemeral Sandbox Runs
-status: needs-triage
+status: blocked
 type: issue
 category: enhancement
 labels:
@@ -36,3 +36,13 @@ Make Ephemeral Sandbox Runs visible and safe while active without blocking unrel
 
 - `issues/sand/022-minimal-ephemeral-command-happy-path.md`
 - `issues/sand/030-ephemeral-failure-cleanup-result-precedence.md`
+
+## Progress
+
+### 2026-06-02 23:33 PDT — RUN-ONLY: blocked by open dependency
+
+- Files shipped: `issues/sand/032-ephemeral-lifecycle-lock-active-metadata.md`
+- Verification: blocker check only — `issues/sand/030-ephemeral-failure-cleanup-result-precedence.md` still exists outside `issues/sand/done`; implementation/tests intentionally not run.
+- TDD evidence: RED not run; GREEN not run; refactor not run because the issue is blocked by an open local dependency.
+- ACs completed: none
+- HITL/default decisions: **Stopped instead of implementing** because run-only instructions require marking blocked when a `Blocked by` local issue still exists outside done.
