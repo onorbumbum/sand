@@ -72,11 +72,9 @@ public struct EphemeralRunCoordinator {
         let identity = try runRecordStore.allocateIdentity(namePrefix: plan.namePrefix)
         try runRecordStore.createAttempt(identity: identity, sourceSpecText: request.authoredSpecText, sourcePath: request.sourcePath)
 
-        let sandboxSpec = SandboxSpec(
+        let sandboxSpec = try plan.concreteSandboxSpec(
             name: identity.sandboxName,
-            image: plan.image,
-            resourceProfile: plan.resourceProfile,
-            allowedFolders: []
+            sourcePath: request.sourcePath
         )
         try runRecordStore.writeGeneratedSpec(sandboxSpec, identity: identity)
 
@@ -396,6 +394,46 @@ public struct EphemeralRunPlan: Equatable {
             allowedFolders: spec.allowedFolders,
             workload: workload
         )
+    }
+
+    public func concreteSandboxSpec(name: SandboxName, sourcePath: String) throws -> SandboxSpec {
+        let sourceDirectory = URL(fileURLWithPath: sourcePath)
+            .deletingLastPathComponent()
+            .standardizedFileURL
+        let folderPolicy = FolderPolicy { displayHostPath in
+            EphemeralRunPlan.resolveHostPath(displayHostPath, relativeTo: sourceDirectory)
+        }
+        var spec = SandboxSpec(
+            name: name,
+            image: image,
+            resourceProfile: resourceProfile,
+            allowedFolders: []
+        )
+
+        for folder in allowedFolders {
+            spec = try folderPolicy.addFolder(
+                to: spec,
+                displayHostPath: folder.hostPath,
+                accessMode: folder.accessMode.rawValue,
+                guestPath: folder.guestPath
+            )
+        }
+
+        return spec
+    }
+
+    private static func resolveHostPath(_ hostPath: String, relativeTo sourceDirectory: URL) -> String {
+        let expanded: URL
+        if hostPath == "~" {
+            expanded = FileManager.default.homeDirectoryForCurrentUser
+        } else if hostPath.hasPrefix("~/") {
+            expanded = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(String(hostPath.dropFirst(2)))
+        } else if hostPath.hasPrefix("/") {
+            expanded = URL(fileURLWithPath: hostPath)
+        } else {
+            expanded = sourceDirectory.appendingPathComponent(hostPath)
+        }
+        return expanded.resolvingSymlinksInPath().standardizedFileURL.path
     }
 }
 

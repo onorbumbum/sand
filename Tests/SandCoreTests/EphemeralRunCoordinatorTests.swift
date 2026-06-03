@@ -118,6 +118,201 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
         ])
     }
 
+    func testEphemeralAllowedFoldersResolveIntoGeneratedConcreteSandboxSpec() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            writeOutput: { _ in }
+        )
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let sourcePath = "\(home)/ephemeral-project/specs/ephemeral.yaml"
+        let expectedRelative = URL(fileURLWithPath: home)
+            .appendingPathComponent("ephemeral-project/specs/work")
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+            .path
+        let expectedHome = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library")
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+            .path
+        let specText = """
+        schemaVersion: 1
+        image: registry.example/sand:dev
+        resources:
+          cpus: 6
+          memory: 12GB
+        allowedFolders:
+          - hostPath: ./work
+            accessMode: rw
+          - hostPath: /opt/reference
+            guestPath: /reference
+            accessMode: ro
+          - hostPath: ~/Library
+            accessMode: read-only
+        workload:
+          command: echo
+          workdir: /workspace/work
+        """
+
+        let result = try coordinator.run(
+            EphemeralRunRequest(
+                authoredSpecText: specText,
+                sourcePath: sourcePath
+            )
+        )
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(runRecordStore.sourceSpecTexts, [specText])
+        XCTAssertFalse(runRecordStore.sourceSpecTexts[0].contains("resolvedHostPath"))
+        XCTAssertEqual(runRecordStore.generatedSpecs, [
+            SandboxSpec(
+                name: sandboxName,
+                image: SandboxImage(reference: "registry.example/sand:dev"),
+                resourceProfile: ResourceProfile(cpus: 6, memory: MemorySize(gigabytes: 12)),
+                allowedFolders: [
+                    AllowedFolder(
+                        displayHostPath: "./work",
+                        resolvedHostPath: expectedRelative,
+                        guestPath: try GuestPath("/workspace/work"),
+                        accessMode: .readWrite
+                    ),
+                    AllowedFolder(
+                        displayHostPath: "/opt/reference",
+                        resolvedHostPath: "/opt/reference",
+                        guestPath: try GuestPath("/reference"),
+                        accessMode: .readOnly
+                    ),
+                    AllowedFolder(
+                        displayHostPath: "~/Library",
+                        resolvedHostPath: expectedHome,
+                        guestPath: try GuestPath("/workspace/Library"),
+                        accessMode: .readOnly
+                    )
+                ]
+            )
+        ])
+        XCTAssertEqual(backend.calls, [
+            .provision("ephemeral-20260602-abcd"),
+            .start("ephemeral-20260602-abcd"),
+            .run("ephemeral-20260602-abcd", ["echo"], "/workspace/work"),
+            .stop("ephemeral-20260602-abcd"),
+            .delete("ephemeral-20260602-abcd")
+        ])
+    }
+
+    func testEphemeralAllowedFoldersReuseFolderPolicyDuplicateGuestPathRejection() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        allowedFolders:
+          - hostPath: ./work-a
+            guestPath: /workspace/work
+            accessMode: read-write
+          - hostPath: ./work-b
+            guestPath: /workspace/work
+            accessMode: read-only
+        workload:
+          command: echo
+          workdir: /workspace/work
+        """
+
+        XCTAssertThrowsError(
+            try coordinator.run(
+                EphemeralRunRequest(
+                    authoredSpecText: specText,
+                    sourcePath: "/Users/onur/ephemeral/spec.yaml"
+                )
+            )
+        ) { error in
+            XCTAssertEqual(error as? FolderPolicyError, .duplicateGuestPath("/workspace/work"))
+        }
+        XCTAssertEqual(runRecordStore.generatedSpecs, [])
+        XCTAssertEqual(metadataStore.activeSpecNames, [])
+        XCTAssertEqual(backend.calls, [])
+        XCTAssertEqual(events, [
+            "record.allocateIdentity.ephemeral",
+            "record.createAttempt"
+        ])
+    }
+
+    func testEphemeralAllowedFoldersReuseFolderPolicyOverlapRejectionAfterResolution() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            writeOutput: { _ in }
+        )
+        let sourcePath = "/Users/onur/ephemeral/spec.yaml"
+        let specText = """
+        schemaVersion: 1
+        allowedFolders:
+          - hostPath: ./work
+            accessMode: rw
+          - hostPath: ./work/nested
+            accessMode: ro
+        workload:
+          command: echo
+          workdir: /workspace/work
+        """
+
+        XCTAssertThrowsError(
+            try coordinator.run(
+                EphemeralRunRequest(
+                    authoredSpecText: specText,
+                    sourcePath: sourcePath
+                )
+            )
+        ) { error in
+            XCTAssertEqual(error as? FolderPolicyError, .overlappingHostFolders("/Users/onur/ephemeral/work", "/Users/onur/ephemeral/work/nested"))
+        }
+        XCTAssertEqual(runRecordStore.generatedSpecs, [])
+        XCTAssertEqual(metadataStore.activeSpecNames, [])
+        XCTAssertEqual(backend.calls, [])
+    }
+
     func testMalformedEphemeralSpecsFailBeforeRunRecordMetadataAndBackendSideEffects() throws {
         let invalidSpecs: [(name: String, text: String, expectedErrorFragment: String)] = [
             (
@@ -306,6 +501,7 @@ private final class RecordingEphemeralRunRecordStore: EphemeralRunRecordStore {
     private(set) var resultStatus: String?
     private(set) var allocatedNamePrefixes: [String] = []
     private(set) var generatedSpecs: [SandboxSpec] = []
+    private(set) var sourceSpecTexts: [String] = []
 
     init(identity: EphemeralRunIdentity, events: @escaping (String) -> Void) {
         self.identity = identity
@@ -319,6 +515,7 @@ private final class RecordingEphemeralRunRecordStore: EphemeralRunRecordStore {
     }
 
     func createAttempt(identity: EphemeralRunIdentity, sourceSpecText: String, sourcePath: String) throws {
+        sourceSpecTexts.append(sourceSpecText)
         recordEvent("record.createAttempt")
     }
 
