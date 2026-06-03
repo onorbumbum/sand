@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 75700c8cfb9c7f8979d4c9c526c7b2c6e51d594d3e1fb23af79160a9f88add42 -->
+<!-- docs-input-hash: f330081d82545d7a14955ae522115a318c068b9102c6a7348c04bd0fe946524c -->
 
 # sand Onboarding Guide
 
@@ -8,7 +8,7 @@
 
 ## What this repo is
 
-`sand` is a Swift CLI for creating and managing **Sandbox VMs**: isolated Linux machines on a **Host Mac** with persistent **Guest State**, explicit **Allowed Folders**, and generic **Workload Commands**. Pi is the primary workflow, and the same sandbox can run other developer tools when needed.
+`sand` is a Swift CLI for creating and managing **Sandbox VMs**: isolated Linux machines on a **Host Mac** with persistent **Guest State**, explicit **Allowed Folders**, and generic **Workload Commands**. It also supports explicit **Ephemeral Sandbox Runs** from Ephemeral Specs; `sand ephemeral init` writes a starter spec without creating a Sandbox VM. Pi is the primary workflow, and the same sandbox can run other developer tools when needed.
 
 `sand` is experimental alpha software released under the Apache License 2.0. Public issues are welcome, but there is no support guarantee or response SLA, and external pull requests are not accepted yet.
 
@@ -58,7 +58,7 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 | `Sources/SandCore/Backend/` | Sandbox Backend interfaces and Apple `container` backend plumbing. Backend details should not leak into user-facing language. |
 | `Sources/SandCore/Doctor/` | Doctor Checks for Host Mac support, backend readiness, default image availability, and Host Metadata writability. |
 | `Sources/SandCore/Domain/` | Small domain types such as Sandbox Name and Workload Command. |
-| `Sources/SandCore/Ephemeral/` | Ephemeral Sandbox Run planning, Host Mac lifecycle hooks, active Host Metadata, scoped lifecycle locks, run records, failure result precedence, and create-run-stop-delete coordination. |
+| `Sources/SandCore/Ephemeral/` | Ephemeral Sandbox Run planning, Host Mac lifecycle hooks, active Host Metadata, scoped lifecycle locks, run records, failure result precedence, create-run-stop-delete coordination, and starter Ephemeral Spec template parsing behavior. |
 | `Sources/SandCore/FolderPolicy/` | Allowed Folder validation, Access Mode handling, Guest Path rules, duplicate and overlap policy. |
 | `Sources/SandCore/Lifecycle/` | Lifecycle Mutation coordination around create, apply, start, stop, delete, and run flows. |
 | `Sources/SandCore/Metadata/` | Host Metadata storage under `~/.sand/`. |
@@ -113,6 +113,13 @@ For CLI documentation changes, regenerate the CLI Reference with:
 
 ```sh
 scripts/generate-cli-reference.sh
+```
+
+For a first Ephemeral Sandbox Run smoke path, generate a starter spec and run it explicitly:
+
+```sh
+sand ephemeral init ephemeral-spec.yaml
+sand ephemeral --from ephemeral-spec.yaml
 ```
 
 Then rerun `make docs-check` and `swift test`.

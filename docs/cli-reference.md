@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: 75700c8cfb9c7f8979d4c9c526c7b2c6e51d594d3e1fb23af79160a9f88add42 -->
+<!-- docs-input-hash: f330081d82545d7a14955ae522115a318c068b9102c6a7348c04bd0fe946524c -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 
 ## Generation source
 
-- Docs input hash: `75700c8cfb9c7f8979d4c9c526c7b2c6e51d594d3e1fb23af79160a9f88add42`
+- Docs input hash: `f330081d82545d7a14955ae522115a318c068b9102c6a7348c04bd0fe946524c`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, `sand <name> --help`, and `sand --version` output.
@@ -18,7 +18,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 ## Supported v1 command surface
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `doctor`, `create`, `sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]`, `list`, `apply`, `delete`, `folders`
+- Top-level commands: `doctor`, `create`, `sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]`, `sand ephemeral init <path> [--force]`, `sand ephemeral init --stdout`, `list`, `apply`, `delete`, `folders`
 - Sandbox-first actions: `sand <name> status`, `start`, `stop`, `shell`, `run <command> [args...]`, `logs`, `spec`
 
 ## Current v1 boundaries
@@ -29,12 +29,12 @@ The v1 command surface is intentionally explicit and small:
 - To run Pi, use the same command shape as any other tool: `sand <name> run pi [args...]`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need a handoff flow outside the command surface.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
-- Durable Sandbox Specs describe reusable Sandbox VMs; Ephemeral Specs describe bounded create-run-stop-delete workflows and preserve Ephemeral Run Records. See `docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md` for the durable-vs-ephemeral boundary.
+- Durable Sandbox Specs describe reusable Sandbox VMs; Ephemeral Specs describe bounded create-run-stop-delete workflows and preserve Ephemeral Run Records. Use `sand ephemeral init <path>` to write a starter Ephemeral Spec before running it explicitly with `sand ephemeral --from <path>`. See `docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md` for the durable-vs-ephemeral boundary.
 
 ## `sand --version`
 
 ```text
-sand 0.2.0-dev
+sand 0.2.1-dev
 ```
 
 ## `sand --help`
@@ -47,6 +47,10 @@ Commands:
   create <name> [options]        Create a Sandbox VM
   sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]
                              Run a bounded Ephemeral Sandbox Run
+  sand ephemeral init <path> [--force]
+                             Write a starter Ephemeral Spec YAML file
+  sand ephemeral init --stdout
+                             Print the starter Ephemeral Spec YAML file
   list                           List Sandbox VMs
   apply <name>                   Apply spec changes
   delete <name> [--force]        Delete a Sandbox VM
@@ -82,8 +86,23 @@ Creates a Sandbox VM from generated defaults or from an authored spec.
 
 ```text
 Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]
+       sand ephemeral init <path> [--force]
+       sand ephemeral init --stdout
 
-Creates a temporary Sandbox VM, runs the spec workload or CLI workload override, stops and deletes it, and prints the run record path.
+`sand ephemeral --from` creates a temporary Sandbox VM, runs the spec workload or CLI workload override, stops and deletes it, and prints the run record path.
+
+`sand ephemeral init` writes a starter Ephemeral Spec YAML file or prints it with --stdout. It only generates a template and does not create a Sandbox VM.
+```
+
+## Ephemeral Spec starter template
+
+Use `sand ephemeral init <path>` to write a runnable starter Ephemeral Spec YAML file, or `sand ephemeral init --stdout` to print the same template. The init command is non-executing: it does not create a Sandbox VM, touch Host Metadata, or create an Ephemeral Run Record. Existing files are left untouched unless `--force` is provided. The starter writes phase-visible content into `work/output.txt`, copies a post-work snapshot to `work/after-stop.txt`, and still captures hook stdout/stderr in the Ephemeral Run Record rather than streaming hook output live.
+
+Run the generated template explicitly after review:
+
+```sh
+sand ephemeral init ephemeral-spec.yaml
+sand ephemeral --from ephemeral-spec.yaml
 ```
 
 ## Ephemeral Spec lifecycle hooks

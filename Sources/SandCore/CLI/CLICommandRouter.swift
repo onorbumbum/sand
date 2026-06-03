@@ -2,7 +2,7 @@ import Foundation
 
 /// Parses and dispatches CLI commands to the application layer.
 public struct CLICommandRouter {
-    public static let productVersion = "0.2.0-dev"
+    public static let productVersion = "0.2.1-dev"
 
     private let application: any SandboxApplication
     private let readTextFile: (String) throws -> String
@@ -119,6 +119,11 @@ public struct CLICommandRouter {
 
     // Parses and dispatches the `ephemeral` command with its options.
     private func dispatchEphemeral(_ arguments: [String]) throws -> CommandResult {
+        guard let first = arguments.first else { throw CLICommandError.missingArgument("ephemeral --from <ephemeral-spec.yaml>") }
+        if first == "init" {
+            return try dispatchEphemeralInit(Array(arguments.dropFirst()))
+        }
+
         guard arguments.count >= 2 else { throw CLICommandError.missingArgument("ephemeral --from <ephemeral-spec.yaml>") }
         guard arguments[0] == "--from" else { throw CLICommandError.unsupportedOption(arguments[0]) }
         let sourcePath = arguments[1]
@@ -140,6 +145,36 @@ public struct CLICommandRouter {
 
         let specText = try readTextFile(sourcePath)
         return try application.ephemeral(EphemeralRunRequest(authoredSpecText: specText, sourcePath: sourcePath, workloadOverride: workloadOverride))
+    }
+
+    private func dispatchEphemeralInit(_ arguments: [String]) throws -> CommandResult {
+        guard let first = arguments.first else {
+            throw CLICommandError.missingArgument("ephemeral init <path> [--force] or ephemeral init --stdout")
+        }
+
+        if first == "--stdout" {
+            try requireExactCount(arguments, 1)
+            writeOutput(EphemeralSpecTemplate.starterYAML)
+            return .success
+        }
+
+        if first.hasPrefix("--") { throw CLICommandError.unsupportedOption(first) }
+        let outputPath = first
+        var force = false
+        for argument in arguments.dropFirst() {
+            switch argument {
+            case "--force": force = true
+            default:
+                if argument.hasPrefix("--") { throw CLICommandError.unsupportedOption(argument) }
+                throw CLICommandError.unexpectedArguments([argument])
+            }
+        }
+
+        if FileManager.default.fileExists(atPath: outputPath), !force {
+            throw CLICommandError.outputFileExists(outputPath)
+        }
+        try EphemeralSpecTemplate.starterYAML.write(toFile: outputPath, atomically: true, encoding: .utf8)
+        return .success
     }
 
     // Parses and dispatches the `delete` command with its options.
@@ -256,6 +291,10 @@ private enum CLIHelp {
       create <name> [options]        Create a Sandbox VM
       sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]
                                  Run a bounded Ephemeral Sandbox Run
+      sand ephemeral init <path> [--force]
+                                 Write a starter Ephemeral Spec YAML file
+      sand ephemeral init --stdout
+                                 Print the starter Ephemeral Spec YAML file
       list                           List Sandbox VMs
       apply <name>                   Apply spec changes
       delete <name> [--force]        Delete a Sandbox VM
@@ -291,8 +330,12 @@ private enum CLIHelp {
 
     static let ephemeral = """
     Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]
+           sand ephemeral init <path> [--force]
+           sand ephemeral init --stdout
 
-    Creates a temporary Sandbox VM, runs the spec workload or CLI workload override, stops and deletes it, and prints the run record path.
+    `sand ephemeral --from` creates a temporary Sandbox VM, runs the spec workload or CLI workload override, stops and deletes it, and prints the run record path.
+
+    `sand ephemeral init` writes a starter Ephemeral Spec YAML file or prints it with --stdout. It only generates a template and does not create a Sandbox VM.
     """
 
     static let apply = """
@@ -330,6 +373,38 @@ private enum CLIHelp {
     """
 }
 
+private enum EphemeralSpecTemplate {
+    static let starterYAML = """
+    schemaVersion: 1
+    description: Easy ephemeral smoke test
+    namePrefix: smoke
+
+    beforeProvision:
+      - command: sh
+        args:
+          - -lc
+          - 'mkdir -p work && echo "beforeProvision prepared work" > work/output.txt'
+
+    allowedFolders:
+      - hostPath: ./work
+        guestPath: /workspace
+        accessMode: read-write
+
+    workload:
+      command: sh
+      args:
+        - -lc
+        - 'echo "workload wrote from Sandbox Guest" >> /workspace/output.txt && ls -la /workspace >> /workspace/output.txt'
+      workdir: /workspace
+
+    afterStop:
+      - command: sh
+        args:
+          - -lc
+          - 'echo "afterStop processed host-visible output" >> work/output.txt && cp work/output.txt work/after-stop.txt && cat work/after-stop.txt'
+    """ + "\n"
+}
+
 /// Errors that can occur during CLI command processing.
 public enum CLICommandError: Error, Equatable, CustomStringConvertible {
     case missingCommand
@@ -341,6 +416,7 @@ public enum CLICommandError: Error, Equatable, CustomStringConvertible {
     case unsupportedAction(String)
     case unsupportedOption(String)
     case specNameMismatch(expected: String, actual: String)
+    case outputFileExists(String)
     case unexpectedArguments([String])
 
     public var description: String {
@@ -354,6 +430,7 @@ public enum CLICommandError: Error, Equatable, CustomStringConvertible {
         case .unsupportedAction(let action): return "unsupported sandbox action: \(action)"
         case .unsupportedOption(let option): return "unsupported option: \(option)"
         case .specNameMismatch(let expected, let actual): return "sandbox name mismatch: command expected \(expected), spec declares \(actual)"
+        case .outputFileExists(let path): return "refusing to overwrite existing file: \(path) (use --force to replace it)"
         case .unexpectedArguments(let arguments): return "unexpected arguments: \(arguments.joined(separator: " "))"
         }
     }

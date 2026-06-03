@@ -18,8 +18,10 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertTrue(output[0].contains("Usage: sand <command>"))
         XCTAssertTrue(output[0].contains("doctor"))
         XCTAssertTrue(output[0].contains("sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]"))
+        XCTAssertTrue(output[0].contains("sand ephemeral init <path> [--force]"))
+        XCTAssertTrue(output[0].contains("sand ephemeral init --stdout"))
         XCTAssertTrue(output[0].contains("<name> run"))
-        XCTAssertEqual(output[1], "sand 0.2.0-dev")
+        XCTAssertEqual(output[1], "sand 0.2.1-dev")
         XCTAssertEqual(app.calls, [])
     }
 
@@ -43,6 +45,10 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertTrue(output[3].contains("Usage: sand folders <action>"))
         XCTAssertTrue(output[3].contains("folders add <name> <host-path> <rw|ro>"))
         XCTAssertTrue(output[4].contains("Usage: sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]"))
+        XCTAssertTrue(output[4].contains("sand ephemeral init <path> [--force]"))
+        XCTAssertTrue(output[4].contains("sand ephemeral init --stdout"))
+        XCTAssertTrue(output[4].contains("writes a starter Ephemeral Spec YAML file"))
+        XCTAssertTrue(output[4].contains("does not create a Sandbox VM"))
         XCTAssertTrue(output[5].contains("Usage: sand <name> <action>"))
         XCTAssertTrue(output[5].contains("run <command> [args...]"))
         XCTAssertEqual(app.calls, [])
@@ -102,6 +108,74 @@ final class CLICommandRouterTests: XCTestCase {
 
         XCTAssertEqual(result, .success)
         XCTAssertEqual(app.calls, [.run("mybox", ["pi", "--model", "gpt-5", "--", "literal"])])
+    }
+
+    func testEphemeralInitWritesStarterSpecThatParsesAndDoesNotCallApplication() throws {
+        let tempDirectory = try makeTemporaryDirectory()
+        let specPath = tempDirectory.appendingPathComponent("ephemeral-spec.yaml").path
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(application: app)
+
+        let result = try router.dispatch(arguments: ["ephemeral", "init", specPath])
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(app.calls, [])
+        let template = try String(contentsOfFile: specPath, encoding: .utf8)
+        let spec = try EphemeralSpec.parseYAML(template)
+        let plan = try EphemeralRunPlan.build(from: spec)
+        XCTAssertEqual(spec.schemaVersion, 1)
+        XCTAssertEqual(spec.description, "Easy ephemeral smoke test")
+        XCTAssertEqual(spec.namePrefix, "smoke")
+        XCTAssertEqual(spec.beforeProvisionHooks.map(\.command.arguments), [[
+            "sh",
+            "-lc",
+            "mkdir -p work && echo \"beforeProvision prepared work\" > work/output.txt"
+        ]])
+        XCTAssertEqual(spec.allowedFolders.map(\.hostPath), ["./work"])
+        XCTAssertEqual(spec.allowedFolders.map(\.guestPath?.rawValue), ["/workspace"])
+        XCTAssertEqual(spec.allowedFolders.map(\.accessMode), [.readWrite])
+        XCTAssertEqual(plan.workload.command.arguments, [
+            "sh",
+            "-lc",
+            "echo \"workload wrote from Sandbox Guest\" >> /workspace/output.txt && ls -la /workspace >> /workspace/output.txt"
+        ])
+        XCTAssertEqual(plan.workload.workdir.rawValue, "/workspace")
+        XCTAssertEqual(spec.afterStopHooks.map(\.command.arguments), [[
+            "sh",
+            "-lc",
+            "echo \"afterStop processed host-visible output\" >> work/output.txt && cp work/output.txt work/after-stop.txt && cat work/after-stop.txt"
+        ]])
+    }
+
+    func testEphemeralInitRefusesOverwriteUnlessForce() throws {
+        let tempDirectory = try makeTemporaryDirectory()
+        let specPath = tempDirectory.appendingPathComponent("ephemeral-spec.yaml").path
+        try "original\n".write(toFile: specPath, atomically: true, encoding: .utf8)
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(application: app)
+
+        XCTAssertThrowsError(try router.dispatch(arguments: ["ephemeral", "init", specPath])) { error in
+            XCTAssertTrue(String(describing: error).contains("refusing to overwrite existing file"), "got \(error)")
+            XCTAssertTrue(String(describing: error).contains("--force"), "got \(error)")
+        }
+        XCTAssertEqual(try String(contentsOfFile: specPath, encoding: .utf8), "original\n")
+
+        XCTAssertEqual(try router.dispatch(arguments: ["ephemeral", "init", specPath, "--force"]), .success)
+        XCTAssertNotEqual(try String(contentsOfFile: specPath, encoding: .utf8), "original\n")
+        XCTAssertEqual(app.calls, [])
+    }
+
+    func testEphemeralInitStdoutPrintsTemplateWithoutPathOrSideEffects() throws {
+        let app = RecordingSandboxApplication()
+        var output: [String] = []
+        let router = CLICommandRouter(application: app, writeOutput: { output.append($0) })
+
+        XCTAssertEqual(try router.dispatch(arguments: ["ephemeral", "init", "--stdout"]), .success)
+
+        XCTAssertEqual(output.count, 1)
+        guard let template = output.first else { return }
+        XCTAssertNoThrow(try EphemeralRunPlan.build(from: EphemeralSpec.parseYAML(template)))
+        XCTAssertEqual(app.calls, [])
     }
 
     func testEphemeralFromSpecRoutesAsExplicitTopLevelCommand() throws {
@@ -275,6 +349,12 @@ private final class RecordingSandboxApplication: SandboxApplication {
     func listFolders(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.listFolders(request.sandboxName.rawValue)); return .success }
     func removeFolder(_ request: RemoveFolderRequest) throws -> CommandResult { calls.append(.removeFolder(request.sandboxName.rawValue, request.displayHostPath)); return .success }
     func ephemeral(_ request: EphemeralRunRequest) throws -> CommandResult { calls.append(.ephemeral(request.authoredSpecText, request.sourcePath, request.workloadOverride?.arguments)); return .success }
+}
+
+private func makeTemporaryDirectory() throws -> URL {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("sand-cli-router-tests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return directory
 }
 
 private enum AppCall: Equatable {

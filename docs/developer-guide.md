@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 75700c8cfb9c7f8979d4c9c526c7b2c6e51d594d3e1fb23af79160a9f88add42 -->
+<!-- docs-input-hash: f330081d82545d7a14955ae522115a318c068b9102c6a7348c04bd0fe946524c -->
 
 # sand Developer Guide
 
@@ -12,7 +12,7 @@ Use [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issu
 
 Keep backend-specific wording inside backend implementation and tests. User-facing docs, errors, help, and specs should describe the Sandbox VM domain, not the underlying adapter.
 
-Durable Sandbox Specs describe reusable Sandbox VMs. Ephemeral Specs describe bounded create-run-stop-delete workflows and leave Ephemeral Run Records after the temporary Sandbox VM is deleted. Preserve that boundary in code and docs; see [`docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md`](adr/0001-separate-ephemeral-spec-from-sandbox-spec.md).
+Durable Sandbox Specs describe reusable Sandbox VMs. Ephemeral Specs describe bounded create-run-stop-delete workflows and leave Ephemeral Run Records after the temporary Sandbox VM is deleted. `sand ephemeral init` is only a non-executing Ephemeral Spec template generator; it must not create Host Metadata, Ephemeral Run Records, or backend resources. Preserve that boundary in code and docs; see [`docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md`](adr/0001-separate-ephemeral-spec-from-sandbox-spec.md).
 
 ## Public repository stance
 
@@ -24,7 +24,7 @@ Durable Sandbox Specs describe reusable Sandbox VMs. Ephemeral Specs describe bo
 
 | Area | Main files | Responsibility |
 | --- | --- | --- |
-| CLI routing | `Sources/sand/main.swift`, `Sources/SandCore/CLI/CLICommandRouter.swift`, `Sources/SandCore/CLI/SandboxApplication.swift` | Parse `sand` arguments, print help/version, reject unsupported v1 command shapes, and call the application boundary. |
+| CLI routing | `Sources/sand/main.swift`, `Sources/SandCore/CLI/CLICommandRouter.swift`, `Sources/SandCore/CLI/SandboxApplication.swift` | Parse `sand` arguments, print help/version, reject unsupported v1 command shapes, generate non-executing starter Ephemeral Specs, and call the application boundary when execution is requested. |
 | Lifecycle coordination | `Sources/SandCore/Lifecycle/LifecycleCoordinator.swift` | Orchestrate create, apply, delete, start, stop, status, logs, spec, shell, run, and folder mutations. Lifecycle Mutations are serialized; normal Sandbox Sessions and Workload Commands are not. |
 | Ephemeral runs | `Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift` | Plan Ephemeral Specs, run Host Mac lifecycle hooks, record attempts, manage temporary active Host Metadata, and coordinate bounded create-run-stop-delete workflows with scoped lifecycle locks. |
 | Sandbox Specs | `Sources/SandCore/Spec/SandboxSpec.swift` | Model and validate v1 Sandbox Specs, defaults, YAML rendering/parsing, unsupported fields, and immutable Resource Profile updates. |
@@ -68,7 +68,7 @@ make check
 2. Add or update routing in `CLICommandRouter.swift` and, when needed, request types or methods on `SandboxApplication.swift`.
 3. Implement orchestration in `LifecycleCoordinator.swift` or the smallest matching domain module. Keep Workload Commands opaque; do not inspect workload-specific flags.
 4. Update help text in `CLICommandRouter.swift`. The CLI Reference is generated from help output, so help is part of the source of truth.
-5. Add or update tests in `CLICommandRouterTests.swift` for the command shape and in the relevant domain/lifecycle/backend test file for behavior.
+5. Add or update tests in `CLICommandRouterTests.swift` for the command shape and in the relevant domain/lifecycle/backend test file for behavior. For non-executing commands such as `sand ephemeral init`, assert that the application/backend boundary is not called.
 6. Run targeted tests, then `make check`.
 7. If command behavior, help text, examples, or onboarding changed, refresh generated/managed docs using [`docs/prompts/refresh-docs.md`](prompts/refresh-docs.md). Do not refresh docs for implementation-only refactors.
 

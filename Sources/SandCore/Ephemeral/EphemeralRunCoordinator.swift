@@ -729,7 +729,7 @@ public struct EphemeralSpec: Equatable {
                 if line.hasPrefix("- ") {
                     let argument = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
                     try rejectCommandListShorthand(argument)
-                    workload.args.append(argument)
+                    workload.args.append(parseYAMLScalar(argument))
                     continue
                 }
                 inWorkloadArgs = false
@@ -740,7 +740,7 @@ public struct EphemeralSpec: Equatable {
                     let argument = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
                     if parseYAMLKeyValue(argument)?.0 != "command" {
                         try rejectCommandListShorthand(argument)
-                        currentBeforeProvisionHook?.args.append(argument)
+                        currentBeforeProvisionHook?.args.append(parseYAMLScalar(argument))
                         continue
                     }
                 }
@@ -752,7 +752,7 @@ public struct EphemeralSpec: Equatable {
                     let argument = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
                     if parseYAMLKeyValue(argument)?.0 != "command" {
                         try rejectCommandListShorthand(argument)
-                        currentAfterStopHook?.args.append(argument)
+                        currentAfterStopHook?.args.append(parseYAMLScalar(argument))
                         continue
                     }
                 }

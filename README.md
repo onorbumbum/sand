@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: 75700c8cfb9c7f8979d4c9c526c7b2c6e51d594d3e1fb23af79160a9f88add42 -->
+<!-- docs-input-hash: f330081d82545d7a14955ae522115a318c068b9102c6a7348c04bd0fe946524c -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -184,7 +184,13 @@ sand demo run cat /state/sandbox/persistence-check
 # 9. View logs.
 sand demo logs
 
-# 10. Delete the Sandbox VM.
+# 10. Try the bounded Ephemeral Sandbox Run starter template.
+mkdir -p "$HOME/sand-ephemeral-smoke"
+cd "$HOME/sand-ephemeral-smoke"
+sand ephemeral init ephemeral-spec.yaml
+sand ephemeral --from ephemeral-spec.yaml
+
+# 11. Delete the durable Sandbox VM.
 sand delete demo --force
 ```
 <!-- docs:managed:end -->
@@ -229,7 +235,7 @@ For the complete generated reference, see [`docs/cli-reference.md`](docs/cli-ref
 Supported v1 commands:
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`
+- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand ephemeral --from <ephemeral-spec.yaml> [-- <workload override...>]`, `sand ephemeral init <path> [--force]`, `sand ephemeral init --stdout`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`
 - Sandbox-first actions: `sand <name> status`, `sand <name> start`, `sand <name> stop`, `sand <name> shell`, `sand <name> run <command> [args...]`, `sand <name> logs`, `sand <name> spec`
 
 Command help:
@@ -261,7 +267,7 @@ Current v1 boundaries:
 - To run Pi, use the same command shape as any other tool: `sand <name> run pi [args...]`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need the handoff flow described above.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
-- Durable Sandbox Specs describe reusable Sandbox VMs; Ephemeral Specs describe bounded create-run-stop-delete workflows and preserve Ephemeral Run Records. See [`docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md`](docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md) for the durable-vs-ephemeral boundary.
+- Durable Sandbox Specs describe reusable Sandbox VMs; Ephemeral Specs describe bounded create-run-stop-delete workflows and preserve Ephemeral Run Records. Use `sand ephemeral init <path>` to write a starter Ephemeral Spec, then run it explicitly with `sand ephemeral --from <path>`. See [`docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md`](docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md) for the durable-vs-ephemeral boundary.
 - Failed Ephemeral Sandbox Runs report the failed phase and final exit code; delete failures include manual cleanup guidance for the generated Sandbox Name.
 <!-- docs:managed:end -->
 
