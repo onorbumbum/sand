@@ -1,6 +1,6 @@
 ---
 title: Update documentation, CLI help, and final Ephemeral Sandbox Run acceptance evidence
-status: needs-triage
+status: blocked
 type: issue
 category: enhancement
 labels:
@@ -48,3 +48,13 @@ Finish the Ephemeral Sandbox Runs feature by making the command discoverable, re
 - `issues/sand/031-full-ephemeral-run-record-artifacts.md`
 - `issues/sand/032-ephemeral-lifecycle-lock-active-metadata.md`
 - `issues/sand/033-durable-lifecycle-non-regression-v1-omissions.md`
+
+## Progress
+
+### 2026-06-02 23:38 PDT — RUN-ONLY: blocked by incomplete prerequisite issues
+
+- Files shipped: `issues/sand/034-ephemeral-docs-cli-help-acceptance-evidence.md`
+- Verification: blocker check only; implementation intentionally skipped because blockers still exist outside `issues/sand/done`.
+- TDD evidence: RED not run; GREEN not run; refactor not run because issue is blocked before implementation by explicit `Blocked by` rules.
+- ACs completed: none.
+- HITL/default decisions: **Chose the safe run-only default to stop before implementation** because blockers `issues/sand/029-after-stop-hooks.md`, `issues/sand/030-ephemeral-failure-cleanup-result-precedence.md`, `issues/sand/031-full-ephemeral-run-record-artifacts.md`, `issues/sand/032-ephemeral-lifecycle-lock-active-metadata.md`, and `issues/sand/033-durable-lifecycle-non-regression-v1-omissions.md` still exist outside `issues/sand/done`.
