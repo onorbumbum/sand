@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: efa355a2fd66a055e24078320ab023aea8ae8ac68b69b219a88de175adf1c27e -->
+<!-- docs-input-hash: 84b5dcd59bfea5f8c56d4932beeed50f19151f9e91b89d3fe92d0dc7afdc2028 -->
 
 # sand Onboarding Guide
 

@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: efa355a2fd66a055e24078320ab023aea8ae8ac68b69b219a88de175adf1c27e -->
+<!-- docs-input-hash: 84b5dcd59bfea5f8c56d4932beeed50f19151f9e91b89d3fe92d0dc7afdc2028 -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 
 ## Generation source
 
-- Docs input hash: `efa355a2fd66a055e24078320ab023aea8ae8ac68b69b219a88de175adf1c27e`
+- Docs input hash: `84b5dcd59bfea5f8c56d4932beeed50f19151f9e91b89d3fe92d0dc7afdc2028`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, `sand <name> --help`, and `sand --version` output.

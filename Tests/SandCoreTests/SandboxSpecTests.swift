@@ -71,6 +71,37 @@ final class SandboxSpecTests: XCTestCase {
         }
     }
 
+    func testDurableSandboxSpecRejectsEphemeralLifecycleWorkloadAndRunRecordFields() throws {
+        let rejectedTopLevelFields = [
+            "beforeProvision",
+            "afterStop",
+            "workload",
+            "runID",
+            "recordPath",
+            "result",
+            "preserveOnFailure",
+            "transcript"
+        ]
+
+        for field in rejectedTopLevelFields {
+            let yaml = """
+            schemaVersion: 1
+            name: mybox
+            image: sand/developer-ready:ubuntu-lts
+            resources:
+              cpus: 4
+              memory: 8GB
+            \(field): []
+            allowedFolders:
+              []
+            """
+
+            XCTAssertThrowsError(try SandboxSpec.parseYAML(yaml), field) { error in
+                XCTAssertEqual(error as? SandboxSpecError, .unsupportedField(field), field)
+            }
+        }
+    }
+
     func testCpuAndMemoryEditsAfterCreationAreRejectedAtSpecContractLevel() throws {
         let original = SandboxSpec.generated(name: try SandboxName("mybox"))
         let cpuEdited = SandboxSpec(name: original.name, resourceProfile: ResourceProfile(cpus: 8, memory: .init(gigabytes: 8)))

@@ -81,6 +81,37 @@ final class EphemeralRunRecordStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: URL(fileURLWithPath: identity.recordPath).appendingPathComponent("generated-sandbox-spec.yaml").path))
     }
 
+    func testRunRecordDoesNotCreateForegroundWorkloadTranscriptArtifactsByDefault() throws {
+        let root = temporaryDirectory()
+        let store = FileEphemeralRunRecordStore(
+            root: root,
+            timestampProvider: { "20260602-224500" },
+            suffixGenerator: { "a1b2c3" }
+        )
+        let identity = try store.allocateIdentity(namePrefix: "ephemeral")
+        let recordDirectory = URL(fileURLWithPath: identity.recordPath, isDirectory: true)
+
+        try store.createAttempt(
+            identity: identity,
+            sourceSpecText: "schemaVersion: 1\nworkload:\n  command: secret-chat\n  workdir: /workspace\n",
+            sourcePath: "/tmp/ephemeral.yaml"
+        )
+        try store.writeGeneratedSpec(SandboxSpec.generated(name: identity.sandboxName), identity: identity)
+        try store.writeResult(EphemeralRunResult(status: "success", exitCode: 0, recordPath: identity.recordPath), identity: identity)
+
+        let artifactNames = try FileManager.default.contentsOfDirectory(atPath: recordDirectory.path)
+        XCTAssertEqual(Set(artifactNames), [
+            "identity.json",
+            "source-ephemeral-spec.yaml",
+            "source-path.txt",
+            "generated-sandbox-spec.yaml",
+            "result.json"
+        ])
+        XCTAssertFalse(artifactNames.contains { $0.localizedCaseInsensitiveContains("transcript") })
+        XCTAssertFalse(artifactNames.contains { $0.localizedCaseInsensitiveContains("workload") && $0.hasSuffix(".stdout") })
+        XCTAssertFalse(artifactNames.contains { $0.localizedCaseInsensitiveContains("workload") && $0.hasSuffix(".stderr") })
+    }
+
     func testRunRecordArtifactsAreCompleteJsonLinesAndRetainedAfterResult() throws {
         let root = temporaryDirectory()
         let store = FileEphemeralRunRecordStore(

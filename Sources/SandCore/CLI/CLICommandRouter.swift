@@ -127,7 +127,10 @@ public struct CLICommandRouter {
         if arguments.count == 2 {
             workloadOverride = nil
         } else {
-            guard arguments[2] == "--" else { throw CLICommandError.unexpectedArguments(Array(arguments.dropFirst(2))) }
+            guard arguments[2] == "--" else {
+                if arguments[2].hasPrefix("--") { throw CLICommandError.unsupportedOption(arguments[2]) }
+                throw CLICommandError.unexpectedArguments(Array(arguments.dropFirst(2)))
+            }
             let overrideArguments = Array(arguments.dropFirst(3))
             guard !overrideArguments.isEmpty else {
                 throw CLICommandError.missingArgument("ephemeral --from <ephemeral-spec.yaml> -- <command> [args...]")

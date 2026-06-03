@@ -1314,6 +1314,149 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
         XCTAssertEqual(result.stderr, "err=arg-one\n")
     }
 
+    func testEphemeralV1OmissionSpecShapesFailBeforeRunRecordMetadataAndBackendSideEffects() throws {
+        let invalidSpecs: [(name: String, text: String, expectedErrorFragment: String)] = [
+            (
+                "preserve on failure omitted",
+                """
+                schemaVersion: 1
+                preserveOnFailure: true
+                workload:
+                  command: echo
+                  workdir: /workspace
+                """,
+                "unsupported v1 ephemeral spec field: preserveOnFailure"
+            ),
+            (
+                "workload transcript capture omitted",
+                """
+                schemaVersion: 1
+                workload:
+                  command: echo
+                  workdir: /workspace
+                  transcript: true
+                """,
+                "unsupported v1 ephemeral spec field: workload.transcript"
+            ),
+            (
+                "guest workload env customization omitted",
+                """
+                schemaVersion: 1
+                workload:
+                  command: env
+                  workdir: /workspace
+                  env:
+                    SECRET: nope
+                """,
+                "unsupported v1 ephemeral spec field: workload.env"
+            ),
+            (
+                "before provision hook custom env omitted",
+                """
+                schemaVersion: 1
+                beforeProvision:
+                  - command: prepare
+                    env:
+                      SAND_RUN_ID: nope
+                workload:
+                  command: echo
+                  workdir: /workspace
+                """,
+                "unsupported v1 ephemeral spec field: beforeProvision.env"
+            ),
+            (
+                "after stop hook custom env omitted",
+                """
+                schemaVersion: 1
+                afterStop:
+                  - command: archive
+                    env:
+                      CUSTOM: nope
+                workload:
+                  command: echo
+                  workdir: /workspace
+                """,
+                "unsupported v1 ephemeral spec field: afterStop.env"
+            )
+        ]
+
+        for invalidSpec in invalidSpecs {
+            let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+            var events: [String] = []
+            let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+            let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+            let runRecordStore = RecordingEphemeralRunRecordStore(
+                identity: EphemeralRunIdentity(
+                    runID: "run-001",
+                    sandboxName: sandboxName,
+                    recordPath: "/tmp/sand-runs/run-001"
+                ),
+                events: { events.append($0) }
+            )
+            let coordinator = EphemeralRunCoordinator(
+                metadataStore: metadataStore,
+                backend: backend,
+                runRecordStore: runRecordStore,
+                writeOutput: { _ in }
+            )
+
+            XCTAssertThrowsError(
+                try coordinator.run(
+                    EphemeralRunRequest(
+                        authoredSpecText: invalidSpec.text,
+                        sourcePath: "/tmp/ephemeral-spec.yaml"
+                    )
+                ),
+                invalidSpec.name
+            ) { error in
+                XCTAssertTrue(
+                    String(describing: error).contains(invalidSpec.expectedErrorFragment),
+                    "\(invalidSpec.name) expected \(invalidSpec.expectedErrorFragment), got \(error)"
+                )
+            }
+            XCTAssertEqual(events, [], invalidSpec.name)
+            XCTAssertEqual(backend.calls, [], invalidSpec.name)
+            XCTAssertEqual(metadataStore.activeSpecNames, [], invalidSpec.name)
+        }
+    }
+
+    func testHostHooksDoNotReceiveSpecialSandVariablesUnlessAlreadyInProcessEnvironment() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        let metadataStore = RecordingEphemeralMetadataStore(events: { _ in })
+        let backend = RecordingSandboxBackend(status: .missing)
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(runID: "run-001", sandboxName: sandboxName, recordPath: "/tmp/sand-runs/run-001"),
+            events: { _ in }
+        )
+        let hostRunner = RecordingHostCommandRunner(
+            results: [HostCommandResult(commandResult: .success, stdout: "", stderr: "")],
+            events: { _ in }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            hostCommandRunner: hostRunner,
+            processEnvironment: { ["PATH": "/custom/bin"] },
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        beforeProvision:
+          - command: prepare
+        workload:
+          command: echo
+          workdir: /workspace
+        """
+
+        XCTAssertEqual(try coordinator.run(EphemeralRunRequest(authoredSpecText: specText, sourcePath: "/tmp/spec.yaml")), .success)
+
+        XCTAssertEqual(hostRunner.invocations.first?.environment, ["PATH": "/custom/bin"])
+        XCTAssertNil(hostRunner.invocations.first?.environment["SAND_RUN_ID"])
+        XCTAssertNil(hostRunner.invocations.first?.environment["SAND_SANDBOX_NAME"])
+        XCTAssertNil(hostRunner.invocations.first?.environment["SAND_RUN_RECORD"])
+    }
+
     func testMalformedEphemeralSpecsFailBeforeRunRecordMetadataAndBackendSideEffects() throws {
         let invalidSpecs: [(name: String, text: String, expectedErrorFragment: String)] = [
             (

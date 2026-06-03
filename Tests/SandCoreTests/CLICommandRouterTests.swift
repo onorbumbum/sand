@@ -165,6 +165,46 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertEqual(app.calls, [])
     }
 
+    func testEphemeralV1OmittedCommandSurfaceIsRejectedBeforeReadingSpecOrCallingApplication() throws {
+        let cases: [([String], CLICommandError)] = [
+            (["ephemeral", "--from", "ephemeral-spec.yaml", "--preserveOnFailure"], .unsupportedOption("--preserveOnFailure")),
+            (["ephemeral", "--from", "ephemeral-spec.yaml", "--dry-run"], .unsupportedOption("--dry-run")),
+            (["ephemeral", "--from", "ephemeral-spec.yaml", "--validate"], .unsupportedOption("--validate")),
+            (["ephemeral", "dry-run", "--from", "ephemeral-spec.yaml"], .unsupportedOption("dry-run")),
+            (["ephemeral", "validate", "--from", "ephemeral-spec.yaml"], .unsupportedOption("validate")),
+            (["ephemeral", "pi", "--from", "ephemeral-spec.yaml"], .unsupportedOption("pi"))
+        ]
+
+        for (arguments, expectedError) in cases {
+            let app = RecordingSandboxApplication()
+            var readPaths: [String] = []
+            let router = CLICommandRouter(application: app, readTextFile: { path in
+                readPaths.append(path)
+                return "schemaVersion: 1\n"
+            })
+
+            XCTAssertThrowsError(try router.dispatch(arguments: arguments), "\(arguments)") { error in
+                XCTAssertEqual(error as? CLICommandError, expectedError, "\(arguments)")
+            }
+            XCTAssertEqual(readPaths, [], "\(arguments)")
+            XCTAssertEqual(app.calls, [], "\(arguments)")
+        }
+    }
+
+    func testEphemeralPiIsOnlyANormalWorkloadOverride() throws {
+        let specText = "schemaVersion: 1\n"
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(application: app, readTextFile: { path in
+            XCTAssertEqual(path, "ephemeral-spec.yaml")
+            return specText
+        })
+
+        let result = try router.dispatch(arguments: ["ephemeral", "--from", "ephemeral-spec.yaml", "--", "pi", "login"])
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(app.calls, [.ephemeral(specText, "ephemeral-spec.yaml", ["pi", "login"])])
+    }
+
     func testCreateFromSpecRejectsExplicitNameThatDoesNotMatchSpecName() throws {
         let router = CLICommandRouter(application: RecordingSandboxApplication(), readTextFile: { _ in
             """
