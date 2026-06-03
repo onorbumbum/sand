@@ -936,9 +936,12 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
             provisionError: BackendTestError.provisionFailed
         )
         XCTAssertEqual(provisionFailure.hostInvocations, [])
-        XCTAssertEqual(provisionFailure.backendCalls, [.provision("ephemeral-20260602-abcd")])
-        XCTAssertNil(provisionFailure.result)
-        XCTAssertNotNil(provisionFailure.thrownError)
+        XCTAssertEqual(provisionFailure.backendCalls, [
+            .provision("ephemeral-20260602-abcd"),
+            .delete("ephemeral-20260602-abcd")
+        ])
+        XCTAssertEqual(provisionFailure.result, .failure(exitCode: 1))
+        XCTAssertNil(provisionFailure.thrownError)
 
         let startFailure = try runAfterStopSkipScenario(
             specText: """
@@ -954,10 +957,182 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
         XCTAssertEqual(startFailure.hostInvocations, [])
         XCTAssertEqual(startFailure.backendCalls, [
             .provision("ephemeral-20260602-abcd"),
-            .start("ephemeral-20260602-abcd")
+            .start("ephemeral-20260602-abcd"),
+            .delete("ephemeral-20260602-abcd")
         ])
-        XCTAssertNil(startFailure.result)
-        XCTAssertNotNil(startFailure.thrownError)
+        XCTAssertEqual(startFailure.result, .failure(exitCode: 1))
+        XCTAssertNil(startFailure.thrownError)
+    }
+
+    func testWorkloadNonzeroTriggersStopAfterStopDeleteAndFailureOutput() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        var output: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, runResult: .failure(exitCode: 7), events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(runID: "run-001", sandboxName: sandboxName, recordPath: "/tmp/sand-runs/run-001"),
+            events: { events.append($0) }
+        )
+        let hostRunner = RecordingHostCommandRunner(
+            results: [HostCommandResult(commandResult: .success, stdout: "processed partial\n", stderr: "")],
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            hostCommandRunner: hostRunner,
+            writeOutput: { output.append($0) }
+        )
+        let specText = """
+        schemaVersion: 1
+        afterStop:
+          - command: process-partial
+        workload:
+          command: failing-workload
+          workdir: /workspace
+        """
+
+        let result = try coordinator.run(EphemeralRunRequest(authoredSpecText: specText, sourcePath: "/tmp/spec.yaml"))
+
+        XCTAssertEqual(result, .failure(exitCode: 7))
+        XCTAssertEqual(hostRunner.invocations.map(\.commandArguments), [["process-partial"]])
+        XCTAssertEqual(backend.calls, [
+            .provision("ephemeral-20260602-abcd"),
+            .start("ephemeral-20260602-abcd"),
+            .run("ephemeral-20260602-abcd", ["failing-workload"], "/workspace"),
+            .stop("ephemeral-20260602-abcd"),
+            .delete("ephemeral-20260602-abcd")
+        ])
+        XCTAssertEqual(metadataStore.activeSpecNames, [])
+        XCTAssertEqual(runRecordStore.resultStatus, "failure")
+        XCTAssertEqual(runRecordStore.resultExitCode, 7)
+        XCTAssertEqual(runRecordStore.resultFailedPhase, "workload")
+        XCTAssertEqual(output, [
+            "Ephemeral run status: failure",
+            "Run record: /tmp/sand-runs/run-001",
+            "Failed phase: workload",
+            "Exit code: 7"
+        ])
+    }
+
+    func testProvisionAndStartFailuresSkipAfterStopHooksButDeletePartialResourcesAndRecordFailurePhase() throws {
+        let provisionFailure = try runAfterStopSkipScenario(
+            specText: """
+            schemaVersion: 1
+            afterStop:
+              - command: archive-output
+            workload:
+              command: echo
+              workdir: /workspace
+            """,
+            provisionError: BackendTestError.provisionFailed
+        )
+        XCTAssertEqual(provisionFailure.hostInvocations, [])
+        XCTAssertEqual(provisionFailure.backendCalls, [
+            .provision("ephemeral-20260602-abcd"),
+            .delete("ephemeral-20260602-abcd")
+        ])
+        XCTAssertEqual(provisionFailure.result, .failure(exitCode: 1))
+        XCTAssertEqual(provisionFailure.resultFailedPhase, "provision")
+        XCTAssertEqual(provisionFailure.activeSpecNames, [])
+
+        let startFailure = try runAfterStopSkipScenario(
+            specText: """
+            schemaVersion: 1
+            afterStop:
+              - command: archive-output
+            workload:
+              command: echo
+              workdir: /workspace
+            """,
+            startError: BackendTestError.startFailed
+        )
+        XCTAssertEqual(startFailure.hostInvocations, [])
+        XCTAssertEqual(startFailure.backendCalls, [
+            .provision("ephemeral-20260602-abcd"),
+            .start("ephemeral-20260602-abcd"),
+            .delete("ephemeral-20260602-abcd")
+        ])
+        XCTAssertEqual(startFailure.result, .failure(exitCode: 1))
+        XCTAssertEqual(startFailure.resultFailedPhase, "start")
+        XCTAssertEqual(startFailure.activeSpecNames, [])
+    }
+
+    func testDeleteFailureRecordsManualCleanupGuidanceAndOverridesEarlierWorkloadFailure() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var output: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { _ in })
+        let backend = RecordingSandboxBackend(
+            status: .missing,
+            deleteError: BackendTestError.deleteFailed,
+            runResult: .failure(exitCode: 7)
+        )
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(runID: "run-001", sandboxName: sandboxName, recordPath: "/tmp/sand-runs/run-001"),
+            events: { _ in }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            writeOutput: { output.append($0) }
+        )
+        let specText = """
+        schemaVersion: 1
+        workload:
+          command: failing-workload
+          workdir: /workspace
+        """
+
+        let result = try coordinator.run(EphemeralRunRequest(authoredSpecText: specText, sourcePath: "/tmp/spec.yaml"))
+
+        XCTAssertEqual(result, .failure(exitCode: 1))
+        XCTAssertEqual(runRecordStore.resultFailedPhase, "delete")
+        XCTAssertEqual(runRecordStore.manualCleanupGuidance, "Delete Sandbox VM ephemeral-20260602-abcd manually with: sand delete ephemeral-20260602-abcd --force")
+        XCTAssertEqual(metadataStore.activeSpecNames, ["ephemeral-20260602-abcd"])
+        XCTAssertEqual(output, [
+            "Ephemeral run status: failure",
+            "Run record: /tmp/sand-runs/run-001",
+            "Failed phase: delete",
+            "Exit code: 1",
+            "Manual cleanup: sand delete ephemeral-20260602-abcd --force"
+        ])
+    }
+
+    func testResultPrecedenceUsesCleanupFailuresOverEarlierFailures() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        let metadataStore = RecordingEphemeralMetadataStore(events: { _ in })
+        let backend = RecordingSandboxBackend(status: .missing, runResult: .failure(exitCode: 7))
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(runID: "run-001", sandboxName: sandboxName, recordPath: "/tmp/sand-runs/run-001"),
+            events: { _ in }
+        )
+        let hostRunner = RecordingHostCommandRunner(
+            results: [HostCommandResult(commandResult: .failure(exitCode: 23), stdout: "", stderr: "archive failed\n")],
+            events: { _ in }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            hostCommandRunner: hostRunner,
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        afterStop:
+          - command: archive-output
+        workload:
+          command: failing-workload
+          workdir: /workspace
+        """
+
+        let result = try coordinator.run(EphemeralRunRequest(authoredSpecText: specText, sourcePath: "/tmp/spec.yaml"))
+
+        XCTAssertEqual(result, .failure(exitCode: 23))
+        XCTAssertEqual(runRecordStore.resultFailedPhase, "afterStop")
     }
 
     func testProcessHostCommandRunnerUsesPathWorkingDirectoryEnvironmentAndCapturedNonInteractiveIO() throws {
@@ -1157,14 +1332,18 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
                 result: result,
                 thrownError: nil,
                 hostInvocations: hostRunner.invocations.map(\.commandArguments),
-                backendCalls: backend.calls
+                backendCalls: backend.calls,
+                resultFailedPhase: runRecordStore.resultFailedPhase,
+                activeSpecNames: metadataStore.activeSpecNames
             )
         } catch {
             return AfterStopSkipScenarioResult(
                 result: nil,
                 thrownError: error,
                 hostInvocations: hostRunner.invocations.map(\.commandArguments),
-                backendCalls: backend.calls
+                backendCalls: backend.calls,
+                resultFailedPhase: runRecordStore.resultFailedPhase,
+                activeSpecNames: metadataStore.activeSpecNames
             )
         }
     }
@@ -1175,6 +1354,8 @@ private struct AfterStopSkipScenarioResult {
     var thrownError: (any Error)?
     var hostInvocations: [[String]]
     var backendCalls: [BackendCall]
+    var resultFailedPhase: String?
+    var activeSpecNames: [String]
 }
 
 private final class RecordingEphemeralMetadataStore: HostMetadataStore {
@@ -1264,6 +1445,8 @@ private final class RecordingEphemeralRunRecordStore: EphemeralRunRecordStore {
     private let recordEvent: (String) -> Void
     private(set) var resultStatus: String?
     private(set) var resultExitCode: Int?
+    private(set) var resultFailedPhase: String?
+    private(set) var manualCleanupGuidance: String?
     private(set) var allocatedNamePrefixes: [String] = []
     private(set) var generatedSpecs: [SandboxSpec] = []
     private(set) var sourceSpecTexts: [String] = []
@@ -1308,6 +1491,8 @@ private final class RecordingEphemeralRunRecordStore: EphemeralRunRecordStore {
     func writeResult(_ result: EphemeralRunResult, identity: EphemeralRunIdentity) throws {
         resultStatus = result.status
         resultExitCode = result.exitCode
+        resultFailedPhase = result.failedPhase
+        manualCleanupGuidance = result.manualCleanupGuidance
         recordEvent("record.writeResult.\(result.status)")
     }
 }

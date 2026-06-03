@@ -31,11 +31,21 @@ public struct EphemeralRunResult: Equatable {
     public var status: String
     public var exitCode: Int
     public var recordPath: String
+    public var failedPhase: String?
+    public var manualCleanupGuidance: String?
 
-    public init(status: String, exitCode: Int, recordPath: String) {
+    public init(
+        status: String,
+        exitCode: Int,
+        recordPath: String,
+        failedPhase: String? = nil,
+        manualCleanupGuidance: String? = nil
+    ) {
         self.status = status
         self.exitCode = exitCode
         self.recordPath = recordPath
+        self.failedPhase = failedPhase
+        self.manualCleanupGuidance = manualCleanupGuidance
     }
 }
 
@@ -220,12 +230,18 @@ public struct EphemeralRunCoordinator {
         let identity = try runRecordStore.allocateIdentity(namePrefix: plan.namePrefix)
         try runRecordStore.createAttempt(identity: identity, sourceSpecText: request.authoredSpecText, sourcePath: request.sourcePath)
 
-        let beforeProvisionResult = try runBeforeProvisionHooks(
+        let beforeProvisionResult = try runHostHooks(
             plan.beforeProvisionHooks,
+            phase: "beforeProvision",
             identity: identity,
             sourcePath: request.sourcePath
         )
-        if beforeProvisionResult != .success { return beforeProvisionResult }
+        if beforeProvisionResult != .success {
+            return try writeFinalOutcome(
+                FinalEphemeralOutcome(result: beforeProvisionResult, failedPhase: "beforeProvision"),
+                identity: identity
+            )
+        }
 
         let sandboxSpec = try plan.concreteSandboxSpec(
             name: identity.sandboxName,
@@ -235,17 +251,44 @@ public struct EphemeralRunCoordinator {
 
         try metadataStore.withLifecycleMutationLock {
             try metadataStore.createSpec(sandboxSpec)
-            try backend.provision(sandboxSpec)
-            try backend.start(identity.sandboxName)
         }
 
-        let workloadResult = try backend.run(
-            BackendRunRequest(
-                sandboxName: identity.sandboxName,
-                command: plan.workload.command,
-                workingDirectory: plan.workload.workdir
+        do {
+            try metadataStore.withLifecycleMutationLock {
+                try backend.provision(sandboxSpec)
+            }
+        } catch {
+            let cleanupResult = deleteEphemeralResources(named: identity.sandboxName)
+            return try writeFinalOutcome(
+                provisionOrStartFailureOutcome(failedPhase: "provision", cleanupResult: cleanupResult, sandboxName: identity.sandboxName),
+                identity: identity
             )
-        )
+        }
+
+        do {
+            try metadataStore.withLifecycleMutationLock {
+                try backend.start(identity.sandboxName)
+            }
+        } catch {
+            let cleanupResult = deleteEphemeralResources(named: identity.sandboxName)
+            return try writeFinalOutcome(
+                provisionOrStartFailureOutcome(failedPhase: "start", cleanupResult: cleanupResult, sandboxName: identity.sandboxName),
+                identity: identity
+            )
+        }
+
+        let workloadResult: CommandResult
+        do {
+            workloadResult = try backend.run(
+                BackendRunRequest(
+                    sandboxName: identity.sandboxName,
+                    command: plan.workload.command,
+                    workingDirectory: plan.workload.workdir
+                )
+            )
+        } catch {
+            workloadResult = .failure(exitCode: 1)
+        }
 
         let stopResult: CommandResult
         do {
@@ -264,44 +307,18 @@ public struct EphemeralRunCoordinator {
             sourcePath: request.sourcePath
         )
 
-        let deleteResult: CommandResult
-        do {
-            try metadataStore.withLifecycleMutationLock {
-                try backend.delete(identity.sandboxName)
-                try metadataStore.deleteSpec(named: identity.sandboxName)
-            }
-            deleteResult = .success
-        } catch {
-            deleteResult = .failure(exitCode: 1)
-        }
+        let deleteResult = deleteEphemeralResources(named: identity.sandboxName)
 
-        let finalResult = dominantResult(
-            workloadResult: workloadResult,
-            stopResult: stopResult,
-            afterStopResult: afterStopResult,
-            deleteResult: deleteResult
+        return try writeFinalOutcome(
+            dominantOutcome(
+                workloadResult: workloadResult,
+                stopResult: stopResult,
+                afterStopResult: afterStopResult,
+                deleteResult: deleteResult,
+                sandboxName: identity.sandboxName
+            ),
+            identity: identity
         )
-        let result = EphemeralRunResult(
-            status: finalResult == .success ? "success" : "failure",
-            exitCode: finalResult.ephemeralExitCode,
-            recordPath: identity.recordPath
-        )
-        try runRecordStore.writeResult(result, identity: identity)
-
-        writeOutput("Ephemeral run status: \(result.status)")
-        writeOutput("Run record: \(identity.recordPath)")
-        return finalResult
-    }
-
-    private func runBeforeProvisionHooks(_ hooks: [EphemeralHookIntent], identity: EphemeralRunIdentity, sourcePath: String) throws -> CommandResult {
-        let hookResult = try runHostHooks(hooks, phase: "beforeProvision", identity: identity, sourcePath: sourcePath)
-        if hookResult != .success {
-            let result = EphemeralRunResult(status: "failure", exitCode: hookResult.ephemeralExitCode, recordPath: identity.recordPath)
-            try runRecordStore.writeResult(result, identity: identity)
-            writeOutput("Ephemeral run status: \(result.status)")
-            writeOutput("Run record: \(identity.recordPath)")
-        }
-        return hookResult
     }
 
     private func runHostHooks(_ hooks: [EphemeralHookIntent], phase: String, identity: EphemeralRunIdentity, sourcePath: String) throws -> CommandResult {
@@ -353,17 +370,84 @@ public struct EphemeralRunCoordinator {
         return .success
     }
 
-    private func dominantResult(
+    private func deleteEphemeralResources(named sandboxName: SandboxName) -> CommandResult {
+        do {
+            try metadataStore.withLifecycleMutationLock {
+                try backend.delete(sandboxName)
+                try metadataStore.deleteSpec(named: sandboxName)
+            }
+            return .success
+        } catch {
+            return .failure(exitCode: 1)
+        }
+    }
+
+    private func provisionOrStartFailureOutcome(failedPhase: String, cleanupResult: CommandResult, sandboxName: SandboxName) -> FinalEphemeralOutcome {
+        if cleanupResult != .success {
+            return FinalEphemeralOutcome(
+                result: cleanupResult,
+                failedPhase: "delete",
+                manualCleanupCommand: manualCleanupCommand(for: sandboxName)
+            )
+        }
+        return FinalEphemeralOutcome(result: .failure(exitCode: 1), failedPhase: failedPhase)
+    }
+
+    private func dominantOutcome(
         workloadResult: CommandResult,
         stopResult: CommandResult,
         afterStopResult: CommandResult,
-        deleteResult: CommandResult
-    ) -> CommandResult {
-        if deleteResult != .success { return deleteResult }
-        if afterStopResult != .success { return afterStopResult }
-        if stopResult != .success { return stopResult }
-        return workloadResult
+        deleteResult: CommandResult,
+        sandboxName: SandboxName
+    ) -> FinalEphemeralOutcome {
+        if deleteResult != .success {
+            return FinalEphemeralOutcome(
+                result: deleteResult,
+                failedPhase: "delete",
+                manualCleanupCommand: manualCleanupCommand(for: sandboxName)
+            )
+        }
+        if afterStopResult != .success { return FinalEphemeralOutcome(result: afterStopResult, failedPhase: "afterStop") }
+        if stopResult != .success { return FinalEphemeralOutcome(result: stopResult, failedPhase: "stop") }
+        if workloadResult != .success { return FinalEphemeralOutcome(result: workloadResult, failedPhase: "workload") }
+        return FinalEphemeralOutcome(result: .success, failedPhase: nil)
     }
+
+    @discardableResult
+    private func writeFinalOutcome(_ outcome: FinalEphemeralOutcome, identity: EphemeralRunIdentity) throws -> CommandResult {
+        let manualCleanupGuidance = outcome.manualCleanupCommand.map {
+            "Delete Sandbox VM \(identity.sandboxName.rawValue) manually with: \($0)"
+        }
+        let result = EphemeralRunResult(
+            status: outcome.result == .success ? "success" : "failure",
+            exitCode: outcome.result.ephemeralExitCode,
+            recordPath: identity.recordPath,
+            failedPhase: outcome.failedPhase,
+            manualCleanupGuidance: manualCleanupGuidance
+        )
+        try runRecordStore.writeResult(result, identity: identity)
+
+        writeOutput("Ephemeral run status: \(result.status)")
+        writeOutput("Run record: \(identity.recordPath)")
+        if result.status == "failure" {
+            if let failedPhase = result.failedPhase { writeOutput("Failed phase: \(failedPhase)") }
+            writeOutput("Exit code: \(result.exitCode)")
+        }
+        if let manualCleanupCommand = outcome.manualCleanupCommand {
+            writeOutput("Manual cleanup: \(manualCleanupCommand)")
+        }
+        return outcome.result
+    }
+
+    private func manualCleanupCommand(for sandboxName: SandboxName) -> String {
+        "sand delete \(sandboxName.rawValue) --force"
+    }
+}
+
+private struct FinalEphemeralOutcome {
+    var result: CommandResult
+    var failedPhase: String?
+    var manualCleanupCommand: String? = nil
 }
 
 private extension CommandResult {
@@ -458,13 +542,18 @@ public final class FileEphemeralRunRecordStore: EphemeralRunRecordStore {
     public func writeResult(_ result: EphemeralRunResult, identity: EphemeralRunIdentity) throws {
         let directory = URL(fileURLWithPath: identity.recordPath, isDirectory: true)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        let json = """
-        {
-          "status": "\(result.status)",
-          "exitCode": \(result.exitCode),
-          "recordPath": "\(escapeJSON(result.recordPath))"
+        var fields = [
+            "  \"status\": \"\(escapeJSON(result.status))\"",
+            "  \"exitCode\": \(result.exitCode)",
+            "  \"recordPath\": \"\(escapeJSON(result.recordPath))\""
+        ]
+        if let failedPhase = result.failedPhase {
+            fields.append("  \"failedPhase\": \"\(escapeJSON(failedPhase))\"")
         }
-        """
+        if let manualCleanupGuidance = result.manualCleanupGuidance {
+            fields.append("  \"manualCleanupGuidance\": \"\(escapeJSON(manualCleanupGuidance))\"")
+        }
+        let json = "{\n" + fields.joined(separator: ",\n") + "\n}"
         try (json + "\n").write(to: directory.appendingPathComponent("result.json"), atomically: true, encoding: .utf8)
     }
 

@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: fce0e122a0905550d896beb200bb294eb68c32ef7583c2549a204d31743a73d4 -->
+<!-- docs-input-hash: ac104b128964ab14e3c4bef3859ffe562c1c008136d3043c1a2fd466f597d8af -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -261,6 +261,7 @@ Current v1 boundaries:
 - To run Pi, use the same command shape as any other tool: `sand <name> run pi [args...]`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need the handoff flow described above.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
+- Failed Ephemeral Sandbox Runs report the failed phase and final exit code; delete failures include manual cleanup guidance for the generated Sandbox Name.
 <!-- docs:managed:end -->
 
 ## Specs

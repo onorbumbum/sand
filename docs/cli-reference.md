@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: fce0e122a0905550d896beb200bb294eb68c32ef7583c2549a204d31743a73d4 -->
+<!-- docs-input-hash: ac104b128964ab14e3c4bef3859ffe562c1c008136d3043c1a2fd466f597d8af -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **Control Surface** for managing **Sandbox VMs**,
 
 ## Generation source
 
-- Docs input hash: `fce0e122a0905550d896beb200bb294eb68c32ef7583c2549a204d31743a73d4`
+- Docs input hash: `ac104b128964ab14e3c4bef3859ffe562c1c008136d3043c1a2fd466f597d8af`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, `sand <name> --help`, and `sand --version` output.
@@ -101,6 +101,8 @@ afterStop:
 ```
 
 `beforeProvision` hooks run on the Host Mac before Allowed Folder resolution and provisioning. `afterStop` hooks run on the Host Mac after the Foreground Workload exits and after `sand` attempts to stop the Sandbox VM, including when the workload exits nonzero or the stop attempt fails. Hook output is captured in the Ephemeral Run Record. A failing `afterStop` hook stops remaining after-stop hooks, but delete is still attempted.
+
+Failed Ephemeral Sandbox Runs print the run status, run record path, failed phase, and final exit code. Cleanup/delete failures take precedence over earlier workload failures in the final process exit code. If delete fails, `sand` also records and prints manual cleanup guidance with the generated Sandbox Name and a `sand delete <name> --force` command.
 
 ## `sand list`
 

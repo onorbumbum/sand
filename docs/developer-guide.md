@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: fce0e122a0905550d896beb200bb294eb68c32ef7583c2549a204d31743a73d4 -->
+<!-- docs-input-hash: ac104b128964ab14e3c4bef3859ffe562c1c008136d3043c1a2fd466f597d8af -->
 
 # sand Developer Guide
 
@@ -46,7 +46,7 @@ Behavior is specified with XCTest under `Tests/SandCoreTests/`. Start with the r
 | Folder policy | `Tests/SandCoreTests/FolderPolicyTests.swift` checks Access Mode aliases, default Guest Path derivation, canonical storage, duplicate Host Mac folder updates, duplicate Guest Path rejection, and overlap rejection using resolved paths. |
 | Working Directory Mapping | `Tests/SandCoreTests/WorkingDirectoryMapperTests.swift` checks exact and nested Allowed Folder mapping, symlink-resolved mapping, and fallback warning behavior outside Allowed Folders. |
 | Lifecycle coordination | `Tests/SandCoreTests/LifecycleCoordinatorTests.swift` checks create rollback, apply prompts, status/list/spec/logs output, run/shell auto-start, folder mutation auto-apply, deletion prompts, lifecycle locks, and concurrent session boundaries. |
-| Ephemeral run coordination | `Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift` checks Ephemeral Spec parsing, Host Mac lifecycle hook ordering/output capture, foreground workload outcomes, stop/delete attempts, and generated Sandbox Specs. |
+| Ephemeral run coordination | `Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift` checks Ephemeral Spec parsing, Host Mac lifecycle hook ordering/output capture, foreground workload outcomes, stop/delete attempts, delete-failure manual cleanup guidance, result precedence, and generated Sandbox Specs. |
 | Doctor Checks | `Tests/SandCoreTests/DoctorChecksTests.swift` and `Tests/SandCoreTests/AppleContainerCLIBackendDoctorTests.swift` check platform gating, Host Metadata writability, backend readiness, default Sandbox Image checks, and backend command construction. |
 | Backend error translation | `Tests/SandCoreTests/BackendErrorTranslationTests.swift` checks that raw backend failures become actionable Sandbox VM messages without leaking adapter internals. |
 | Architecture boundaries | `Tests/SandCoreTests/ArchitectureBoundaryTests.swift` checks that fake backends stay out of product sources and backend-specific implementation wording stays inside the adapter. |

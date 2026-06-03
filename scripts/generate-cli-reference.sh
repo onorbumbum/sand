@@ -117,6 +117,8 @@ afterStop:
 
 \`beforeProvision\` hooks run on the Host Mac before Allowed Folder resolution and provisioning. \`afterStop\` hooks run on the Host Mac after the Foreground Workload exits and after \`sand\` attempts to stop the Sandbox VM, including when the workload exits nonzero or the stop attempt fails. Hook output is captured in the Ephemeral Run Record. A failing \`afterStop\` hook stops remaining after-stop hooks, but delete is still attempted.
 
+Failed Ephemeral Sandbox Runs print the run status, run record path, failed phase, and final exit code. Cleanup/delete failures take precedence over earlier workload failures in the final process exit code. If delete fails, \`sand\` also records and prints manual cleanup guidance with the generated Sandbox Name and a \`sand delete <name> --force\` command.
+
 ## \`sand list\`
 
 \`\`\`text
