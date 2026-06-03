@@ -39,12 +39,154 @@ public struct EphemeralRunResult: Equatable {
     }
 }
 
+/// File paths for captured host hook output stored in the run record.
+public struct HookOutputReference: Equatable {
+    public var stdoutPath: String
+    public var stderrPath: String
+
+    public init(stdoutPath: String, stderrPath: String) {
+        self.stdoutPath = stdoutPath
+        self.stderrPath = stderrPath
+    }
+}
+
+/// Structured event appended to an Ephemeral Run Record.
+public struct EphemeralRunEvent: Equatable {
+    public var phase: String
+    public var status: String
+    public var command: [String]
+    public var workingDirectory: String
+    public var exitCode: Int
+    public var stdoutPath: String
+    public var stderrPath: String
+
+    public init(
+        phase: String,
+        status: String,
+        command: [String],
+        workingDirectory: String,
+        exitCode: Int,
+        stdoutPath: String,
+        stderrPath: String
+    ) {
+        self.phase = phase
+        self.status = status
+        self.command = command
+        self.workingDirectory = workingDirectory
+        self.exitCode = exitCode
+        self.stdoutPath = stdoutPath
+        self.stderrPath = stderrPath
+    }
+}
+
 /// Stores durable records for bounded Ephemeral Sandbox Run attempts.
 public protocol EphemeralRunRecordStore {
     func allocateIdentity(namePrefix: String) throws -> EphemeralRunIdentity
     func createAttempt(identity: EphemeralRunIdentity, sourceSpecText: String, sourcePath: String) throws
     func writeGeneratedSpec(_ spec: SandboxSpec, identity: EphemeralRunIdentity) throws
+    func writeHookOutput(phase: String, index: Int, stdout: String, stderr: String, identity: EphemeralRunIdentity) throws -> HookOutputReference
+    func appendEvent(_ event: EphemeralRunEvent, identity: EphemeralRunIdentity) throws
     func writeResult(_ result: EphemeralRunResult, identity: EphemeralRunIdentity) throws
+}
+
+/// Request for running a Host Mac command with captured non-interactive IO.
+public struct HostCommandRequest: Equatable {
+    public var command: WorkloadCommand
+    public var workingDirectory: String
+    public var environment: [String: String]
+
+    public init(command: WorkloadCommand, workingDirectory: String, environment: [String: String]) {
+        self.command = command
+        self.workingDirectory = workingDirectory
+        self.environment = environment
+    }
+}
+
+/// Captured Host Mac command result.
+public struct HostCommandResult: Equatable {
+    public var commandResult: CommandResult
+    public var stdout: String
+    public var stderr: String
+
+    public init(commandResult: CommandResult, stdout: String, stderr: String) {
+        self.commandResult = commandResult
+        self.stdout = stdout
+        self.stderr = stderr
+    }
+}
+
+/// Port for Host Mac lifecycle hooks.
+public protocol HostCommandRunner {
+    func run(_ request: HostCommandRequest) throws -> HostCommandResult
+}
+
+/// Process-backed Host Mac command runner.
+public struct ProcessHostCommandRunner: HostCommandRunner {
+    private let fileManager: FileManager
+
+    public init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    public func run(_ request: HostCommandRequest) throws -> HostCommandResult {
+        let executable = resolveExecutable(
+            request.command.arguments[0],
+            workingDirectory: request.workingDirectory,
+            environment: request.environment
+        )
+        guard let executable else {
+            return HostCommandResult(
+                commandResult: .failure(exitCode: 127),
+                stdout: "",
+                stderr: "\(request.command.arguments[0]): command not found\n"
+            )
+        }
+
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = Array(request.command.arguments.dropFirst())
+        process.currentDirectoryURL = URL(fileURLWithPath: request.workingDirectory, isDirectory: true)
+        process.environment = request.environment
+
+        let stdin = Pipe()
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardInput = stdin
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        try process.run()
+        try? stdin.fileHandleForWriting.close()
+        let stdoutData = stdout.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        let exitCode = Int(process.terminationStatus)
+        return HostCommandResult(
+            commandResult: exitCode == 0 ? .success : .failure(exitCode: exitCode),
+            stdout: String(data: stdoutData, encoding: .utf8) ?? "",
+            stderr: String(data: stderrData, encoding: .utf8) ?? ""
+        )
+    }
+
+    private func resolveExecutable(_ command: String, workingDirectory: String, environment: [String: String]) -> URL? {
+        if command.contains("/") {
+            let url = command.hasPrefix("/")
+                ? URL(fileURLWithPath: command)
+                : URL(fileURLWithPath: workingDirectory, isDirectory: true).appendingPathComponent(command)
+            return fileManager.isExecutableFile(atPath: url.path) ? url : nil
+        }
+
+        for pathEntry in (environment["PATH"] ?? "").split(separator: ":", omittingEmptySubsequences: false) {
+            let directory = pathEntry.isEmpty ? "." : String(pathEntry)
+            let directoryURL = directory.hasPrefix("/")
+                ? URL(fileURLWithPath: directory, isDirectory: true)
+                : URL(fileURLWithPath: workingDirectory, isDirectory: true).appendingPathComponent(directory, isDirectory: true)
+            let url = directoryURL.appendingPathComponent(command)
+            if fileManager.isExecutableFile(atPath: url.path) { return url }
+        }
+        return nil
+    }
 }
 
 /// Coordinates the bounded create-start-run-stop-delete happy path for ephemeral runs.
@@ -52,17 +194,23 @@ public struct EphemeralRunCoordinator {
     private let metadataStore: any HostMetadataStore
     private let backend: any SandboxBackend
     private let runRecordStore: any EphemeralRunRecordStore
+    private let hostCommandRunner: any HostCommandRunner
+    private let processEnvironment: () -> [String: String]
     private let writeOutput: (String) -> Void
 
     public init(
         metadataStore: any HostMetadataStore,
         backend: any SandboxBackend,
         runRecordStore: any EphemeralRunRecordStore,
+        hostCommandRunner: any HostCommandRunner = ProcessHostCommandRunner(),
+        processEnvironment: @escaping () -> [String: String] = { ProcessInfo.processInfo.environment },
         writeOutput: @escaping (String) -> Void = { Swift.print($0) }
     ) {
         self.metadataStore = metadataStore
         self.backend = backend
         self.runRecordStore = runRecordStore
+        self.hostCommandRunner = hostCommandRunner
+        self.processEnvironment = processEnvironment
         self.writeOutput = writeOutput
     }
 
@@ -71,6 +219,13 @@ public struct EphemeralRunCoordinator {
         let plan = try EphemeralRunPlan.build(from: spec, workloadOverride: request.workloadOverride)
         let identity = try runRecordStore.allocateIdentity(namePrefix: plan.namePrefix)
         try runRecordStore.createAttempt(identity: identity, sourceSpecText: request.authoredSpecText, sourcePath: request.sourcePath)
+
+        let beforeProvisionResult = try runBeforeProvisionHooks(
+            plan.beforeProvisionHooks,
+            identity: identity,
+            sourcePath: request.sourcePath
+        )
+        if beforeProvisionResult != .success { return beforeProvisionResult }
 
         let sandboxSpec = try plan.concreteSandboxSpec(
             name: identity.sandboxName,
@@ -110,6 +265,68 @@ public struct EphemeralRunCoordinator {
         writeOutput("Ephemeral run status: \(result.status)")
         writeOutput("Run record: \(identity.recordPath)")
         return workloadResult
+    }
+
+    private func runBeforeProvisionHooks(_ hooks: [EphemeralHookIntent], identity: EphemeralRunIdentity, sourcePath: String) throws -> CommandResult {
+        let workingDirectory = URL(fileURLWithPath: sourcePath)
+            .deletingLastPathComponent()
+            .standardizedFileURL
+            .path
+
+        for (index, hook) in hooks.enumerated() {
+            let hookResult: HostCommandResult
+            do {
+                hookResult = try hostCommandRunner.run(
+                    HostCommandRequest(
+                        command: hook.command,
+                        workingDirectory: workingDirectory,
+                        environment: processEnvironment()
+                    )
+                )
+            } catch {
+                hookResult = HostCommandResult(commandResult: .failure(exitCode: 1), stdout: "", stderr: "\(error)\n")
+            }
+            let outputReference = try runRecordStore.writeHookOutput(
+                phase: "beforeProvision",
+                index: index,
+                stdout: hookResult.stdout,
+                stderr: hookResult.stderr,
+                identity: identity
+            )
+            let exitCode = hookResult.commandResult.ephemeralExitCode
+            let status = hookResult.commandResult == .success ? "success" : "failure"
+            try runRecordStore.appendEvent(
+                EphemeralRunEvent(
+                    phase: "beforeProvision",
+                    status: status,
+                    command: hook.command.arguments,
+                    workingDirectory: workingDirectory,
+                    exitCode: exitCode,
+                    stdoutPath: outputReference.stdoutPath,
+                    stderrPath: outputReference.stderrPath
+                ),
+                identity: identity
+            )
+
+            if hookResult.commandResult != .success {
+                let result = EphemeralRunResult(status: "failure", exitCode: exitCode, recordPath: identity.recordPath)
+                try runRecordStore.writeResult(result, identity: identity)
+                writeOutput("Ephemeral run status: \(result.status)")
+                writeOutput("Run record: \(identity.recordPath)")
+                return hookResult.commandResult
+            }
+        }
+
+        return .success
+    }
+}
+
+private extension CommandResult {
+    var ephemeralExitCode: Int {
+        switch self {
+        case .success: return 0
+        case .failure(let exitCode): return exitCode
+        }
     }
 }
 
@@ -168,6 +385,31 @@ public final class FileEphemeralRunRecordStore: EphemeralRunRecordStore {
         try spec.renderedYAML().write(to: directory.appendingPathComponent("generated-sandbox-spec.yaml"), atomically: true, encoding: .utf8)
     }
 
+    public func writeHookOutput(phase: String, index: Int, stdout: String, stderr: String, identity: EphemeralRunIdentity) throws -> HookOutputReference {
+        let directory = URL(fileURLWithPath: identity.recordPath, isDirectory: true)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let stdoutURL = directory.appendingPathComponent("\(phase)-\(index).stdout")
+        let stderrURL = directory.appendingPathComponent("\(phase)-\(index).stderr")
+        try stdout.write(to: stdoutURL, atomically: true, encoding: .utf8)
+        try stderr.write(to: stderrURL, atomically: true, encoding: .utf8)
+        return HookOutputReference(stdoutPath: stdoutURL.path, stderrPath: stderrURL.path)
+    }
+
+    public func appendEvent(_ event: EphemeralRunEvent, identity: EphemeralRunIdentity) throws {
+        let directory = URL(fileURLWithPath: identity.recordPath, isDirectory: true)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let line = eventJSON(event) + "\n"
+        let eventLog = directory.appendingPathComponent("events.jsonl")
+        if fileManager.fileExists(atPath: eventLog.path) {
+            let handle = try FileHandle(forWritingTo: eventLog)
+            try handle.seekToEnd()
+            try handle.write(contentsOf: Data(line.utf8))
+            try handle.close()
+        } else {
+            try line.write(to: eventLog, atomically: true, encoding: .utf8)
+        }
+    }
+
     public func writeResult(_ result: EphemeralRunResult, identity: EphemeralRunIdentity) throws {
         let directory = URL(fileURLWithPath: identity.recordPath, isDirectory: true)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -202,6 +444,16 @@ public final class FileEphemeralRunRecordStore: EphemeralRunRecordStore {
         """ + "\n"
     }
 
+    private func eventJSON(_ event: EphemeralRunEvent) -> String {
+        """
+        {"phase":"\(escapeJSON(event.phase))","status":"\(escapeJSON(event.status))","command":\(jsonArray(event.command)),"workingDirectory":"\(escapeJSON(event.workingDirectory))","exitCode":\(event.exitCode),"stdoutPath":"\(escapeJSON(event.stdoutPath))","stderrPath":"\(escapeJSON(event.stderrPath))"}
+        """
+    }
+
+    private func jsonArray(_ values: [String]) -> String {
+        "[" + values.map { "\"\(escapeJSON($0))\"" }.joined(separator: ",") + "]"
+    }
+
     private func escapeJSON(_ value: String) -> String {
         value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
     }
@@ -216,6 +468,7 @@ public struct EphemeralSpec: Equatable {
     public var image: SandboxImage
     public var resourceProfile: ResourceProfile
     public var allowedFolders: [EphemeralAllowedFolderIntent]
+    public var beforeProvisionHooks: [EphemeralHookIntent]
     public var workload: EphemeralWorkloadIntent?
 
     public static func parseYAML(_ text: String) throws -> EphemeralSpec {
@@ -225,11 +478,15 @@ public struct EphemeralSpec: Equatable {
         var namePrefix = EphemeralSpec.defaultNamePrefix
         var image = SandboxImage.developerReadyDefault
         var resourceProfile = ResourceProfile.default
-        var workload = PartialEphemeralCommand()
+        var workload = PartialEphemeralCommand(context: "workload")
+        var beforeProvisionHooks: [EphemeralHookIntent] = []
+        var currentBeforeProvisionHook: PartialEphemeralCommand?
         var allowedFolders: [EphemeralAllowedFolderIntent] = []
         var currentFolder: PartialEphemeralAllowedFolder?
         var inWorkload = false
         var inWorkloadArgs = false
+        var inBeforeProvision = false
+        var inBeforeProvisionArgs = false
         var inResources = false
         var inAllowedFolders = false
         var cpus: Int?
@@ -242,14 +499,40 @@ public struct EphemeralSpec: Equatable {
             }
         }
 
+        func finishCurrentBeforeProvisionHook() throws {
+            if let hook = currentBeforeProvisionHook {
+                beforeProvisionHooks.append(EphemeralHookIntent(command: try hook.buildRequired().command))
+                currentBeforeProvisionHook = nil
+            }
+        }
+
+        func setHookField(key: String, value: String, rawLine: String) throws {
+            switch key {
+            case "command":
+                try rejectCommandListShorthand(value)
+                currentBeforeProvisionHook?.command = value
+            case "args":
+                if value == "[]" { currentBeforeProvisionHook?.args = [] }
+                else {
+                    guard value.isEmpty else { throw EphemeralSpecError.malformedLine(rawLine) }
+                    inBeforeProvisionArgs = true
+                }
+            default:
+                throw EphemeralSpecError.unsupportedField("beforeProvision.\(key)")
+            }
+        }
+
         for rawLine in lines {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             if line.isEmpty || line.hasPrefix("#") { continue }
 
             if !rawLine.hasPrefix(" ") {
                 try finishCurrentFolder()
+                try finishCurrentBeforeProvisionHook()
                 inWorkload = false
                 inWorkloadArgs = false
+                inBeforeProvision = false
+                inBeforeProvisionArgs = false
                 inResources = false
                 inAllowedFolders = false
             }
@@ -264,8 +547,33 @@ public struct EphemeralSpec: Equatable {
                 inWorkloadArgs = false
             }
 
+            if inBeforeProvisionArgs {
+                if line.hasPrefix("- ") {
+                    let argument = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                    if parseYAMLKeyValue(argument)?.0 != "command" {
+                        try rejectCommandListShorthand(argument)
+                        currentBeforeProvisionHook?.args.append(argument)
+                        continue
+                    }
+                }
+                inBeforeProvisionArgs = false
+            }
+
             if inWorkload, line.hasPrefix("- ") {
                 throw EphemeralSpecError.unsupportedCommandListShorthand
+            }
+
+            if inBeforeProvision, line.hasPrefix("- ") {
+                try finishCurrentBeforeProvisionHook()
+                currentBeforeProvisionHook = PartialEphemeralCommand(context: "beforeProvision hook")
+                let remainder = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                if !remainder.isEmpty {
+                    guard let (key, value) = parseYAMLKeyValue(remainder) else {
+                        throw EphemeralSpecError.malformedLine(rawLine)
+                    }
+                    try setHookField(key: key, value: value, rawLine: rawLine)
+                }
+                continue
             }
 
             if inAllowedFolders, line.hasPrefix("- ") {
@@ -314,6 +622,12 @@ public struct EphemeralSpec: Equatable {
                 continue
             }
 
+            if inBeforeProvision {
+                guard currentBeforeProvisionHook != nil else { throw EphemeralSpecError.malformedLine(rawLine) }
+                try setHookField(key: key, value: value, rawLine: rawLine)
+                continue
+            }
+
             if inAllowedFolders {
                 guard currentFolder != nil else { throw EphemeralSpecError.malformedLine(rawLine) }
                 try currentFolder?.set(key: key, value: value)
@@ -334,6 +648,13 @@ public struct EphemeralSpec: Equatable {
                 if isCommandListShorthand(value) { throw EphemeralSpecError.unsupportedCommandListShorthand }
                 guard value.isEmpty else { throw EphemeralSpecError.malformedLine(rawLine) }
                 inWorkload = true
+            case "beforeProvision":
+                if value == "[]" { inBeforeProvision = false }
+                else {
+                    if isCommandListShorthand(value) { throw EphemeralSpecError.unsupportedCommandListShorthand }
+                    guard value.isEmpty else { throw EphemeralSpecError.malformedLine(rawLine) }
+                    inBeforeProvision = true
+                }
             case "allowedFolders":
                 if value == "[]" { inAllowedFolders = false }
                 else {
@@ -346,6 +667,7 @@ public struct EphemeralSpec: Equatable {
         }
 
         try finishCurrentFolder()
+        try finishCurrentBeforeProvisionHook()
 
         let version = try requireYAMLValue(schemaVersion, "schemaVersion", missingError: EphemeralSpecError.missingField)
         guard version == SandboxSpec.supportedSchemaVersion else {
@@ -360,6 +682,7 @@ public struct EphemeralSpec: Equatable {
             image: image,
             resourceProfile: resourceProfile,
             allowedFolders: allowedFolders,
+            beforeProvisionHooks: beforeProvisionHooks,
             workload: try workload.buildIfPresent()
         )
     }
@@ -370,6 +693,7 @@ public struct EphemeralRunPlan: Equatable {
     public var image: SandboxImage
     public var resourceProfile: ResourceProfile
     public var allowedFolders: [EphemeralAllowedFolderIntent]
+    public var beforeProvisionHooks: [EphemeralHookIntent]
     public var workload: EphemeralCommandSpec
 
     public static func build(from spec: EphemeralSpec, workloadOverride: WorkloadCommand? = nil) throws -> EphemeralRunPlan {
@@ -397,6 +721,7 @@ public struct EphemeralRunPlan: Equatable {
             image: spec.image,
             resourceProfile: spec.resourceProfile,
             allowedFolders: spec.allowedFolders,
+            beforeProvisionHooks: spec.beforeProvisionHooks,
             workload: EphemeralCommandSpec(command: command, workdir: workdir)
         )
     }
@@ -456,6 +781,10 @@ public struct EphemeralAllowedFolderIntent: Equatable {
     public var accessMode: AccessMode
 }
 
+public struct EphemeralHookIntent: Equatable {
+    public var command: WorkloadCommand
+}
+
 private struct PartialEphemeralAllowedFolder {
     var hostPath: String?
     var guestPath: GuestPath?
@@ -484,12 +813,18 @@ private struct PartialEphemeralCommand {
     var command: String?
     var args: [String] = []
     var workdir: GuestPath?
+    var context: String
 
     func buildIfPresent() throws -> EphemeralWorkloadIntent? {
         guard command != nil || workdir != nil || !args.isEmpty else { return nil }
-        let command = try requireYAMLValue(command, "workload.command", missingError: EphemeralSpecError.missingField)
+        return try buildRequired()
+    }
+
+    func buildRequired() throws -> EphemeralWorkloadIntent {
+        let command = try requireYAMLValue(command, "\(context).command", missingError: EphemeralSpecError.missingField)
         guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw EphemeralSpecError.emptyCommand
+            if context == "workload" { throw EphemeralSpecError.emptyCommand }
+            throw EphemeralSpecError.emptyHookCommand("beforeProvision")
         }
         return EphemeralWorkloadIntent(
             command: try WorkloadCommand(arguments: [command] + args),
@@ -525,6 +860,7 @@ public enum EphemeralSpecError: Error, Equatable, CustomStringConvertible {
     case missingField(String)
     case malformedLine(String)
     case emptyCommand
+    case emptyHookCommand(String)
     case unsupportedCommandListShorthand
     case invalidNamePrefix(String)
     case missingImplicitWorkdir
@@ -536,6 +872,7 @@ public enum EphemeralSpecError: Error, Equatable, CustomStringConvertible {
         case .missingField(let field): return "missing ephemeral spec field: \(field)"
         case .malformedLine(let line): return "malformed ephemeral spec line: \(line)"
         case .emptyCommand: return "ephemeral workload command cannot be empty"
+        case .emptyHookCommand(let phase): return "ephemeral \(phase) hook command cannot be empty"
         case .unsupportedCommandListShorthand: return "unsupported v1 ephemeral command-list shorthand"
         case .invalidNamePrefix(let value): return "invalid ephemeral namePrefix: \(value)"
         case .missingImplicitWorkdir: return "no read-write allowed folder is available for default workload workdir"

@@ -496,6 +496,222 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
         XCTAssertEqual(backend.calls, [])
     }
 
+    func testBeforeProvisionHooksAreOptionalAndUseStructuredCommandShape() throws {
+        let omitted = try EphemeralSpec.parseYAML("""
+        schemaVersion: 1
+        workload:
+          command: echo
+          workdir: /workspace
+        """)
+        XCTAssertEqual(omitted.beforeProvisionHooks, [])
+
+        let empty = try EphemeralSpec.parseYAML("""
+        schemaVersion: 1
+        beforeProvision: []
+        workload:
+          command: echo
+          workdir: /workspace
+        """)
+        XCTAssertEqual(empty.beforeProvisionHooks, [])
+
+        let spec = try EphemeralSpec.parseYAML("""
+        schemaVersion: 1
+        beforeProvision:
+          - command: mkdir
+            args:
+              - -p
+              - work
+          - command: printf
+        workload:
+          command: echo
+          workdir: /workspace
+        """)
+        XCTAssertEqual(spec.beforeProvisionHooks.map(\.command.arguments), [
+            ["mkdir", "-p", "work"],
+            ["printf"]
+        ])
+
+        XCTAssertThrowsError(
+            try EphemeralSpec.parseYAML("""
+            schemaVersion: 1
+            beforeProvision:
+              - command:
+            workload:
+              command: echo
+              workdir: /workspace
+            """)
+        ) { error in
+            XCTAssertTrue(String(describing: error).contains("ephemeral beforeProvision hook command cannot be empty"), "got \(error)")
+        }
+    }
+
+    func testBeforeProvisionHooksRunBeforeFolderResolutionAndProvisioningWithCapturedOutputEvents() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { events.append($0) }
+        )
+        let hostRunner = RecordingHostCommandRunner(
+            results: [HostCommandResult(commandResult: .success, stdout: "made folder\n", stderr: "warning\n")],
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            hostCommandRunner: hostRunner,
+            processEnvironment: { ["PATH": "/custom/bin", "SAND_TEST_SENTINEL": "inherited"] },
+            writeOutput: { _ in }
+        )
+        let sourcePath = "/tmp/ephemeral-project/specs/ephemeral.yaml"
+        let specText = """
+        schemaVersion: 1
+        beforeProvision:
+          - command: mkdir
+            args:
+              - -p
+              - created
+        allowedFolders:
+          - hostPath: ./created
+            accessMode: read-write
+        workload:
+          command: pwd
+        """
+
+        let result = try coordinator.run(
+            EphemeralRunRequest(authoredSpecText: specText, sourcePath: sourcePath)
+        )
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(hostRunner.invocations.map(\.commandArguments), [["mkdir", "-p", "created"]])
+        XCTAssertEqual(hostRunner.invocations.map(\.workingDirectory), ["/tmp/ephemeral-project/specs"])
+        XCTAssertEqual(hostRunner.invocations.first?.environment["PATH"], "/custom/bin")
+        XCTAssertEqual(hostRunner.invocations.first?.environment["SAND_TEST_SENTINEL"], "inherited")
+        XCTAssertEqual(runRecordStore.hookOutputs.map(\.stdout), ["made folder\n"])
+        XCTAssertEqual(runRecordStore.hookOutputs.map(\.stderr), ["warning\n"])
+        XCTAssertEqual(runRecordStore.hookEvents.map(\.phase), ["beforeProvision"])
+        XCTAssertEqual(runRecordStore.hookEvents.map(\.status), ["success"])
+        XCTAssertEqual(runRecordStore.hookEvents.map(\.stdoutPath), ["/tmp/sand-runs/run-001/beforeProvision-0.stdout"])
+        XCTAssertEqual(runRecordStore.generatedSpecs.first?.allowedFolders.map(\.resolvedHostPath), ["/tmp/ephemeral-project/specs/created"])
+        XCTAssertEqual(events, [
+            "record.allocateIdentity.ephemeral",
+            "record.createAttempt",
+            "host.run.mkdir -p created./tmp/ephemeral-project/specs",
+            "record.writeHookOutput.beforeProvision.0",
+            "record.appendEvent.beforeProvision.success",
+            "record.writeGeneratedSpec",
+            "metadata.createSpec.ephemeral-20260602-abcd",
+            "backend.provision.ephemeral-20260602-abcd",
+            "backend.start.ephemeral-20260602-abcd",
+            "backend.run.ephemeral-20260602-abcd.pwd./workspace/created",
+            "backend.stop.ephemeral-20260602-abcd",
+            "backend.delete.ephemeral-20260602-abcd",
+            "metadata.deleteSpec.ephemeral-20260602-abcd",
+            "record.writeResult.success"
+        ])
+    }
+
+    func testBeforeProvisionHookFailureAbortsBeforeProvisioningAndRecordsFailure() throws {
+        let sandboxName = try SandboxName("ephemeral-20260602-abcd")
+        var events: [String] = []
+        let metadataStore = RecordingEphemeralMetadataStore(events: { events.append($0) })
+        let backend = RecordingSandboxBackend(status: .missing, events: { events.append($0) })
+        let runRecordStore = RecordingEphemeralRunRecordStore(
+            identity: EphemeralRunIdentity(
+                runID: "run-001",
+                sandboxName: sandboxName,
+                recordPath: "/tmp/sand-runs/run-001"
+            ),
+            events: { events.append($0) }
+        )
+        let hostRunner = RecordingHostCommandRunner(
+            results: [HostCommandResult(commandResult: .failure(exitCode: 42), stdout: "setup out\n", stderr: "setup failed\n")],
+            events: { events.append($0) }
+        )
+        let coordinator = EphemeralRunCoordinator(
+            metadataStore: metadataStore,
+            backend: backend,
+            runRecordStore: runRecordStore,
+            hostCommandRunner: hostRunner,
+            processEnvironment: { ["PATH": "/custom/bin"] },
+            writeOutput: { _ in }
+        )
+        let specText = """
+        schemaVersion: 1
+        beforeProvision:
+          - command: false
+        allowedFolders:
+          - hostPath: ./created
+            accessMode: read-write
+        workload:
+          command: pwd
+        """
+
+        let result = try coordinator.run(
+            EphemeralRunRequest(authoredSpecText: specText, sourcePath: "/tmp/ephemeral-project/specs/ephemeral.yaml")
+        )
+
+        XCTAssertEqual(result, .failure(exitCode: 42))
+        XCTAssertEqual(hostRunner.invocations.map(\.commandArguments), [["false"]])
+        XCTAssertEqual(runRecordStore.hookEvents.map(\.status), ["failure"])
+        XCTAssertEqual(runRecordStore.resultStatus, "failure")
+        XCTAssertEqual(runRecordStore.resultExitCode, 42)
+        XCTAssertEqual(runRecordStore.generatedSpecs, [])
+        XCTAssertEqual(metadataStore.activeSpecNames, [])
+        XCTAssertEqual(backend.calls, [])
+        XCTAssertEqual(events, [
+            "record.allocateIdentity.ephemeral",
+            "record.createAttempt",
+            "host.run.false./tmp/ephemeral-project/specs",
+            "record.writeHookOutput.beforeProvision.0",
+            "record.appendEvent.beforeProvision.failure",
+            "record.writeResult.failure"
+        ])
+    }
+
+    func testProcessHostCommandRunnerUsesPathWorkingDirectoryEnvironmentAndCapturedNonInteractiveIO() throws {
+        let fileManager = FileManager.default
+        let root = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("sand-host-hook-\(UUID().uuidString)", isDirectory: true)
+        let bin = root.appendingPathComponent("bin", isDirectory: true)
+        let work = root.appendingPathComponent("work", isDirectory: true)
+        try fileManager.createDirectory(at: bin, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: work, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+        let script = bin.appendingPathComponent("host-hook")
+        try """
+        #!/bin/sh
+        printf 'cwd=%s\n' "$PWD"
+        printf 'sentinel=%s\n' "$SAND_TEST_SENTINEL"
+        if read line; then printf 'stdin=%s\n' "$line"; else printf 'stdin=closed\n'; fi
+        printf 'err=%s\n' "$1" >&2
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+
+        let runner = ProcessHostCommandRunner()
+        let result = try runner.run(
+            HostCommandRequest(
+                command: try WorkloadCommand(arguments: ["host-hook", "arg-one"]),
+                workingDirectory: work.path,
+                environment: ["PATH": bin.path, "SAND_TEST_SENTINEL": "inherited"]
+            )
+        )
+
+        XCTAssertEqual(result.commandResult, .success)
+        XCTAssertTrue(result.stdout.contains("cwd="), "got \(result.stdout)")
+        XCTAssertTrue(result.stdout.contains("/work\n"), "got \(result.stdout)")
+        XCTAssertTrue(result.stdout.contains("sentinel=inherited\n"), "got \(result.stdout)")
+        XCTAssertTrue(result.stdout.contains("stdin=closed\n"), "got \(result.stdout)")
+        XCTAssertEqual(result.stderr, "err=arg-one\n")
+    }
+
     func testMalformedEphemeralSpecsFailBeforeRunRecordMetadataAndBackendSideEffects() throws {
         let invalidSpecs: [(name: String, text: String, expectedErrorFragment: String)] = [
             (
@@ -548,13 +764,12 @@ final class EphemeralRunCoordinatorTests: XCTestCase {
                 "unsupported top-level field",
                 """
                 schemaVersion: 1
-                beforeProvision:
-                  command: echo
+                unsupportedField: true
                 workload:
                   command: echo
                   workdir: /workspace
                 """,
-                "unsupported v1 ephemeral spec field: beforeProvision"
+                "unsupported v1 ephemeral spec field: unsupportedField"
             ),
             (
                 "user-authored resolvedHostPath",
@@ -678,13 +893,45 @@ private final class RecordingEphemeralMetadataStore: HostMetadataStore {
     }
 }
 
+private struct RecordedHostCommandInvocation {
+    var commandArguments: [String]
+    var workingDirectory: String
+    var environment: [String: String]
+}
+
+private final class RecordingHostCommandRunner: HostCommandRunner {
+    private var results: [HostCommandResult]
+    private let recordEvent: (String) -> Void
+    private(set) var invocations: [RecordedHostCommandInvocation] = []
+
+    init(results: [HostCommandResult], events: @escaping (String) -> Void) {
+        self.results = results
+        self.recordEvent = events
+    }
+
+    func run(_ request: HostCommandRequest) throws -> HostCommandResult {
+        invocations.append(
+            RecordedHostCommandInvocation(
+                commandArguments: request.command.arguments,
+                workingDirectory: request.workingDirectory,
+                environment: request.environment
+            )
+        )
+        recordEvent("host.run.\(request.command.arguments.joined(separator: " ")).\(request.workingDirectory)")
+        return results.isEmpty ? HostCommandResult(commandResult: .success, stdout: "", stderr: "") : results.removeFirst()
+    }
+}
+
 private final class RecordingEphemeralRunRecordStore: EphemeralRunRecordStore {
     let identity: EphemeralRunIdentity
     private let recordEvent: (String) -> Void
     private(set) var resultStatus: String?
+    private(set) var resultExitCode: Int?
     private(set) var allocatedNamePrefixes: [String] = []
     private(set) var generatedSpecs: [SandboxSpec] = []
     private(set) var sourceSpecTexts: [String] = []
+    private(set) var hookOutputs: [(phase: String, index: Int, stdout: String, stderr: String)] = []
+    private(set) var hookEvents: [EphemeralRunEvent] = []
 
     init(identity: EphemeralRunIdentity, events: @escaping (String) -> Void) {
         self.identity = identity
@@ -707,8 +954,23 @@ private final class RecordingEphemeralRunRecordStore: EphemeralRunRecordStore {
         recordEvent("record.writeGeneratedSpec")
     }
 
+    func writeHookOutput(phase: String, index: Int, stdout: String, stderr: String, identity: EphemeralRunIdentity) throws -> HookOutputReference {
+        hookOutputs.append((phase: phase, index: index, stdout: stdout, stderr: stderr))
+        recordEvent("record.writeHookOutput.\(phase).\(index)")
+        return HookOutputReference(
+            stdoutPath: "\(identity.recordPath)/\(phase)-\(index).stdout",
+            stderrPath: "\(identity.recordPath)/\(phase)-\(index).stderr"
+        )
+    }
+
+    func appendEvent(_ event: EphemeralRunEvent, identity: EphemeralRunIdentity) throws {
+        hookEvents.append(event)
+        recordEvent("record.appendEvent.\(event.phase).\(event.status)")
+    }
+
     func writeResult(_ result: EphemeralRunResult, identity: EphemeralRunIdentity) throws {
         resultStatus = result.status
+        resultExitCode = result.exitCode
         recordEvent("record.writeResult.\(result.status)")
     }
 }
