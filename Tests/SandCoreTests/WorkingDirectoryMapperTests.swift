@@ -2,7 +2,7 @@ import XCTest
 @testable import SandCore
 
 final class WorkingDirectoryMapperTests: XCTestCase {
-    func testMapsCwdInsideAllowedFolderToGuestPath() throws {
+    func testMapsCwdInsideSharedFolderToGuestPath() throws {
         let mapper = WorkingDirectoryMapper(resolvePath: { $0 })
         let spec = try sandboxSpecWithFolder(host: "/Users/onur/Projects/sand", guest: "/workspace/sand")
 
@@ -11,7 +11,7 @@ final class WorkingDirectoryMapperTests: XCTestCase {
         XCTAssertEqual(mapping, WorkingDirectoryMapping(guestPath: try GuestPath("/workspace/sand"), warning: nil))
     }
 
-    func testMapsNestedCwdInsideAllowedFolderToNestedGuestPath() throws {
+    func testMapsNestedCwdInsideSharedFolderToNestedGuestPath() throws {
         let mapper = WorkingDirectoryMapper(resolvePath: { $0 })
         let spec = try sandboxSpecWithFolder(host: "/Users/onur/Projects/sand", guest: "/workspace/sand")
 
@@ -30,20 +30,20 @@ final class WorkingDirectoryMapperTests: XCTestCase {
         XCTAssertNil(mapping.warning)
     }
 
-    func testCwdOutsideAllowedFoldersUsesFallbackWithWarning() throws {
+    func testCwdOutsideSharedFoldersUsesFallbackWithWarning() throws {
         let mapper = WorkingDirectoryMapper(resolvePath: { $0 })
         let spec = try sandboxSpecWithFolder(host: "/Users/onur/Projects/sand", guest: "/workspace/sand")
 
         let mapping = mapper.map(hostCurrentDirectory: "/Users/onur/Downloads", spec: spec)
 
         XCTAssertEqual(mapping.guestPath, try GuestPath("/workspace"))
-        XCTAssertEqual(mapping.warning, "Current directory is not inside an Allowed Folder; starting in /workspace.")
+        XCTAssertEqual(mapping.warning, "Current directory is not inside an Shared Folder; starting in /workspace.")
     }
 
     private func sandboxSpecWithFolder(host: String, guest: String) throws -> SandboxSpec {
         SandboxSpec(
             name: try SandboxName("mybox"),
-            allowedFolders: [AllowedFolder(displayHostPath: host, resolvedHostPath: host, guestPath: try GuestPath(guest), accessMode: .readWrite)]
+            sharedFolders: [SharedFolder(displayHostPath: host, resolvedHostPath: host, guestPath: try GuestPath(guest), accessMode: .readWrite)]
         )
     }
 }

@@ -229,7 +229,7 @@ private enum CLIHelp {
       list                           List Sandbox VMs
       apply <name>                   Apply spec changes
       delete <name> [--force]        Delete a Sandbox VM
-      folders <action> ...           Manage allowed Host Mac folders
+      folders <action> ...           Manage shared Host Mac folders
       <name> status                  Show Sandbox VM status
       <name> start                   Start a Sandbox VM
       <name> stop                    Stop a Sandbox VM
@@ -250,7 +250,7 @@ private enum CLIHelp {
     static let list = """
     Usage: sand list
 
-    Lists known Sandbox VMs with runtime state, image, and allowed folder count.
+    Lists known Sandbox VMs with runtime state, image, and shared folder count.
     """
 
     static let create = """
@@ -262,7 +262,7 @@ private enum CLIHelp {
     static let apply = """
     Usage: sand apply <name>
 
-    Applies allowed spec changes to an existing Sandbox VM.
+    Applies shared spec changes to an existing Sandbox VM.
     """
 
     static let delete = """

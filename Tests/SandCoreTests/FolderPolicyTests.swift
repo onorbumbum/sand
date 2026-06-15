@@ -23,8 +23,8 @@ final class FolderPolicyTests: XCTestCase {
 
         let updated = try policy.addFolder(to: spec, displayHostPath: "~/Projects/sand", accessMode: "rw")
 
-        XCTAssertEqual(updated.allowedFolders, [
-            AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)
+        XCTAssertEqual(updated.sharedFolders, [
+            SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)
         ])
     }
 
@@ -34,8 +34,8 @@ final class FolderPolicyTests: XCTestCase {
 
         let updated = try policy.addFolder(to: spec, displayHostPath: "/Users/onur/Projects/sand", accessMode: "ro", guestPath: try GuestPath("/code"))
 
-        XCTAssertEqual(updated.allowedFolders.first?.guestPath, try GuestPath("/code"))
-        XCTAssertEqual(updated.allowedFolders.first?.accessMode, .readOnly)
+        XCTAssertEqual(updated.sharedFolders.first?.guestPath, try GuestPath("/code"))
+        XCTAssertEqual(updated.sharedFolders.first?.accessMode, .readOnly)
     }
 
     func testAddingDuplicateHostFolderUpdatesExistingFolder() throws {
@@ -44,9 +44,9 @@ final class FolderPolicyTests: XCTestCase {
 
         let updated = try policy.addFolder(to: original, displayHostPath: "/Users/onur/Projects/sand", accessMode: "rw", guestPath: try GuestPath("/code"))
 
-        XCTAssertEqual(updated.allowedFolders.count, 1)
-        XCTAssertEqual(updated.allowedFolders.first?.accessMode, .readWrite)
-        XCTAssertEqual(updated.allowedFolders.first?.guestPath, try GuestPath("/code"))
+        XCTAssertEqual(updated.sharedFolders.count, 1)
+        XCTAssertEqual(updated.sharedFolders.first?.accessMode, .readWrite)
+        XCTAssertEqual(updated.sharedFolders.first?.guestPath, try GuestPath("/code"))
     }
 
     func testDuplicateGuestPathIsRejected() throws {

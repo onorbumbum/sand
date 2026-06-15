@@ -31,7 +31,7 @@ Public GitHub issues are welcome for bugs, questions, and feature ideas. Please 
 It does that by making three things explicit:
 
 1. **Where work runs** — inside a named Sandbox VM, not directly in your normal shell.
-2. **What the sandbox can see** — only the Allowed Folders you add.
+2. **What the sandbox can see** — only the Shared Folders you add.
 3. **What persists** — guest tools, package caches, shell config, Pi identity, and other sandbox-local state survive normal stop/start.
 
 ## How it works
@@ -53,7 +53,7 @@ This alpha is intentionally focused on the daily loop:
 - create, list, inspect, start, stop, apply, log, and delete Sandbox VMs
 - add Host Mac folders as read-write or read-only Guest Paths
 - run Pi or any other command inside the Sandbox VM with `sand <name> run <command> [args...]`
-- start commands in the matching Guest Path when your Mac current directory is inside an Allowed Folder
+- start commands in the matching Guest Path when your Mac current directory is inside an Shared Folder
 - open an interactive Sandbox Session with `sand <name> shell`
 - keep Guest State under `/state/sandbox` across stop/start for the same Sandbox VM
 - use the Developer-Ready Sandbox image with common development tools already installed
@@ -189,7 +189,7 @@ sand delete demo --force
 ```
 <!-- docs:managed:end -->
 
-Persistence expectation: Allowed Folder contents persist because they are host files. Guest State written under `/state/sandbox` persists across `sand <name> stop` and `sand <name> start` for the same Sandbox VM. Deleting the Sandbox VM removes its Guest State volume and Host Metadata spec.
+Persistence expectation: Shared Folder contents persist because they are host files. Guest State written under `/state/sandbox` persists across `sand <name> stop` and `sand <name> start` for the same Sandbox VM. Deleting the Sandbox VM removes its Guest State volume and Host Metadata spec.
 
 ## Subscription and OAuth logins inside a Sandbox VM
 
@@ -273,14 +273,14 @@ image: sand/developer-ready:ubuntu-lts
 resources:
   cpus: 4
   memory: 8GB
-allowedFolders:
+sharedFolders:
   []
 ```
 
-Allowed folders are explicit:
+Shared folders are explicit:
 
 ```yaml
-allowedFolders:
+sharedFolders:
   - hostPath: ~/Projects/my-project
     resolvedHostPath: /Users/me/Projects/my-project
     guestPath: /workspace

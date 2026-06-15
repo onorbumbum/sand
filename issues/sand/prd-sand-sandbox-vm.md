@@ -18,7 +18,7 @@ created: 2026-05-19
 
 The user wants a safer, easier way to run Pi and related developer workloads without giving them broad access to the Host Mac. Today Pi runs directly in the user's normal shell, with access to the user's real home directory, shell environment, credentials, and machine state. That makes powerful coding-agent behavior convenient, but the isolation boundary is too weak: a mistake or overly broad command can touch anything the user's shell can touch.
 
-The desired mental model is an isolated small Linux computer: a Sandbox VM that can have broad/root-level control inside its own Sandbox Guest, while seeing only the Host Mac folders explicitly allowed by the user. The Sandbox VM should have persistent Guest State for installed tools, shell config, package caches, Pi identity, and Guest Secrets, but it must not inherit Host Mac credentials or Pi config by default.
+The desired mental model is an isolated small Linux computer: a Sandbox VM that can have broad/root-level control inside its own Sandbox Guest, while seeing only the Host Mac folders explicitly shared by the user. The Sandbox VM should have persistent Guest State for installed tools, shell config, package caches, Pi identity, and Guest Secrets, but it must not inherit Host Mac credentials or Pi config by default.
 
 This is an internal, Pi-first tool, but it should not become a Pi-specific launcher. The first Control Surface should be a Swift CLI named `sand`. Running Pi should be as simple as running a Workload Command inside the sandbox, for example `sand mybox run pi [args...]`. The same primitive should support future internal harnesses such as `aslan-agent` without `sand` understanding their flags.
 
@@ -28,7 +28,7 @@ The solution must not become a shallow pile of Apple `container` command wrapper
 
 Build `sand`, a CLI-first Swift tool for creating, configuring, applying, running, inspecting, and deleting Sandbox VMs on Apple silicon macOS.
 
-Each Sandbox VM is defined by a declarative Sandbox Spec. The spec is the source of truth and is stored in Host Metadata under `~/.sand/`. The spec includes the Sandbox Name, Sandbox Image, Resource Profile, Allowed Folders, Guest Paths, and Access Modes. It deliberately excludes unsupported future concerns such as inbound networking for v1. CLI mutation commands update the Sandbox Spec and auto-apply by default. Manual spec edits can be reconciled with `sand apply <name>`.
+Each Sandbox VM is defined by a declarative Sandbox Spec. The spec is the source of truth and is stored in Host Metadata under `~/.sand/`. The spec includes the Sandbox Name, Sandbox Image, Resource Profile, Shared Folders, Guest Paths, and Access Modes. It deliberately excludes unsupported future concerns such as inbound networking for v1. CLI mutation commands update the Sandbox Spec and auto-apply by default. Manual spec edits can be reconciled with `sand apply <name>`.
 
 The default Sandbox VM is a Developer-Ready Sandbox built from a prebuilt Sandbox Image based on Ubuntu LTS. It includes the Default Toolset: git, curl, ca-certificates, sudo, openssh-client, Python 3 with venv/pip, Node/npm, tmux, ripgrep, build-essential, and the Pi CLI. The default Resource Profile is 4 CPUs and 8GB RAM with create-time overrides only. `sand create` writes and applies the initial Sandbox Spec, provisions Guest State, and leaves the Sandbox VM stopped.
 
@@ -37,9 +37,9 @@ Daily use is sandbox-first and explicit:
 - `sand <name> shell` opens an interactive Sandbox Session as the Sandbox User.
 - `sand <name> run <command> [args...]` runs an opaque Workload Command inside the Sandbox VM.
 - Daily commands auto-start the target Sandbox VM when stopped.
-- Working Directory Mapping starts the session in the matching Guest Path when the Host Mac cwd is inside an Allowed Folder; otherwise `sand` warns and starts in `/workspace` or the Sandbox User home.
+- Working Directory Mapping starts the session in the matching Guest Path when the Host Mac cwd is inside an Shared Folder; otherwise `sand` warns and starts in `/workspace` or the Sandbox User home.
 
-The Sandbox Guest may allow broad/root-level control inside the VM through a non-root Sandbox User with passwordless sudo. That power must not escape to the Host Mac. The only Host Mac filesystem surface is the set of Allowed Folders, each with an explicit read-only or read-write Access Mode. Read-write Allowed Folders must preserve Host-Safe File Ownership: files created or modified from the Sandbox VM must remain editable and deletable by the Host Mac user without sudo.
+The Sandbox Guest may allow broad/root-level control inside the VM through a non-root Sandbox User with passwordless sudo. That power must not escape to the Host Mac. The only Host Mac filesystem surface is the set of Shared Folders, each with an explicit read-only or read-write Access Mode. Read-write Shared Folders must preserve Host-Safe File Ownership: files created or modified from the Sandbox VM must remain editable and deletable by the Host Mac user without sudo.
 
 V1 networking is Outbound-Only Networking. The Sandbox Guest may reach the internet for package installs, git, APIs, and Pi provider calls, but `sand` does not model inbound networking or port publishing in the first version.
 
@@ -52,8 +52,8 @@ The first Sandbox Backend shells out to Apple `container`, but only through a de
 3. As the user, I want Pi to have broad control inside the Sandbox Guest, so that coding-agent workflows are not constantly blocked by guest permissions.
 4. As the user, I want Pi's broad control inside the Sandbox Guest not to imply broad control over the Host Mac, so that the host boundary remains meaningful.
 5. As the user, I want to choose which Host Mac folders are visible to the Sandbox VM, so that the sandbox sees only intentional workspaces.
-6. As the user, I want each Allowed Folder to have an explicit Access Mode, so that I can distinguish read-only reference material from read-write working folders.
-7. As the user, I want read-write Allowed Folders to preserve Host-Safe File Ownership, so that files created by Pi remain editable and deletable from macOS without sudo.
+6. As the user, I want each Shared Folder to have an explicit Access Mode, so that I can distinguish read-only reference material from read-write working folders.
+7. As the user, I want read-write Shared Folders to preserve Host-Safe File Ownership, so that files created by Pi remain editable and deletable from macOS without sudo.
 8. As the user, I want the Sandbox VM to have persistent Guest State, so that installed tools, shell config, package caches, Pi identity, and Guest Secrets survive stop/start.
 9. As the user, I want Guest State to be separate from Host Metadata, so that `sand` management data and guest filesystem state do not blur together.
 10. As the user, I want credentials used by the Sandbox VM to be Guest Secrets only in v1, so that host tokens and credential files are not mounted or forwarded by default.
@@ -63,7 +63,7 @@ The first Sandbox Backend shells out to Apple `container`, but only through a de
 14. As the user, I want Sandbox Names to be global per user, so that I can use the same named Sandbox VM from any directory.
 15. As the user, I want daily commands to be sandbox-first, so that `sand mybox shell` and `sand mybox run pi` read like operating a named computer.
 16. As the user, I want no default or implicit project-local sandbox in v1, so that commands are explicit and unsurprising.
-17. As the user, I want `sand create mybox` to create a stopped Sandbox VM, so that I can configure Allowed Folders before first use.
+17. As the user, I want `sand create mybox` to create a stopped Sandbox VM, so that I can configure Shared Folders before first use.
 18. As the user, I want `sand create mybox` to provision Guest State, so that the sandbox is real after creation rather than just a YAML file.
 19. As the user, I want daily commands to auto-start a stopped Sandbox VM, so that running a Workload Command does not require a separate start step.
 20. As the user, I want `sand mybox shell` to open an interactive shell without a username/password prompt, so that entering the sandbox is frictionless.
@@ -89,8 +89,8 @@ The first Sandbox Backend shells out to Apple `container`, but only through a de
 40. As the user, I want config changes that interrupt a running Sandbox VM to ask first, so that active Pi or shell sessions are not killed unexpectedly.
 41. As the user, I want multiple Sandbox Sessions to run concurrently against the same Sandbox VM, so that I can use multiple terminals like a normal VM.
 42. As the user, I want Lifecycle Mutations to be serialized, so that create/delete/apply/start/stop operations cannot corrupt Host Metadata or backend state.
-43. As the user, I want `sand folders add mybox ~/Projects rw` to add a read-write Allowed Folder, so that projects can be modified from inside the sandbox.
-44. As the user, I want `sand folders add mybox ~/Downloads ro` to add a read-only Allowed Folder, so that reference material can be visible without making it mutable.
+43. As the user, I want `sand folders add mybox ~/Projects rw` to add a read-write Shared Folder, so that projects can be modified from inside the sandbox.
+44. As the user, I want `sand folders add mybox ~/Downloads ro` to add a read-only Shared Folder, so that reference material can be visible without making it mutable.
 45. As the user, I want `rw` and `ro` aliases accepted, so that daily folder commands are concise.
 46. As the user, I want the Sandbox Spec to store canonical `read-write` and `read-only` values, so that declarative config stays readable.
 47. As the user, I want default Guest Paths derived under `/workspace`, so that mounted folders have predictable locations inside the Sandbox VM.
@@ -101,11 +101,11 @@ The first Sandbox Backend shells out to Apple `container`, but only through a de
 52. As the user, I want folder validation to resolve symlinks, so that duplicate and overlap checks cannot be bypassed by alternate paths.
 53. As the user, I want `sand` to preserve display paths separately from resolved real paths, so that output stays human-friendly while validation stays safe.
 54. As the user, I want `sand folders list mybox` to show host path, Guest Path, and Access Mode, so that I can audit what the Sandbox VM can see.
-55. As the user, I want `sand folders remove mybox <host-path>` to remove an Allowed Folder, so that I can narrow sandbox access.
-56. As the user, I want a Sandbox VM to be creatable with no Allowed Folders, so that I can create a pure isolated Linux environment when needed.
+55. As the user, I want `sand folders remove mybox <host-path>` to remove an Shared Folder, so that I can narrow sandbox access.
+56. As the user, I want a Sandbox VM to be creatable with no Shared Folders, so that I can create a pure isolated Linux environment when needed.
 57. As the user, I want folder setup to be part of the coding-agent happy path, so that project and site workflows are easy.
 58. As the user, I want Working Directory Mapping from Host Mac cwd to Guest Path, so that running `sand mybox run pi` from a mounted project starts Pi in the corresponding guest project path.
-59. As the user, I want a warning when the host cwd is not inside an Allowed Folder, so that I understand why the sandbox cannot see the current project.
+59. As the user, I want a warning when the host cwd is not inside an Shared Folder, so that I understand why the sandbox cannot see the current project.
 60. As the user, I want commands from an unmapped cwd to start in `/workspace` or the Sandbox User home, so that the command still works when I did not intend a project context.
 61. As the user, I want Outbound-Only Networking in v1, so that the sandbox can install packages and call APIs without exposing inbound services.
 62. As the user, I want inbound port publishing out of scope for v1, so that networking remains simple and safe.
@@ -131,7 +131,7 @@ The first Sandbox Backend shells out to Apple `container`, but only through a de
 82. As the maintainer, I want the Apple `container` CLI backend validated before full implementation, so that we do not build on an unproven assumption.
 83. As the maintainer, I want Host-Safe File Ownership explicitly tested in the validation spike, so that the hardest filesystem requirement is proven early.
 84. As the maintainer, I want persistent Guest State explicitly tested in the validation spike, so that stop/start and runtime recreation are not speculative.
-85. As the maintainer, I want read-only and read-write Allowed Folders tested in the validation spike, so that Access Mode behavior is real.
+85. As the maintainer, I want read-only and read-write Shared Folders tested in the validation spike, so that Access Mode behavior is real.
 86. As the maintainer, I want interactive Sandbox Sessions tested in the validation spike, so that shell access is proven before CLI polish.
 87. As the maintainer, I want concurrent sessions tested in the validation spike, so that the VM mental model holds.
 88. As the maintainer, I want runtime recreation while preserving Guest State tested in the validation spike, so that `apply` can be implemented honestly.
@@ -164,7 +164,7 @@ The first Sandbox Backend shells out to Apple `container`, but only through a de
 - Sandbox Names are globally unique per Host Mac user.
 - `sand` stores Host Metadata under `~/.sand/`.
 - Each Sandbox VM is defined by a declarative Sandbox Spec.
-- The Sandbox Spec is the source of truth for name, image, Resource Profile, Allowed Folders, Guest Paths, and Access Modes.
+- The Sandbox Spec is the source of truth for name, image, Resource Profile, Shared Folders, Guest Paths, and Access Modes.
 - The Sandbox Spec excludes inbound networking and other unsupported future placeholders in v1.
 - `sand create` generates a Sandbox Spec by default.
 - `sand create --from` supports user-authored specs.
@@ -218,20 +218,20 @@ The first Sandbox Backend shells out to Apple `container`, but only through a de
 - Credentials used by the Sandbox VM are Guest Secrets only in v1.
 - Host credential files and host `~/.pi` are not mounted by default.
 - Skill Source management is out of scope for v1.
-- Allowed Folders are the only Host Mac filesystem surface exposed to the Sandbox VM.
-- Each Allowed Folder has an Access Mode and a Guest Path.
+- Shared Folders are the only Host Mac filesystem surface exposed to the Sandbox VM.
+- Each Shared Folder has an Access Mode and a Guest Path.
 - Access Mode inputs accept `rw`, `ro`, `read-write`, and `read-only`.
 - The Sandbox Spec stores canonical `read-write` and `read-only` terms.
 - Guest Paths default to a workspace path derived from the host folder name.
 - `--as` allows explicit Guest Path override.
 - Adding an existing host folder updates its Access Mode or Guest Path rather than duplicating it.
-- Two different Allowed Folders cannot share the same Guest Path.
+- Two different Shared Folders cannot share the same Guest Path.
 - Overlapping host folders are rejected in v1.
 - Folder validation and Working Directory Mapping use resolved real paths while preserving display paths for user output.
-- Read-write Allowed Folders must preserve Host-Safe File Ownership.
-- A Sandbox VM may be created with no Allowed Folders.
-- Working Directory Mapping starts sessions in the matching Guest Path when the host cwd is inside an Allowed Folder.
-- If the host cwd is not inside an Allowed Folder, `sand` warns and starts in `/workspace` or the Sandbox User home.
+- Read-write Shared Folders must preserve Host-Safe File Ownership.
+- A Sandbox VM may be created with no Shared Folders.
+- Working Directory Mapping starts sessions in the matching Guest Path when the host cwd is inside an Shared Folder.
+- If the host cwd is not inside an Shared Folder, `sand` warns and starts in `/workspace` or the Sandbox User home.
 - V1 uses Outbound-Only Networking.
 - Inbound port publishing is out of scope for v1.
 - The first Sandbox Backend shells out to Apple `container`.
@@ -249,7 +249,7 @@ Major modules to build:
 - CLI Command Router: parses `sand` commands, maps them to domain operations, handles user-facing output, and does not call backend commands directly.
 - Sandbox Spec Model: owns the declarative schema, defaults, canonical terms, parsing, rendering, and validation.
 - Host Metadata Store: owns reading/writing active Sandbox Specs, backend IDs, schema version, and metadata locking under `~/.sand/`.
-- Folder Policy Module: owns Allowed Folder normalization, Access Mode normalization, Guest Path derivation, duplicate checks, overlap checks, realpath validation, and removal behavior.
+- Folder Policy Module: owns Shared Folder normalization, Access Mode normalization, Guest Path derivation, duplicate checks, overlap checks, realpath validation, and removal behavior.
 - Working Directory Mapper: maps Host Mac cwd to Guest Path or returns the warning/default start location.
 - Lifecycle Coordinator: owns create, apply, start, stop, delete flows, auto-start behavior, interruption prompts, and lifecycle mutation serialization.
 - SandboxBackend Protocol: exposes backend readiness, provisioning, applying specs, lifecycle, command execution, status, logs, and deletion through a shallow domain-shaped interface.
@@ -285,8 +285,8 @@ Deep module opportunities:
 - Test `folders remove` as a spec mutation that auto-applies through a fake backend.
 - Test that config changes apply immediately when stopped.
 - Test that config changes requiring interruption ask before applying when running.
-- Test Working Directory Mapping when cwd is inside an Allowed Folder.
-- Test Working Directory Mapping when cwd is outside all Allowed Folders and returns warning plus default location.
+- Test Working Directory Mapping when cwd is inside an Shared Folder.
+- Test Working Directory Mapping when cwd is outside all Shared Folders and returns warning plus default location.
 - Test Working Directory Mapping with symlinked cwd paths.
 - Test Lifecycle Coordinator create flow: spec generation, Guest State provisioning through backend, and stopped final state.
 - Test daily command auto-start behavior with fake backend state transitions.
@@ -311,8 +311,8 @@ Deep module opportunities:
 - Test Sandbox Image definition with at least a build-file lint or smoke build path where practical.
 - Backend Validation Spike must prove:
   - persistent Guest State via backend volume/state mechanism
-  - read-write Allowed Folders
-  - read-only Allowed Folders
+  - read-write Shared Folders
+  - read-only Shared Folders
   - Host-Safe File Ownership
   - interactive Sandbox Session as Sandbox User
   - passwordless sudo inside Sandbox Guest
@@ -356,7 +356,7 @@ Deep module opportunities:
 
 ## Further Notes
 
-The highest-risk requirement is Host-Safe File Ownership. The Backend Validation Spike must answer this before the project invests in CLI polish. The second highest-risk requirement is persistent Guest State that survives stop/start and runtime recreation while remaining separate from Allowed Folders.
+The highest-risk requirement is Host-Safe File Ownership. The Backend Validation Spike must answer this before the project invests in CLI polish. The second highest-risk requirement is persistent Guest State that survives stop/start and runtime recreation while remaining separate from Shared Folders.
 
 The Apple `container` docs indicate support for named containers, bind mounts with read-only flags, exec, start/stop/list/inspect/logs/stats, named volumes, resource settings, port publishing, and Apple-native VM-per-container isolation. Those capabilities appear promising, but the PRD deliberately treats them as unproven until live validation confirms the exact `sand` requirements.
 

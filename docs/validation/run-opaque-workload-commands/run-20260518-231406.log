@@ -16,7 +16,7 @@ name: sand-run-231406
 state: stopped
 image: sand/developer-ready:ubuntu-lts
 resources: 2 CPUs, 1GB memory
-allowedFolders: 0
+sharedFolders: 0
 [exit 0]
 
 $ .build/debug/sand 'sand-run-231406' run python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' --workload-flag -- literal 'two words' > '/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/tmp.Qu6RgZHfRm/args.json'
@@ -30,7 +30,7 @@ name: sand-run-231406
 state: running
 image: sand/developer-ready:ubuntu-lts
 resources: 2 CPUs, 1GB memory
-allowedFolders: 0
+sharedFolders: 0
 [exit 0]
 
 $ .build/debug/sand 'sand-run-231406' run printf 'redirect-ok\n' > '/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/tmp.Qu6RgZHfRm/redirect.txt'
@@ -40,9 +40,11 @@ $ test "$(cat '/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/tmp.Qu6RgZHfRm/r
 [exit 0]
 
 $ script -q /var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/tmp.Qu6RgZHfRm/tty.log .build/debug/sand sand-run-231406 run /bin/sh -lc test\ -t\ 0\ \&\&\ test\ -t\ 1\ \&\&\ echo\ TTY_OK
-TTY_OK
+TTY_OK
+
 [?25l[?25h[exit 0]
-TTY_OK
+TTY_OK
+
 [?25l[?25h
 $ .build/debug/sand sand-run-231406 run definitely-not-installed-sand-006
 Error: failed to find target executable definitely-not-installed-sand-006

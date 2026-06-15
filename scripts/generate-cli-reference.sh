@@ -44,7 +44,7 @@ cat > "$output_path" <<EOF
 
 > Fully generated documentation. Do not hand-edit this file outside the Documentation Refresh Workflow. Regenerate it with \`scripts/generate-cli-reference.sh\` so usage stays aligned with actual \`sand\` help output.
 
-This reference captures the v1 **Control Surface** for managing **Sandbox VMs**, **Allowed Folders**, **Sandbox Sessions**, and generic **Workload Commands**.
+This reference captures the v1 **Control Surface** for managing **Sandbox VMs**, **Shared Folders**, **Sandbox Sessions**, and generic **Workload Commands**.
 
 ## Generation source
 

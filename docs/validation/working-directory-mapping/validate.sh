@@ -12,7 +12,7 @@ HOST_OUTSIDE="$HOST_ROOT/outside"
 HOST_LINK="$HOST_ROOT/project-link"
 SAND="$ROOT/.build/debug/sand"
 SOCKET="sand-wd-validation"
-SHELL_ALLOWED="sand009-allowed"
+SHELL_ALLOWED="sand009-shared"
 SHELL_OUTSIDE="sand009-outside"
 
 mkdir -p "$LOG_DIR"
@@ -78,42 +78,42 @@ run container --version
 run container system status
 run container image inspect sand/developer-ready:ubuntu-lts
 
-step "Create Sandbox VM with one Allowed Folder"
+step "Create Sandbox VM with one Shared Folder"
 run "$SAND" create "$NAME" --cpus 2 --memory 1GB
 run "$SAND" folders add "$NAME" "$HOST_PROJECT" rw --as /workspace/project
 run "$SAND" folders list "$NAME"
 
-step "run maps allowed, nested, symlinked, and outside Host cwd paths"
+step "run maps shared, nested, symlinked, and outside Host cwd paths"
 capture_run "$HOST_PROJECT" "/workspace/project"
 capture_run "$HOST_NESTED" "/workspace/project/src/module"
 capture_run "$HOST_LINK/src/module" "/workspace/project/src/module"
-capture_run "$HOST_OUTSIDE" "/workspace" "Current directory is not inside an Allowed Folder; starting in /workspace."
+capture_run "$HOST_OUTSIDE" "/workspace" "Current directory is not inside an Shared Folder; starting in /workspace."
 
-step "shell uses the same mapping from inside an Allowed Folder"
+step "shell uses the same mapping from inside an Shared Folder"
 tmux -L "$SOCKET" new-session -d -s "$SHELL_ALLOWED" "cd '$HOST_NESTED' && '$SAND' '$NAME' shell; echo SHELL_EXIT:\$?; sleep 30"
 sleep 3
 tmux -L "$SOCKET" send-keys -t "$SHELL_ALLOWED" "pwd; exit" Enter
 sleep 2
 ALLOWED_CAPTURE="$(tmux -L "$SOCKET" capture-pane -t "$SHELL_ALLOWED" -p || true)"
-printf '%s\n' "--- allowed shell capture ---" "$ALLOWED_CAPTURE"
+printf '%s\n' "--- shared shell capture ---" "$ALLOWED_CAPTURE"
 if ! grep -Fq "/workspace/project/src/module" <<<"$ALLOWED_CAPTURE"; then
   echo "shell did not start in mapped nested Guest Path" >&2
   exit 1
 fi
 
-step "shell warns and falls back from outside Allowed Folders"
+step "shell warns and falls back from outside Shared Folders"
 tmux -L "$SOCKET" new-session -d -s "$SHELL_OUTSIDE" "cd '$HOST_OUTSIDE' && '$SAND' '$NAME' shell; echo SHELL_EXIT:\$?; sleep 30"
 sleep 3
 tmux -L "$SOCKET" send-keys -t "$SHELL_OUTSIDE" "pwd; exit" Enter
 sleep 2
 OUTSIDE_CAPTURE="$(tmux -L "$SOCKET" capture-pane -t "$SHELL_OUTSIDE" -p || true)"
 printf '%s\n' "--- outside shell capture ---" "$OUTSIDE_CAPTURE"
-if ! grep -Fq "Current directory is not inside an Allowed Folder; starting in /workspace." <<<"$OUTSIDE_CAPTURE"; then
-  echo "shell outside Allowed Folders did not warn" >&2
+if ! grep -Fq "Current directory is not inside an Shared Folder; starting in /workspace." <<<"$OUTSIDE_CAPTURE"; then
+  echo "shell outside Shared Folders did not warn" >&2
   exit 1
 fi
 if ! grep -Fq "/workspace" <<<"$OUTSIDE_CAPTURE"; then
-  echo "shell outside Allowed Folders did not start in fallback Guest Path" >&2
+  echo "shell outside Shared Folders did not start in fallback Guest Path" >&2
   exit 1
 fi
 

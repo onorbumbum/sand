@@ -8,11 +8,11 @@
 
 ## What this repo is
 
-`sand` is a Swift CLI for creating and managing **Sandbox VMs**: isolated Linux machines on a **Host Mac** with persistent **Guest State**, explicit **Allowed Folders**, and generic **Workload Commands**. Pi is the primary workflow, and the same sandbox can run other developer tools when needed.
+`sand` is a Swift CLI for creating and managing **Sandbox VMs**: isolated Linux machines on a **Host Mac** with persistent **Guest State**, explicit **Shared Folders**, and generic **Workload Commands**. Pi is the primary workflow, and the same sandbox can run other developer tools when needed.
 
 `sand` is experimental alpha software released under the Apache License 2.0. Public issues are welcome, but there is no support guarantee or response SLA, and external pull requests are not accepted yet.
 
-Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md). Prefer terms like **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Sandbox Session**, and **Workload Command**.
+Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md). Prefer terms like **Sandbox VM**, **Shared Folder**, **Guest Path**, **Sandbox Session**, and **Workload Command**.
 
 ## Start here: humans
 
@@ -58,7 +58,7 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 | `Sources/SandCore/Backend/` | Sandbox Backend interfaces and Apple `container` backend plumbing. Backend details should not leak into user-facing language. |
 | `Sources/SandCore/Doctor/` | Doctor Checks for Host Mac support, backend readiness, default image availability, and Host Metadata writability. |
 | `Sources/SandCore/Domain/` | Small domain types such as Sandbox Name and Workload Command. |
-| `Sources/SandCore/FolderPolicy/` | Allowed Folder validation, Access Mode handling, Guest Path rules, duplicate and overlap policy. |
+| `Sources/SandCore/FolderPolicy/` | Shared Folder validation, Access Mode handling, Guest Path rules, duplicate and overlap policy. |
 | `Sources/SandCore/Lifecycle/` | Lifecycle Mutation coordination around create, apply, start, stop, delete, and run flows. |
 | `Sources/SandCore/Metadata/` | Host Metadata storage under `~/.sand/`. |
 | `Sources/SandCore/Prompt/` | Confirmation behavior for destructive or interrupting actions. |

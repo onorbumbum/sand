@@ -30,7 +30,7 @@ image: sand/developer-ready:ubuntu-lts
 resources:
   cpus: 2
   memory: 1GB
-allowedFolders:
+sharedFolders:
   - hostPath: /tmp/sand-declarative-apply-sand-apply-235756/code
     resolvedHostPath: /tmp/sand-declarative-apply-sand-apply-235756/code
     guestPath: /code
@@ -53,7 +53,7 @@ $ /Users/me/Projects/sand/.build/debug/sand sand-apply-235756 start
 [exit 0]
 
 $ /Users/me/Projects/sand/.build/debug/sand sand-apply-235756 run bash -lc cat /code/code.txt && sudo sh -c "echo guest-state-marker > /state/apply-marker"
-Current directory is not inside an Allowed Folder; starting in /workspace.
+Current directory is not inside an Shared Folder; starting in /workspace.
 code-host
 [exit 0]
 
@@ -67,7 +67,7 @@ $ /Users/me/Projects/sand/.build/debug/sand apply sand-apply-235756
 [exit 0]
 
 $ /Users/me/Projects/sand/.build/debug/sand sand-apply-235756 run bash -lc cat /extra/extra.txt && sudo cat /state/apply-marker
-Current directory is not inside an Allowed Folder; starting in /workspace.
+Current directory is not inside an Shared Folder; starting in /workspace.
 extra-host
 guest-state-marker
 [exit 0]
@@ -75,14 +75,14 @@ guest-state-marker
 
 ### Running apply asks before interrupting and cancellation leaves backend unchanged
 Apply changes to running Sandbox VM sand-apply-235756? Proceed? [y/N] running apply prompted and cancelled
-Current directory is not inside an Allowed Folder; starting in /workspace.
+Current directory is not inside an Shared Folder; starting in /workspace.
 cancelled running apply did not expose /running
 
 
 ### Approved running apply reconciles backend and preserves Guest State
 Apply changes to running Sandbox VM sand-apply-235756? Proceed? [y/N] 
 $ /Users/me/Projects/sand/.build/debug/sand sand-apply-235756 run bash -lc cat /running/running.txt && sudo cat /state/apply-marker
-Current directory is not inside an Allowed Folder; starting in /workspace.
+Current directory is not inside an Shared Folder; starting in /workspace.
 running-host
 guest-state-marker
 [exit 0]

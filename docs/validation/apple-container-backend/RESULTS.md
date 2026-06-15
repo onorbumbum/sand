@@ -24,15 +24,15 @@ Validation image definition: `docs/validation/apple-container-backend/Dockerfile
 | Requirement | Result | Evidence summary |
 |---|---:|---|
 | Persistent Guest State survives stop/start | PASS | Wrote `/state/sandbox/persistent.txt`, ran `container stop sand-validation-spike`, `container start sand-validation-spike`, then read `before-stop` from the same path. |
-| Read-write Allowed Folders work | PASS | Mounted `/tmp/sand-backend-validation/rw` at `/workspace/rw`; Sandbox User wrote `guest-created.txt` and modified `host-owned.txt`. |
-| Read-only Allowed Folders block writes | PASS | Mounted `/tmp/sand-backend-validation/ro` at `/workspace/ro,readonly`; write failed with `Read-only file system`; host had no `blocked.txt`. |
+| Read-write Shared Folders work | PASS | Mounted `/tmp/sand-backend-validation/rw` at `/workspace/rw`; Sandbox User wrote `guest-created.txt` and modified `host-owned.txt`. |
+| Read-only Shared Folders block writes | PASS | Mounted `/tmp/sand-backend-validation/ro` at `/workspace/ro,readonly`; write failed with `Read-only file system`; host had no `blocked.txt`. |
 | Host-Safe File Ownership for created files | PASS | Host `stat -f '%u' /tmp/sand-backend-validation/rw/guest-created.txt` returned host UID `501`. |
 | Host-Safe File Ownership for modified files | PASS | Host `stat -f '%u' /tmp/sand-backend-validation/rw/host-owned.txt` returned host UID `501` after guest modification. |
 | Interactive Sandbox Session as non-root Sandbox User | PASS | `container exec --tty --user sandbox --workdir /workspace sand-validation-spike bash -lc 'tty; whoami; pwd'` output `/dev/pts/0`, `sandbox`, `/workspace`. |
 | Passwordless sudo inside Sandbox Guest | PASS | `container exec --user sandbox sand-validation-spike bash -lc 'sudo -n whoami'` output `root`. |
 | Multiple Sandbox Sessions run concurrently | PASS | Two detached exec sessions slept concurrently; `pgrep -a sleep` showed init sleep plus two session sleeps; both wrote completion files. |
 | Runtime recreation preserves Guest State | PASS | Deleted runtime with `container delete --force`; recreated runtime with same volume; `/state/sandbox/persistent.txt`, `session-one.txt`, and `session-two.txt` persisted. |
-| Runtime recreation preserves Allowed Folder behavior | PASS | Recreated runtime with same rw/ro mounts; rw modification succeeded; ro write still failed with `Read-only file system`. |
+| Runtime recreation preserves Shared Folder behavior | PASS | Recreated runtime with same rw/ro mounts; rw modification succeeded; ro write still failed with `Read-only file system`. |
 | Working Directory Mapping can start sessions inside mounted folders | PASS | Executed with `--workdir /workspace/rw/subdir`; `pwd` output `/workspace/rw/subdir`; wrote `mapped.txt` visible on Host Mac. |
 | Outbound-Only Networking for package/API access | PASS | `curl -fsSL https://example.com >/tmp/example.html` succeeded inside the Sandbox Guest. |
 | Backend service behavior / auto-start possibility | PASS | `container system status` showed `running`; idempotent `container system start` exited `0`, so `sand` can call it before backend operations. |

@@ -211,7 +211,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
             "state: running",
             "image: custom:latest",
             "resources: 6 CPUs, 12GB memory",
-            "allowedFolders: 0"
+            "sharedFolders: 0"
         ])
         XCTAssertEqual(backend.calls, [.status("mybox")])
     }
@@ -220,8 +220,8 @@ final class LifecycleCoordinatorTests: XCTestCase {
         let name = try SandboxName("mybox")
         let spec = SandboxSpec(
             name: name,
-            allowedFolders: [
-                AllowedFolder(
+            sharedFolders: [
+                SharedFolder(
                     displayHostPath: "~/Projects/sand",
                     resolvedHostPath: "/Users/onur/Projects/sand",
                     guestPath: try GuestPath("/workspace/sand"),
@@ -246,7 +246,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
     }
 
     func testShellAutoStartsStoppedSandboxAndUsesMappedWorkingDirectory() throws {
-        let spec = try specWithAllowedFolder()
+        let spec = try specWithSharedFolder()
         let metadataStore = MemoryMetadataStore(specs: [spec], currentHostDirectory: "/Users/onur/Projects/sand")
         let backend = RecordingSandboxBackend(status: .stopped)
         let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
@@ -258,9 +258,9 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(metadataStore.lockEvents, [])
     }
 
-    func testRunOutsideAllowedFoldersWarnsAndUsesFallbackWorkingDirectory() throws {
+    func testRunOutsideSharedFoldersWarnsAndUsesFallbackWorkingDirectory() throws {
         var warnings: [String] = []
-        let spec = try specWithAllowedFolder()
+        let spec = try specWithSharedFolder()
         let metadataStore = MemoryMetadataStore(specs: [spec], currentHostDirectory: "/Users/onur/Downloads")
         let backend = RecordingSandboxBackend(status: .running)
         let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeWarning: { warnings.append($0) })
@@ -268,13 +268,13 @@ final class LifecycleCoordinatorTests: XCTestCase {
         let result = try coordinator.run(RunRequest(sandboxName: spec.name, command: try WorkloadCommand(arguments: ["pwd"])))
 
         XCTAssertEqual(result, .success)
-        XCTAssertEqual(warnings, ["Current directory is not inside an Allowed Folder; starting in /workspace."])
+        XCTAssertEqual(warnings, ["Current directory is not inside an Shared Folder; starting in /workspace."])
         XCTAssertEqual(backend.calls, [.status("mybox"), .run("mybox", ["pwd"], "/workspace")])
     }
 
-    func testShellOutsideAllowedFoldersWarnsAndUsesFallbackWorkingDirectory() throws {
+    func testShellOutsideSharedFoldersWarnsAndUsesFallbackWorkingDirectory() throws {
         var warnings: [String] = []
-        let spec = try specWithAllowedFolder()
+        let spec = try specWithSharedFolder()
         let metadataStore = MemoryMetadataStore(specs: [spec], currentHostDirectory: "/Users/onur/Downloads")
         let backend = RecordingSandboxBackend(status: .running)
         let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeWarning: { warnings.append($0) })
@@ -282,7 +282,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         let result = try coordinator.shell(ShellRequest(sandboxName: spec.name))
 
         XCTAssertEqual(result, .success)
-        XCTAssertEqual(warnings, ["Current directory is not inside an Allowed Folder; starting in /workspace."])
+        XCTAssertEqual(warnings, ["Current directory is not inside an Shared Folder; starting in /workspace."])
         XCTAssertEqual(backend.calls, [.status("mybox"), .shell("mybox", "/workspace")])
     }
 
@@ -326,7 +326,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         let result = try coordinator.addFolder(AddFolderRequest(sandboxName: spec.name, displayHostPath: "/Users/onur/Projects/sand", accessMode: "rw"))
 
         XCTAssertEqual(result, .success)
-        XCTAssertEqual(try metadataStore.readSpec(named: spec.name).allowedFolders.count, 1)
+        XCTAssertEqual(try metadataStore.readSpec(named: spec.name).sharedFolders.count, 1)
         XCTAssertEqual(backend.calls, [.status("mybox"), .apply("mybox")])
     }
 
@@ -334,9 +334,9 @@ final class LifecycleCoordinatorTests: XCTestCase {
         var output: [String] = []
         let spec = SandboxSpec(
             name: try SandboxName("mybox"),
-            allowedFolders: [
-                AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite),
-                AllowedFolder(displayHostPath: "/Users/onur/Downloads", resolvedHostPath: "/Users/onur/Downloads", guestPath: try GuestPath("/reference"), accessMode: .readOnly)
+            sharedFolders: [
+                SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite),
+                SharedFolder(displayHostPath: "/Users/onur/Downloads", resolvedHostPath: "/Users/onur/Downloads", guestPath: try GuestPath("/reference"), accessMode: .readOnly)
             ]
         )
         let coordinator = LifecycleCoordinator(
@@ -358,7 +358,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
     func testFolderRemoveMutatesSpecAndAutoAppliesThroughFakeBackend() throws {
         let spec = SandboxSpec(
             name: try SandboxName("mybox"),
-            allowedFolders: [AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)]
+            sharedFolders: [SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)]
         )
         let metadataStore = MemoryMetadataStore(specs: [spec])
         let backend = RecordingSandboxBackend(status: .stopped)
@@ -368,7 +368,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         let result = try coordinator.removeFolder(RemoveFolderRequest(sandboxName: spec.name, displayHostPath: "~/Projects/sand"))
 
         XCTAssertEqual(result, .success)
-        XCTAssertEqual(try metadataStore.readSpec(named: spec.name).allowedFolders, [])
+        XCTAssertEqual(try metadataStore.readSpec(named: spec.name).sharedFolders, [])
         XCTAssertEqual(backend.calls, [.status("mybox"), .apply("mybox")])
     }
 
@@ -400,12 +400,12 @@ final class LifecycleCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(result, .success)
         XCTAssertEqual(prompt.requests, [ConfirmationRequest(message: "Apply changes to running Sandbox VM mybox?", destructive: false)])
-        XCTAssertEqual(try metadataStore.readSpec(named: spec.name).allowedFolders.count, 1)
+        XCTAssertEqual(try metadataStore.readSpec(named: spec.name).sharedFolders.count, 1)
         XCTAssertEqual(backend.calls, [.status("mybox"), .apply("mybox")])
     }
 
     func testNormalRunAndShellAreNotSerializedBehindLifecycleMutationLocks() throws {
-        let spec = try specWithAllowedFolder()
+        let spec = try specWithSharedFolder()
         let metadataStore = MemoryMetadataStore(specs: [spec], currentHostDirectory: "/Users/onur/Projects/sand")
         let backend = RecordingSandboxBackend(status: .running)
         let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
@@ -417,10 +417,10 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(backend.calls, [.status("mybox"), .run("mybox", ["echo", "ok"], "/workspace/sand"), .status("mybox"), .shell("mybox", "/workspace/sand")])
     }
 
-    private func specWithAllowedFolder() throws -> SandboxSpec {
+    private func specWithSharedFolder() throws -> SandboxSpec {
         SandboxSpec(
             name: try SandboxName("mybox"),
-            allowedFolders: [AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)]
+            sharedFolders: [SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)]
         )
     }
 }

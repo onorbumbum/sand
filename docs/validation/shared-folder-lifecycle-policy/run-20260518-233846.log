@@ -9,16 +9,16 @@ Building for debugging...
 Build complete! (0.10s)
 [exit 0]
 
-$ mkdir -p /tmp/sand-allowed-folder-sand-af-233846/rw/subdir /tmp/sand-allowed-folder-sand-af-233846/ro /tmp/sand-allowed-folder-sand-af-233846/extra
+$ mkdir -p /tmp/sand-shared-folder-sand-af-233846/rw/subdir /tmp/sand-shared-folder-sand-af-233846/ro /tmp/sand-shared-folder-sand-af-233846/extra
 [exit 0]
 
-$ echo host-original > '/tmp/sand-allowed-folder-sand-af-233846/rw/host-owned.txt'
+$ echo host-original > '/tmp/sand-shared-folder-sand-af-233846/rw/host-owned.txt'
 [exit 0]
 
-$ echo readonly-host > '/tmp/sand-allowed-folder-sand-af-233846/ro/read-only-host.txt'
+$ echo readonly-host > '/tmp/sand-shared-folder-sand-af-233846/ro/read-only-host.txt'
 [exit 0]
 
-$ ln -s /tmp/sand-allowed-folder-sand-af-233846/rw/subdir /tmp/sand-allowed-folder-sand-af-233846/rw-child-link
+$ ln -s /tmp/sand-shared-folder-sand-af-233846/rw/subdir /tmp/sand-shared-folder-sand-af-233846/rw-child-link
 [exit 0]
 
 
@@ -27,17 +27,17 @@ $ ln -s /tmp/sand-allowed-folder-sand-af-233846/rw/subdir /tmp/sand-allowed-fold
 $ /Users/me/Projects/sand/.build/debug/sand create sand-af-233846 --cpus 2 --memory 1GB
 [exit 0]
 
-$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/rw rw
+$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-shared-folder-sand-af-233846/rw rw
 [exit 0]
 
 $ /Users/me/Projects/sand/.build/debug/sand folders list sand-af-233846
 Host Path	Guest Path	Access Mode
-/tmp/sand-allowed-folder-sand-af-233846/rw	/workspace/rw	read-write
+/tmp/sand-shared-folder-sand-af-233846/rw	/workspace/rw	read-write
 [exit 0]
 
-$ grep -F '/tmp/sand-allowed-folder-sand-af-233846/rw' '/Users/me/.sand/specs/sand-af-233846.yaml'
-  - hostPath: /tmp/sand-allowed-folder-sand-af-233846/rw
-    resolvedHostPath: /tmp/sand-allowed-folder-sand-af-233846/rw
+$ grep -F '/tmp/sand-shared-folder-sand-af-233846/rw' '/Users/me/.sand/specs/sand-af-233846.yaml'
+  - hostPath: /tmp/sand-shared-folder-sand-af-233846/rw
+    resolvedHostPath: /tmp/sand-shared-folder-sand-af-233846/rw
 [exit 0]
 
 $ grep -F 'guestPath: /workspace/rw' '/Users/me/.sand/specs/sand-af-233846.yaml'
@@ -51,16 +51,16 @@ $ grep -F 'accessMode: read-write' '/Users/me/.sand/specs/sand-af-233846.yaml'
 
 ### Idempotently update existing host folder Guest Path and add read-only folder
 
-$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/rw read-write --as /code
+$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-shared-folder-sand-af-233846/rw read-write --as /code
 [exit 0]
 
-$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/ro ro --as /reference
+$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-shared-folder-sand-af-233846/ro ro --as /reference
 [exit 0]
 
 $ /Users/me/Projects/sand/.build/debug/sand folders list sand-af-233846
 Host Path	Guest Path	Access Mode
-/tmp/sand-allowed-folder-sand-af-233846/rw	/code	read-write
-/tmp/sand-allowed-folder-sand-af-233846/ro	/reference	read-only
+/tmp/sand-shared-folder-sand-af-233846/rw	/code	read-write
+/tmp/sand-shared-folder-sand-af-233846/ro	/reference	read-only
 [exit 0]
 
 $ grep -F 'guestPath: /code' '/Users/me/.sand/specs/sand-af-233846.yaml'
@@ -75,23 +75,23 @@ $ grep -F 'accessMode: read-only' '/Users/me/.sand/specs/sand-af-233846.yaml'
 ### Reject duplicate Guest Paths, overlapping host folders, and symlink realpath overlap
 sand: duplicateGuestPath("/code")
 duplicate Guest Path rejected
-sand: overlappingHostFolders("/tmp/sand-allowed-folder-sand-af-233846/rw", "/tmp/sand-allowed-folder-sand-af-233846/rw/subdir")
+sand: overlappingHostFolders("/tmp/sand-shared-folder-sand-af-233846/rw", "/tmp/sand-shared-folder-sand-af-233846/rw/subdir")
 overlapping host folder rejected
-sand: overlappingHostFolders("/tmp/sand-allowed-folder-sand-af-233846/rw", "/tmp/sand-allowed-folder-sand-af-233846/rw/subdir")
+sand: overlappingHostFolders("/tmp/sand-shared-folder-sand-af-233846/rw", "/tmp/sand-shared-folder-sand-af-233846/rw/subdir")
 symlink realpath overlap rejected
 
 
-### Remove and re-add an Allowed Folder while stopped
+### Remove and re-add an Shared Folder while stopped
 
-$ /Users/me/Projects/sand/.build/debug/sand folders remove sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/ro
+$ /Users/me/Projects/sand/.build/debug/sand folders remove sand-af-233846 /tmp/sand-shared-folder-sand-af-233846/ro
 [exit 0]
 
 $ /Users/me/Projects/sand/.build/debug/sand folders list sand-af-233846
 Host Path	Guest Path	Access Mode
-/tmp/sand-allowed-folder-sand-af-233846/rw	/code	read-write
+/tmp/sand-shared-folder-sand-af-233846/rw	/code	read-write
 [exit 0]
 
-$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-allowed-folder-sand-af-233846/ro read-only --as /reference
+$ /Users/me/Projects/sand/.build/debug/sand folders add sand-af-233846 /tmp/sand-shared-folder-sand-af-233846/ro read-only --as /reference
 [exit 0]
 
 
@@ -106,7 +106,7 @@ host-original
 guest-modified
 [exit 0]
 
-$ ls -lna /tmp/sand-allowed-folder-sand-af-233846/rw
+$ ls -lna /tmp/sand-shared-folder-sand-af-233846/rw
 total 16
 drwxr-xr-x@ 5 501  0  160 May 18 23:38 .
 drwxr-xr-x@ 6 501  0  192 May 18 23:38 ..
@@ -115,15 +115,15 @@ drwxr-xr-x@ 6 501  0  192 May 18 23:38 ..
 drwxr-xr-x@ 2 501  0   64 May 18 23:38 subdir
 [exit 0]
 
-$ test "$(stat -f '%u' '/tmp/sand-allowed-folder-sand-af-233846/rw/guest-created.txt')" = '501'
+$ test "$(stat -f '%u' '/tmp/sand-shared-folder-sand-af-233846/rw/guest-created.txt')" = '501'
 [exit 0]
 
-$ test "$(stat -f '%u' '/tmp/sand-allowed-folder-sand-af-233846/rw/host-owned.txt')" = '501'
+$ test "$(stat -f '%u' '/tmp/sand-shared-folder-sand-af-233846/rw/host-owned.txt')" = '501'
 [exit 0]
 bash: line 1: /reference/blocked.txt: Read-only file system
 read-only write rejected
 
-$ test ! -e '/tmp/sand-allowed-folder-sand-af-233846/ro/blocked.txt'
+$ test ! -e '/tmp/sand-shared-folder-sand-af-233846/ro/blocked.txt'
 [exit 0]
 
 
@@ -144,4 +144,4 @@ $ test ! -e '/Users/me/.sand/specs/sand-af-233846.yaml'
 
 $ test "[]" = '[]'
 [exit 0]
-Validation completed successfully. Log: /Users/me/Projects/sand/docs/validation/allowed-folder-lifecycle-policy/run-20260518-233846.log
+Validation completed successfully. Log: /Users/me/Projects/sand/docs/validation/shared-folder-lifecycle-policy/run-20260518-233846.log

@@ -54,18 +54,18 @@ image: sand/developer-ready:ubuntu-lts
 resources:
   cpus: 2
   memory: 1GB
-allowedFolders:
+sharedFolders:
   []
 [exit 0]
 
 $ .build/debug/sand sand-pi-boundary-002050 run pi --version
-Current directory is not inside an Allowed Folder; starting in /workspace.
+Current directory is not inside an Shared Folder; starting in /workspace.
 0.73.1
 [exit 0]
 UNAUTHENTICATED_PI_SMOKE=pi --version only; no human-authenticated Pi login or provider credential setup was attempted.
 
 $ .build/debug/sand sand-pi-boundary-002050 run bash -lc $'\n  set -euo pipefail\n  test "$(readlink "$HOME/.pi")" = /state/sandbox/.pi\n  test "$(readlink "$HOME/.sand-secrets")" = /state/sandbox/secrets\n  printf PI_IDENTITY_MARKER > "$HOME/.pi/identity-marker"\n  test "$(cat /state/sandbox/.pi/identity-marker)" = PI_IDENTITY_MARKER\n  test ! -e /Users\n  test ! -e /host\n  test ! -e "$HOME/.aws"\n  test ! -e "$HOME/.config/gcloud"\n  test ! -e "$HOME/.ssh"\n  test ! -S /run/host-services/ssh-auth.sock\n  test -z "${SSH_AUTH_SOCK:-}"\n'
-Current directory is not inside an Allowed Folder; starting in /workspace.
+Current directory is not inside an Shared Folder; starting in /workspace.
 [exit 0]
 
 $ container inspect "$NAME"
@@ -78,7 +78,7 @@ $ .build/debug/sand apply sand-pi-boundary-002050
 [exit 0]
 
 $ .build/debug/sand sand-pi-boundary-002050 run bash -lc test\ \"\$\(cat\ \"\$HOME/.pi/identity-marker\"\)\"\ =\ PI_IDENTITY_MARKER
-Current directory is not inside an Allowed Folder; starting in /workspace.
+Current directory is not inside an Shared Folder; starting in /workspace.
 [exit 0]
 
 $ .build/debug/sand "$NAME" pi

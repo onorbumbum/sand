@@ -15,7 +15,7 @@ Harness: `docs/validation/declarative-spec-apply/validate.sh`
 - Resource Profile: 2 CPUs, 1GB memory
 - Backend: Apple `container` CLI 0.12.3
 - Host test root: `/tmp/sand-declarative-apply-sand-apply-235756`
-- Initial Allowed Folder: host `.../code` mounted as `/code`
+- Initial Shared Folder: host `.../code` mounted as `/code`
 - Manual spec edits added `.../extra` as `/extra` and `.../running` as `/running`
 
 ## Requirement results

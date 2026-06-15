@@ -5,7 +5,7 @@
 The short version:
 
 1. Create a named Sandbox VM.
-2. Add the Host Mac folders it is allowed to see.
+2. Add the Host Mac folders it is shared to see.
 3. Run Pi, a shell, or another command inside that sandbox.
 4. Stop and start it without losing the guest setup.
 5. Delete it when the workspace is no longer needed.

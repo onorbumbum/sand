@@ -6,7 +6,7 @@
 
 > Fully generated documentation. Do not hand-edit this file outside the Documentation Refresh Workflow. Regenerate it with `scripts/generate-cli-reference.sh` so usage stays aligned with actual `sand` help output.
 
-This reference captures the v1 **Control Surface** for managing **Sandbox VMs**, **Allowed Folders**, **Sandbox Sessions**, and generic **Workload Commands**.
+This reference captures the v1 **Control Surface** for managing **Sandbox VMs**, **Shared Folders**, **Sandbox Sessions**, and generic **Workload Commands**.
 
 ## Generation source
 
@@ -47,7 +47,7 @@ Commands:
   list                           List Sandbox VMs
   apply <name>                   Apply spec changes
   delete <name> [--force]        Delete a Sandbox VM
-  folders <action> ...           Manage allowed Host Mac folders
+  folders <action> ...           Manage shared Host Mac folders
   <name> status                  Show Sandbox VM status
   <name> start                   Start a Sandbox VM
   <name> stop                    Stop a Sandbox VM
@@ -80,7 +80,7 @@ Creates a Sandbox VM from generated defaults or from an authored spec.
 ```text
 Usage: sand list
 
-Lists known Sandbox VMs with runtime state, image, and allowed folder count.
+Lists known Sandbox VMs with runtime state, image, and shared folder count.
 ```
 
 ## `sand apply`
@@ -88,7 +88,7 @@ Lists known Sandbox VMs with runtime state, image, and allowed folder count.
 ```text
 Usage: sand apply <name>
 
-Applies allowed spec changes to an existing Sandbox VM.
+Applies shared spec changes to an existing Sandbox VM.
 ```
 
 ## `sand delete`
