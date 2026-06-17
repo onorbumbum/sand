@@ -20,7 +20,7 @@ The user wants a safer, easier way to run Pi and related developer workloads wit
 
 The desired mental model is an isolated small Linux computer: a Sandbox VM that can have broad/root-level control inside its own Sandbox Guest, while seeing only the Host Mac folders explicitly allowed by the user. The Sandbox VM should have persistent Guest State for installed tools, shell config, package caches, Pi identity, and Guest Secrets, but it must not inherit Host Mac credentials or Pi config by default.
 
-This is an internal, Pi-first tool, but it should not become a Pi-specific launcher. The first Control Surface should be a Swift CLI named `sand`. Running Pi should be as simple as running a Workload Command inside the sandbox, for example `sand mybox run pi [args...]`. The same primitive should support future internal harnesses such as `aslan-agent` without `sand` understanding their flags.
+This is an internal, Pi-first tool, but it should not become a Pi-specific launcher. The first API Surface should be a Swift CLI named `sand`. Running Pi should be as simple as running a Workload Command inside the sandbox, for example `sand mybox run pi [args...]`. The same primitive should support future internal harnesses such as `aslan-agent` without `sand` understanding their flags.
 
 The solution must not become a shallow pile of Apple `container` command wrappers. It must follow Ousterhout-style deep module design: a small, stable, testable domain/spec layer and a deep Sandbox Backend that hides backend-specific details behind a shallow interface. The Apple `container` CLI is the preferred first backend only if a Backend Validation Spike proves it satisfies hard product requirements, especially persistent Guest State and Host-Safe File Ownership.
 
@@ -58,7 +58,7 @@ The first Sandbox Backend shells out to Apple `container`, but only through a de
 9. As the user, I want Guest State to be separate from Host Metadata, so that `sand` management data and guest filesystem state do not blur together.
 10. As the user, I want credentials used by the Sandbox VM to be Guest Secrets only in v1, so that host tokens and credential files are not mounted or forwarded by default.
 11. As the user, I want Pi Identity to live in Guest State, so that sandboxed Pi behaves like it has its own computer.
-12. As the user, I want the first Control Surface to be a CLI, so that I can use the tool naturally from terminal workflows.
+12. As the user, I want the first API Surface to be a CLI, so that I can use the tool naturally from terminal workflows.
 13. As the user, I want the CLI to be named `sand`, so that commands are short and memorable.
 14. As the user, I want Sandbox Names to be global per user, so that I can use the same named Sandbox VM from any directory.
 15. As the user, I want daily commands to be sandbox-first, so that `sand mybox shell` and `sand mybox run pi` read like operating a named computer.
@@ -235,7 +235,7 @@ The first Sandbox Backend shells out to Apple `container`, but only through a de
 - V1 uses Outbound-Only Networking.
 - Inbound port publishing is out of scope for v1.
 - The first Sandbox Backend shells out to Apple `container`.
-- Backend details must not leak into the Control Surface or Sandbox Spec.
+- Backend details must not leak into the API Surface or Sandbox Spec.
 - Apple `container` CLI is acceptable only after a Backend Validation Spike passes.
 - If Apple `container` CLI fails hard requirements, evaluate direct Apple Containerization Swift APIs.
 - If direct Apple Containerization also fails, stop rather than falling through to non-Apple backends.

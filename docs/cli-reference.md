@@ -1,32 +1,31 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: 4611688f2471ede3a9c27aa0340797287c49354225e6bbf68a7472d6629486cd -->
+<!-- docs-input-hash: 8ca860129690ce9cda29fdc549c31473e5389b7443f6b14b493f38741283170e -->
 
 # sand CLI Reference
 
 > Fully generated documentation. Do not hand-edit this file outside the Documentation Refresh Workflow. Regenerate it with `scripts/generate-cli-reference.sh` so usage stays aligned with actual `sand` help output.
 
-This reference captures the v1 **Control Surface** for managing **Sandbox VMs**, **Allowed Folders**, **Sandbox Sessions**, and generic **Workload Commands**.
+This reference captures the v1 **API Surface** for managing **Sandbox VMs**, **Allowed Folders**, **Sandbox Sessions**, and generic **Workload Commands**.
 
 ## Generation source
 
-- Docs input hash: `4611688f2471ede3a9c27aa0340797287c49354225e6bbf68a7472d6629486cd`
+- Docs input hash: `8ca860129690ce9cda29fdc549c31473e5389b7443f6b14b493f38741283170e`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
-- Usage sections below are captured from actual `sand --help`, `sand <command> --help`, `sand <name> --help`, and `sand --version` output.
+- Usage sections below are captured from actual `sand --help`, `sand <command> --help`, and `sand --version` output.
 
 ## Supported v1 command surface
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `doctor`, `create`, `list`, `apply`, `delete`, `folders`
-- Sandbox-first actions: `sand <name> status`, `start`, `stop`, `shell`, `run <command> [args...]`, `logs`, `spec`
+- Top-level commands: `doctor`, `create`, `list`, `apply`, `delete`, `folders`, `status`, `start`, `stop`, `shell`, `run`, `logs`, `spec`
 
 ## Current v1 boundaries
 
 The v1 command surface is intentionally explicit and small:
 
 - To clear a Sandbox VM completely, delete it and create a new one.
-- To run Pi, use the same command shape as any other tool: `sand <name> run pi [args...]`.
+- To run Pi, use the same command shape as any other tool: `sand run <name> pi [args...]`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need a handoff flow outside the command surface.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
 
@@ -48,15 +47,15 @@ Commands:
   apply <name>                   Apply spec changes
   delete <name> [--force]        Delete a Sandbox VM
   folders <action> ...           Manage allowed Host Mac folders
-  <name> status                  Show Sandbox VM status
-  <name> start                   Start a Sandbox VM
-  <name> stop                    Stop a Sandbox VM
-  <name> shell                   Open a shell
-  <name> run <command> [args...] Run a Workload Command
-  <name> logs                    Show logs
-  <name> spec                    Print the sandbox spec
+  status <name>                  Show Sandbox VM status
+  start <name>                   Start a Sandbox VM
+  stop <name>                    Stop a Sandbox VM
+  shell <name>                   Open a shell
+  run <name> <command> [args...] Run a Workload Command
+  logs <name>                    Show logs
+  spec <name>                    Print the sandbox spec
 
-Use `sand <command> --help` or `sand <name> --help` for command help.
+Use `sand <command> --help` for command help.
 ```
 
 ## `sand doctor`
@@ -110,19 +109,63 @@ Actions:
   folders remove <name> <host-path>
 ```
 
-## Sandbox-first actions
-
-Use `sand <name> --help` to print the supported Sandbox Session and lifecycle actions for a named **Sandbox VM**.
+## `sand status`
 
 ```text
-Usage: sand <name> <action> [arguments]
+Usage: sand status <name>
 
-Actions:
-  status                         Show status
-  start                          Start the Sandbox VM
-  stop                           Stop the Sandbox VM
-  shell                          Open an interactive shell
-  run <command> [args...]        Run a Workload Command
-  logs                           Show logs
-  spec                           Print the sandbox spec
+Shows the current status of a Sandbox VM.
+```
+
+## `sand start`
+
+```text
+Usage: sand start <name>
+
+Starts a Sandbox VM.
+```
+
+
+## `sand stop`
+
+
+```text
+Usage: sand stop <name>
+
+Stops a Sandbox VM.
+```
+
+## `sand shell`
+
+
+```text
+Usage: sand shell <name>
+
+Opens an interactive shell in the Sandbox VM.
+```
+
+## `sand run`
+
+
+```text
+Usage: sand run <name> <command> [args...]
+
+Runs a command inside the Sandbox VM.
+```
+
+## `sand logs`
+
+```text
+Usage: sand logs <name>
+
+Shows logs for a Sandbox VM.
+```
+
+## `sand spec`
+
+
+```text
+Usage: sand spec <name>
+
+Prints the sandbox spec.
 ```

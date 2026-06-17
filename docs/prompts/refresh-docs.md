@@ -27,7 +27,7 @@ Use that exact hash value as the recorded freshness metadata in every registered
 ## Source-of-truth rules
 
 - Public behavior comes from executable specs, CLI parser/application code, actual `sand` help output, and the domain language file.
-- Prefer real `sand --help`, `sand <command> --help`, and `sand <name> --help` output when producing command examples or option lists. If the binary cannot be built or run, derive the command surface from command definitions and tests, and say so in the evidence.
+- Prefer real `sand --help` and `sand <command> --help` output when producing command examples or option lists. If the binary cannot be built or run, derive the command surface from command definitions and tests, and say so in the evidence.
 - Do not invent features. If source files and tests disagree, document the conflict in your final evidence and do not guess.
 - Use **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Guest State**, **Runtime Instance**, **Sandbox Session**, **Workload Command**, and other terms from `issues/sand/CONTEXT.md`.
 - Avoid banned or misleading terms from the context file, such as generic Docker/container wording for user-facing product concepts.

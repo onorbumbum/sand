@@ -100,7 +100,7 @@ _Avoid_: Pi launch, Pi-specific command, agent launcher
 The user-chosen name for a Sandbox VM used in commands and management flows.
 _Avoid_: Computer name, VM id, container name
 
-**Control Surface**:
+**API Surface**:
 The user-facing way to create, configure, launch, and inspect Sandbox VMs, named `sand` for the first Swift CLI.
 _Avoid_: UI, frontend
 
@@ -218,7 +218,7 @@ _Avoid_: Parent machine, main computer
 - Each **Sandbox VM** has a globally unique per-user **Sandbox Name** for CLI commands and management.
 - Daily CLI syntax is sandbox-first and explicit: `sand <sandbox-name> <action>`.
 - The first version has no default sandbox or project-local implicit sandbox selection.
-- The first **Control Surface** is a Swift CLI; any desktop UI should wrap the same underlying sandbox model later.
+- The first **API Surface** is a Swift CLI; any desktop UI should wrap the same underlying sandbox model later.
 - The **Documentation System** uses executable behavior specs as the source of truth for behavior, with human-facing docs generated from or checked against those specs.
 - **Generated Documentation** is committed to the repository rather than generated only on demand.
 - The first **Generated Documentation** set is `README.md`, **Onboarding Guide** at `docs/onboarding.md`, **CLI Reference** at `docs/cli-reference.md`, and **Developer Guide** at `docs/developer-guide.md`.
@@ -241,7 +241,7 @@ _Avoid_: Parent machine, main computer
 - Implementation is test-first around the domain/spec layer before backend integration work.
 - The first version includes minimal diagnostics through `sand doctor` and `sand <sandbox-name> logs`.
 - `sand` auto-starts the **Backend Service** when needed and reports failures clearly.
-- The first **Sandbox Backend** shells out to Apple `container`, but backend details must not leak into the Control Surface or Sandbox Spec.
+- The first **Sandbox Backend** shells out to Apple `container`, but backend details must not leak into the API Surface or Sandbox Spec.
 - A **Backend Validation Spike** must pass before committing to the Apple `container` CLI backend.
 - If the Apple `container` CLI fails hard requirements, evaluate direct Apple Containerization Swift APIs; if that also fails, stop rather than falling through to non-Apple backends.
 
