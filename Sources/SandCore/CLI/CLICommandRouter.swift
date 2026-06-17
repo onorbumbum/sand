@@ -57,10 +57,40 @@ public struct CLICommandRouter {
         case "folders":
             if try printHelpIfRequested(arguments, CLIHelp.folders) { return .success }
             return try dispatchFolders(Array(arguments.dropFirst()))
+        case "status":
+            if try printHelpIfRequested(arguments, CLIHelp.status) { return .success }
+            let name = try singleNameArgument(arguments, command: "status")
+            return try application.status(NamedSandboxRequest(sandboxName: name))
+        case "start":
+            if try printHelpIfRequested(arguments, CLIHelp.start) { return .success }
+            let name = try singleNameArgument(arguments, command: "start")
+            return try application.start(NamedSandboxRequest(sandboxName: name))
+        case "stop":
+            if try printHelpIfRequested(arguments, CLIHelp.stop) { return .success }
+            let name = try singleNameArgument(arguments, command: "stop")
+            return try application.stop(NamedSandboxRequest(sandboxName: name))
+        case "shell":
+            if try printHelpIfRequested(arguments, CLIHelp.shell) { return .success }
+            let name = try singleNameArgument(arguments, command: "shell")
+            return try application.shell(ShellRequest(sandboxName: name))
+        case "run":
+            if try printHelpIfRequested(arguments, CLIHelp.run) { return .success }
+            guard arguments.count >= 3 else { throw CLICommandError.missingArgument("run <name> <command> [args...]") }
+            let name = try SandboxName(arguments[1])
+            let command = try WorkloadCommand(arguments: Array(arguments.dropFirst(2)))
+            return try application.run(RunRequest(sandboxName: name, command: command))
+        case "logs":
+            if try printHelpIfRequested(arguments, CLIHelp.logs) { return .success }
+            let name = try singleNameArgument(arguments, command: "logs")
+            return try application.logs(NamedSandboxRequest(sandboxName: name))
+        case "spec":
+            if try printHelpIfRequested(arguments, CLIHelp.spec) { return .success }
+            let name = try singleNameArgument(arguments, command: "spec")
+            return try application.spec(NamedSandboxRequest(sandboxName: name))
         case "reset":
             throw CLICommandError.unsupportedCommand("reset")
         default:
-            return try dispatchSandboxFirst(nameArgument: first, remaining: Array(arguments.dropFirst()))
+            throw CLICommandError.unsupportedCommand(first)
         }
     }
 
@@ -162,46 +192,6 @@ public struct CLICommandRouter {
         }
     }
 
-    // Dispatches sandbox-first commands like `<name> status`.
-    private func dispatchSandboxFirst(nameArgument: String, remaining: [String]) throws -> CommandResult {
-        let name = try SandboxName(nameArgument)
-        guard let action = remaining.first else { throw CLICommandError.missingAction }
-        if action == "--help" || action == "-h" {
-            try requireExactCount(remaining, 1)
-            writeOutput(CLIHelp.sandboxActions)
-            return .success
-        }
-
-        switch action {
-        case "status":
-            try requireExactCount(remaining, 1)
-            return try application.status(NamedSandboxRequest(sandboxName: name))
-        case "start":
-            try requireExactCount(remaining, 1)
-            return try application.start(NamedSandboxRequest(sandboxName: name))
-        case "stop":
-            try requireExactCount(remaining, 1)
-            return try application.stop(NamedSandboxRequest(sandboxName: name))
-        case "shell":
-            try requireExactCount(remaining, 1)
-            return try application.shell(ShellRequest(sandboxName: name))
-        case "run":
-            let workloadArguments = Array(remaining.dropFirst())
-            let command = try WorkloadCommand(arguments: workloadArguments)
-            return try application.run(RunRequest(sandboxName: name, command: command))
-        case "logs":
-            try requireExactCount(remaining, 1)
-            return try application.logs(NamedSandboxRequest(sandboxName: name))
-        case "spec":
-            try requireExactCount(remaining, 1)
-            return try application.spec(NamedSandboxRequest(sandboxName: name))
-        case "pi":
-            throw CLICommandError.unsupportedAction("pi")
-        default:
-            throw CLICommandError.unsupportedAction(action)
-        }
-    }
-
     private func singleNameArgument(_ arguments: [String], command: String) throws -> SandboxName {
         guard arguments.count == 2 else { throw CLICommandError.missingArgument("\(command) <name>") }
         return try SandboxName(arguments[1])
@@ -229,16 +219,16 @@ private enum CLIHelp {
       list                           List Sandbox VMs
       apply <name>                   Apply spec changes
       delete <name> [--force]        Delete a Sandbox VM
-      folders <action> ...           Manage shared Host Mac folders
-      <name> status                  Show Sandbox VM status
-      <name> start                   Start a Sandbox VM
-      <name> stop                    Stop a Sandbox VM
-      <name> shell                   Open a shell
-      <name> run <command> [args...] Run a Workload Command
-      <name> logs                    Show logs
-      <name> spec                    Print the sandbox spec
+      folders <action> ...           Manage allowed Host Mac folders
+      status <name>                  Show Sandbox VM status
+      start <name>                   Start a Sandbox VM
+      stop <name>                    Stop a Sandbox VM
+      shell <name>                   Open a shell
+      run <name> <command> [args...] Run a Workload Command
+      logs <name>                    Show logs
+      spec <name>                    Print the sandbox spec
 
-    Use `sand <command> --help` or `sand <name> --help` for command help.
+    Use `sand <command> --help` for command help.
     """
 
     static let doctor = """
@@ -280,17 +270,46 @@ private enum CLIHelp {
       folders remove <name> <host-path>
     """
 
-    static let sandboxActions = """
-    Usage: sand <name> <action> [arguments]
+    static let status = """
+    Usage: sand status <name>
 
-    Actions:
-      status                         Show status
-      start                          Start the Sandbox VM
-      stop                           Stop the Sandbox VM
-      shell                          Open an interactive shell
-      run <command> [args...]        Run a Workload Command
-      logs                           Show logs
-      spec                           Print the sandbox spec
+    Shows the current status of a Sandbox VM.
+    """
+
+    static let start = """
+    Usage: sand start <name>
+
+    Starts a Sandbox VM.
+    """
+
+    static let stop = """
+    Usage: sand stop <name>
+
+    Stops a Sandbox VM.
+    """
+
+    static let shell = """
+    Usage: sand shell <name>
+
+    Opens an interactive shell in the Sandbox VM.
+    """
+
+    static let run = """
+    Usage: sand run <name> <command> [args...]
+
+    Runs a command inside the Sandbox VM.
+    """
+
+    static let logs = """
+    Usage: sand logs <name>
+
+    Shows logs for a Sandbox VM.
+    """
+
+    static let spec = """
+    Usage: sand spec <name>
+
+    Prints the sandbox spec.
     """
 }
 

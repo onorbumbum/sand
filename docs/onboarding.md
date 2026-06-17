@@ -54,7 +54,7 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 | Path | Purpose |
 | --- | --- |
 | `Sources/sand/main.swift` | CLI executable entry point. |
-| `Sources/SandCore/CLI/` | Command routing and application orchestration for the `sand` Control Surface. |
+| `Sources/SandCore/CLI/` | Command routing and application orchestration for the `sand` API Surface. |
 | `Sources/SandCore/Backend/` | Sandbox Backend interfaces and Apple `container` backend plumbing. Backend details should not leak into user-facing language. |
 | `Sources/SandCore/Doctor/` | Doctor Checks for Host Mac support, backend readiness, default image availability, and Host Metadata writability. |
 | `Sources/SandCore/Domain/` | Small domain types such as Sandbox Name and Workload Command. |

@@ -52,9 +52,9 @@ This alpha is intentionally focused on the daily loop:
 
 - create, list, inspect, start, stop, apply, log, and delete Sandbox VMs
 - add Host Mac folders as read-write or read-only Guest Paths
-- run Pi or any other command inside the Sandbox VM with `sand <name> run <command> [args...]`
-- start commands in the matching Guest Path when your Mac current directory is inside an Shared Folder
-- open an interactive Sandbox Session with `sand <name> shell`
+- run Pi or any other command inside the Sandbox VM with `sand run <name> <command> [args...]`
+- start commands in the matching Guest Path when your Mac current directory is inside an Allowed Folder
+- open an interactive Sandbox Session with `sand shell <name>`
 - keep Guest State under `/state/sandbox` across stop/start for the same Sandbox VM
 - use the Developer-Ready Sandbox image with common development tools already installed
 
@@ -189,7 +189,7 @@ sand delete demo --force
 ```
 <!-- docs:managed:end -->
 
-Persistence expectation: Shared Folder contents persist because they are host files. Guest State written under `/state/sandbox` persists across `sand <name> stop` and `sand <name> start` for the same Sandbox VM. Deleting the Sandbox VM removes its Guest State volume and Host Metadata spec.
+Persistence expectation: Allowed Folder contents persist because they are host files. Guest State written under `/state/sandbox` persists across `sand stop <name>` and `sand start <name>` for the same Sandbox VM. Deleting the Sandbox VM removes its Guest State volume and Host Metadata spec.
 
 ## Subscription and OAuth logins inside a Sandbox VM
 
@@ -230,7 +230,7 @@ Supported v1 commands:
 
 - Global: `sand --help`, `sand --version`
 - Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`
-- Sandbox-first actions: `sand <name> status`, `sand <name> start`, `sand <name> stop`, `sand <name> shell`, `sand <name> run <command> [args...]`, `sand <name> logs`, `sand <name> spec`
+- Sandbox actions: `sand status <name>`, `sand start <name>`, `sand stop <name>`, `sand shell <name>`, `sand run <name> <command> [args...]`, `sand logs <name>`, `sand spec <name>`
 
 Command help:
 
@@ -257,7 +257,7 @@ sand folders remove demo "$HOME/Reference"
 Current v1 boundaries:
 
 - To clear a Sandbox VM completely, delete it and create a new one.
-- To run Pi, use the same command shape as any other tool: `sand <name> run pi [args...]`.
+- To run Pi, use the same command shape as any other tool: `sand run <name> pi [args...]`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need the handoff flow described above.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
 <!-- docs:managed:end -->

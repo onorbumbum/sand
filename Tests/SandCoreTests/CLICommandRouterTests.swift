@@ -17,7 +17,7 @@ final class CLICommandRouterTests: XCTestCase {
 
         XCTAssertTrue(output[0].contains("Usage: sand <command>"))
         XCTAssertTrue(output[0].contains("doctor"))
-        XCTAssertTrue(output[0].contains("<name> run"))
+        XCTAssertTrue(output[0].contains("run <name>"))
         XCTAssertEqual(output[1], "sand 0.1.0-dev")
         XCTAssertEqual(app.calls, [])
     }
@@ -31,7 +31,6 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertEqual(try router.dispatch(arguments: ["delete", "--help"]), .success)
         XCTAssertEqual(try router.dispatch(arguments: ["apply", "--help"]), .success)
         XCTAssertEqual(try router.dispatch(arguments: ["folders", "--help"]), .success)
-        XCTAssertEqual(try router.dispatch(arguments: ["mybox", "--help"]), .success)
 
         XCTAssertTrue(output[0].contains("Usage: sand create <name>"))
         XCTAssertTrue(output[0].contains("--from <spec.yaml>"))
@@ -40,8 +39,6 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertTrue(output[2].contains("Usage: sand apply <name>"))
         XCTAssertTrue(output[3].contains("Usage: sand folders <action>"))
         XCTAssertTrue(output[3].contains("folders add <name> <host-path> <rw|ro>"))
-        XCTAssertTrue(output[4].contains("Usage: sand <name> <action>"))
-        XCTAssertTrue(output[4].contains("run <command> [args...]"))
         XCTAssertEqual(app.calls, [])
     }
 
@@ -66,13 +63,13 @@ final class CLICommandRouterTests: XCTestCase {
             (["apply", "mybox"], .apply("mybox")),
             (["delete", "mybox"], .delete("mybox", false)),
             (["delete", "mybox", "--force"], .delete("mybox", true)),
-            (["mybox", "status"], .status("mybox")),
-            (["mybox", "start"], .start("mybox")),
-            (["mybox", "stop"], .stop("mybox")),
-            (["mybox", "shell"], .shell("mybox")),
-            (["mybox", "run", "echo", "hello"], .run("mybox", ["echo", "hello"])),
-            (["mybox", "logs"], .logs("mybox")),
-            (["mybox", "spec"], .spec("mybox")),
+            (["status", "mybox"], .status("mybox")),
+            (["start", "mybox"], .start("mybox")),
+            (["stop", "mybox"], .stop("mybox")),
+            (["shell", "mybox"], .shell("mybox")),
+            (["run", "mybox", "echo", "hello"], .run("mybox", ["echo", "hello"])),
+            (["logs", "mybox"], .logs("mybox")),
+            (["spec", "mybox"], .spec("mybox")),
             (["folders", "add", "mybox", "~/Projects", "rw"], .addFolder("mybox", "~/Projects", "rw", nil)),
             (["folders", "add", "mybox", "~/Projects", "ro", "--as", "/code"], .addFolder("mybox", "~/Projects", "ro", "/code")),
             (["folders", "list", "mybox"], .listFolders("mybox")),
@@ -95,7 +92,7 @@ final class CLICommandRouterTests: XCTestCase {
         let app = RecordingSandboxApplication()
         let router = CLICommandRouter(application: app)
 
-        let result = try router.dispatch(arguments: ["mybox", "run", "pi", "--model", "gpt-5", "--", "literal"])
+        let result = try router.dispatch(arguments: ["run", "mybox", "pi", "--model", "gpt-5", "--", "literal"])
 
         XCTAssertEqual(result, .success)
         XCTAssertEqual(app.calls, [.run("mybox", ["pi", "--model", "gpt-5", "--", "literal"])])
@@ -129,20 +126,14 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertThrowsError(try router.dispatch(arguments: ["reset", "--help"])) { error in
             XCTAssertEqual(error as? CLICommandError, .unsupportedCommand("reset"))
         }
-        XCTAssertThrowsError(try router.dispatch(arguments: ["mybox", "pi"])) { error in
-            XCTAssertEqual(error as? CLICommandError, .unsupportedAction("pi"))
-        }
-        XCTAssertThrowsError(try router.dispatch(arguments: ["mybox", "pi", "--help"])) { error in
-            XCTAssertEqual(error as? CLICommandError, .unsupportedAction("pi"))
+        XCTAssertThrowsError(try router.dispatch(arguments: ["status", "mybox", "pi"])) { error in
+            XCTAssertEqual(error as? CLICommandError, .missingArgument("status <name>"))
         }
         XCTAssertThrowsError(try router.dispatch(arguments: ["create", "mybox", "--inbound", "8080:8080"])) { error in
             XCTAssertEqual(error as? CLICommandError, .unsupportedOption("--inbound"))
         }
-        XCTAssertThrowsError(try router.dispatch(arguments: ["run", "pi"])) { error in
-            XCTAssertEqual(error as? CLICommandError, .unsupportedAction("pi"))
-        }
-        XCTAssertThrowsError(try router.dispatch(arguments: ["mybox", "edit"])) { error in
-            XCTAssertEqual(error as? CLICommandError, .unsupportedAction("edit"))
+        XCTAssertThrowsError(try router.dispatch(arguments: ["mybox", "status"])) { error in
+            XCTAssertEqual(error as? CLICommandError, .unsupportedCommand("mybox"))
         }
     }
 }
