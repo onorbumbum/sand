@@ -31,7 +31,7 @@ Public GitHub issues are welcome for bugs, questions, and feature ideas. Please 
 It does that by making three things explicit:
 
 1. **Where work runs** — inside a named Sandbox VM, not directly in your normal shell.
-2. **What the sandbox can see** — only the Allowed Folders you add.
+2. **What the sandbox can see** — only the Shared Folders you add.
 3. **What persists** — guest tools, package caches, shell config, Pi identity, and other sandbox-local state survive normal stop/start.
 
 ## How it works
@@ -273,14 +273,14 @@ image: sand/developer-ready:ubuntu-lts
 resources:
   cpus: 4
   memory: 8GB
-allowedFolders:
+sharedFolders:
   []
 ```
 
-Allowed folders are explicit:
+Shared folders are explicit:
 
 ```yaml
-allowedFolders:
+sharedFolders:
   - hostPath: ~/Projects/my-project
     resolvedHostPath: /Users/me/Projects/my-project
     guestPath: /workspace

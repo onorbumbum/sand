@@ -216,7 +216,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         _ = try runRequired(arguments: ["delete", "--force", sandboxName.rawValue])
     }
 
-    // Builds the arguments for `container create`, including volume mounts for allowed folders.
+    // Builds the arguments for `container create`, including volume mounts for shared folders.
     private func createArguments(for spec: SandboxSpec) -> [String] {
         var arguments = [
             "create",
@@ -225,7 +225,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
             "--memory", "\(spec.resourceProfile.memory.megabytes)M",
             "--volume", "\(guestStateVolumeName(for: spec.name)):/state"
         ]
-        for folder in spec.allowedFolders {
+        for folder in spec.sharedFolders {
             arguments += ["--mount", mountArgument(for: folder)]
         }
         arguments.append(spec.image.reference)
@@ -241,7 +241,7 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         ]
     }
 
-    private func mountArgument(for folder: AllowedFolder) -> String {
+    private func mountArgument(for folder: SharedFolder) -> String {
         var argument = "type=bind,source=\(folder.resolvedHostPath),target=\(folder.guestPath.rawValue)"
         if folder.accessMode == .readOnly {
             argument += ",readonly"

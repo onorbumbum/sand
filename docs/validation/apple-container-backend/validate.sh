@@ -60,7 +60,7 @@ run ls -lna "$HOST_ROOT" "$RW_DIR" "$RO_DIR"
 step "Build developer-ready validation image"
 run container build --progress plain -t "$IMAGE" "$ROOT" || exit 1
 
-step "Create Guest State volume and runtime with read-write/read-only Allowed Folders"
+step "Create Guest State volume and runtime with read-write/read-only Shared Folders"
 run container volume create "$VOLUME" || exit 1
 run container run \
   --name "$CONTAINER" \
@@ -82,7 +82,7 @@ step "Passwordless sudo inside Sandbox Guest"
 run container exec --user sandbox "$CONTAINER" bash -lc 'sudo -n whoami && test "$(sudo -n whoami)" = root' || exit 1
 run container exec --user sandbox "$CONTAINER" bash -lc 'sudo -n install -d -o sandbox -g sandbox /state/sandbox && test -w /state/sandbox' || exit 1
 
-step "Read-write Allowed Folder and Host-Safe File Ownership"
+step "Read-write Shared Folder and Host-Safe File Ownership"
 run container exec --user sandbox --workdir /workspace/rw "$CONTAINER" bash -lc 'echo guest-created > guest-created.txt && echo guest-modified >> host-owned.txt && pwd' || exit 1
 run ls -lna "$RW_DIR"
 run cat "$RW_DIR/guest-created.txt" "$RW_DIR/host-owned.txt"
@@ -90,7 +90,7 @@ HOST_UID="$(id -u)"
 run_sh "test \"\$(stat -f '%u' '$RW_DIR/guest-created.txt')\" = '$HOST_UID'"
 run_sh "test \"\$(stat -f '%u' '$RW_DIR/host-owned.txt')\" = '$HOST_UID'"
 
-step "Read-only Allowed Folder blocks writes"
+step "Read-only Shared Folder blocks writes"
 run_sh "container exec --user sandbox --workdir /workspace/ro '$CONTAINER' bash -lc 'echo should-fail > blocked.txt' && exit 1 || exit 0" || exit 1
 run_sh "test ! -e '$RO_DIR/blocked.txt'" || exit 1
 
@@ -119,7 +119,7 @@ step "Default Toolset smoke test and Pi CLI installation path check"
 run container exec --user sandbox "$CONTAINER" bash -lc 'for c in git curl sudo ssh python3 npm node tmux rg gcc make; do printf "%s -> " "$c"; command -v "$c"; done' || exit 1
 run_sh "container exec --user sandbox '$CONTAINER' bash -lc 'npm view @mariozechner/pi-coding-agent version' || true"
 
-step "Runtime recreation preserves Guest State and intended Allowed Folder behavior"
+step "Runtime recreation preserves Guest State and intended Shared Folder behavior"
 run container delete --force "$CONTAINER" || exit 1
 run container run \
   --name "$CONTAINER" \

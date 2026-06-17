@@ -50,7 +50,7 @@ final class CLICommandRouterTests: XCTestCase {
         resources:
           cpus: 4
           memory: 8GB
-        allowedFolders:
+        sharedFolders:
           []
         """
         let cases: [(arguments: [String], expected: AppCall)] = [
@@ -107,7 +107,7 @@ final class CLICommandRouterTests: XCTestCase {
             resources:
               cpus: 4
               memory: 8GB
-            allowedFolders:
+            sharedFolders:
               []
             """
         })

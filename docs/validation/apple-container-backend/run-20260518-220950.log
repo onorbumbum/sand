@@ -122,7 +122,7 @@ Successfully built sand-validation-dev:latest
 [exit 0]
 
 
-### Create Guest State volume and runtime with read-write/read-only Allowed Folders
+### Create Guest State volume and runtime with read-write/read-only Shared Folders
 
 $ container volume create sand-validation-state
 sand-validation-state
@@ -168,7 +168,7 @@ $ container exec --user sandbox sand-validation-spike bash -lc sudo -n install -
 [exit 0]
 
 
-### Read-write Allowed Folder and Host-Safe File Ownership
+### Read-write Shared Folder and Host-Safe File Ownership
 
 $ container exec --user sandbox --workdir /workspace/rw sand-validation-spike bash -lc echo guest-created > guest-created.txt && echo guest-modified >> host-owned.txt && pwd
 /workspace/rw
@@ -196,7 +196,7 @@ $ test "$(stat -f '%u' '/tmp/sand-backend-validation/rw/host-owned.txt')" = '501
 [exit 0]
 
 
-### Read-only Allowed Folder blocks writes
+### Read-only Shared Folder blocks writes
 
 $ container exec --user sandbox --workdir /workspace/ro 'sand-validation-spike' bash -lc 'echo should-fail > blocked.txt' && exit 1 || exit 0
 bash: line 1: blocked.txt: Read-only file system
@@ -291,7 +291,7 @@ $ container exec --user sandbox 'sand-validation-spike' bash -lc 'npm view @mari
 [exit 0]
 
 
-### Runtime recreation preserves Guest State and intended Allowed Folder behavior
+### Runtime recreation preserves Guest State and intended Shared Folder behavior
 
 $ container delete --force sand-validation-spike
 sand-validation-spike

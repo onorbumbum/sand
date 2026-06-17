@@ -240,7 +240,7 @@ private enum CLIHelp {
     static let list = """
     Usage: sand list
 
-    Lists known Sandbox VMs with runtime state, image, and allowed folder count.
+    Lists known Sandbox VMs with runtime state, image, and shared folder count.
     """
 
     static let create = """
@@ -252,7 +252,7 @@ private enum CLIHelp {
     static let apply = """
     Usage: sand apply <name>
 
-    Applies allowed spec changes to an existing Sandbox VM.
+    Applies shared spec changes to an existing Sandbox VM.
     """
 
     static let delete = """

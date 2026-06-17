@@ -3,7 +3,7 @@ import Foundation
 /// The specification for a sandbox VM.
 ///
 /// Contains configuration including name, image, resources,
-/// and allowed host folders.
+/// and shared host folders.
 public struct SandboxSpec: Equatable, Sendable {
     public static let supportedSchemaVersion = 1
 
@@ -11,25 +11,25 @@ public struct SandboxSpec: Equatable, Sendable {
     public var name: SandboxName
     public var image: SandboxImage
     public var resourceProfile: ResourceProfile
-    public var allowedFolders: [AllowedFolder]
+    public var sharedFolders: [SharedFolder]
 
     public init(
         schemaVersion: Int = SandboxSpec.supportedSchemaVersion,
         name: SandboxName,
         image: SandboxImage = .developerReadyDefault,
         resourceProfile: ResourceProfile = .default,
-        allowedFolders: [AllowedFolder] = []
+        sharedFolders: [SharedFolder] = []
     ) {
         self.schemaVersion = schemaVersion
         self.name = name
         self.image = image
         self.resourceProfile = resourceProfile
-        self.allowedFolders = allowedFolders
+        self.sharedFolders = sharedFolders
     }
 
     /// Creates a spec with default settings.
     public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, resourceProfile: ResourceProfile = .default) -> SandboxSpec {
-        SandboxSpec(name: name, image: image, resourceProfile: resourceProfile, allowedFolders: [])
+        SandboxSpec(name: name, image: image, resourceProfile: resourceProfile, sharedFolders: [])
     }
 
     public func validateV1() throws {
@@ -56,11 +56,11 @@ public struct SandboxSpec: Equatable, Sendable {
         lines.append("resources:")
         lines.append("  cpus: \(resourceProfile.cpus)")
         lines.append("  memory: \(resourceProfile.memory.description)")
-        lines.append("allowedFolders:")
-        if allowedFolders.isEmpty {
+        lines.append("sharedFolders:")
+        if sharedFolders.isEmpty {
             lines.append("  []")
         } else {
-            for folder in allowedFolders {
+            for folder in sharedFolders {
                 lines.append("  - hostPath: \(folder.displayHostPath)")
                 lines.append("    resolvedHostPath: \(folder.resolvedHostPath)")
                 lines.append("    guestPath: \(folder.guestPath.rawValue)")
@@ -78,14 +78,14 @@ public struct SandboxSpec: Equatable, Sendable {
         var image: SandboxImage?
         var cpus: Int?
         var memory: MemorySize?
-        var allowedFolders: [AllowedFolder] = []
+        var sharedFolders: [SharedFolder] = []
         var inResources = false
-        var inAllowedFolders = false
-        var currentFolder: PartialAllowedFolder?
+        var inSharedFolders = false
+        var currentFolder: PartialSharedFolder?
 
         func finishCurrentFolder() throws {
             if let folder = currentFolder {
-                allowedFolders.append(try folder.build())
+                sharedFolders.append(try folder.build())
                 currentFolder = nil
             }
         }
@@ -96,13 +96,13 @@ public struct SandboxSpec: Equatable, Sendable {
 
             if !rawLine.hasPrefix(" ") {
                 inResources = false
-                inAllowedFolders = false
+                inSharedFolders = false
             }
 
             if line.hasPrefix("- ") {
-                guard inAllowedFolders else { throw SandboxSpecError.malformedLine(rawLine) }
+                guard inSharedFolders else { throw SandboxSpecError.malformedLine(rawLine) }
                 try finishCurrentFolder()
-                currentFolder = PartialAllowedFolder()
+                currentFolder = PartialSharedFolder()
                 let remainder = String(line.dropFirst(2))
                 if !remainder.isEmpty {
                     guard let (key, value) = parseKeyValue(remainder) else { throw SandboxSpecError.malformedLine(rawLine) }
@@ -112,7 +112,7 @@ public struct SandboxSpec: Equatable, Sendable {
             }
 
             guard let (key, value) = parseKeyValue(line) else {
-                if line == "[]" && inAllowedFolders { continue }
+                if line == "[]" && inSharedFolders { continue }
                 throw SandboxSpecError.malformedLine(rawLine)
             }
 
@@ -125,7 +125,7 @@ public struct SandboxSpec: Equatable, Sendable {
                 continue
             }
 
-            if inAllowedFolders {
+            if inSharedFolders {
                 try currentFolder?.set(key: key, value: value)
                 continue
             }
@@ -137,12 +137,12 @@ public struct SandboxSpec: Equatable, Sendable {
             case "resources":
                 guard value.isEmpty else { throw SandboxSpecError.malformedLine(rawLine) }
                 inResources = true
-            case "allowedFolders":
+            case "sharedFolders":
                 if value == "[]" {
-                    inAllowedFolders = false
+                    inSharedFolders = false
                 } else {
                     guard value.isEmpty else { throw SandboxSpecError.malformedLine(rawLine) }
-                    inAllowedFolders = true
+                    inSharedFolders = true
                 }
             case "inboundNetworking", "ports", "portPublishing":
                 throw SandboxSpecError.unsupportedField(key)
@@ -158,14 +158,14 @@ public struct SandboxSpec: Equatable, Sendable {
             name: try required(name, "name"),
             image: image ?? .developerReadyDefault,
             resourceProfile: ResourceProfile(cpus: try required(cpus, "resources.cpus"), memory: try required(memory, "resources.memory")),
-            allowedFolders: allowedFolders
+            sharedFolders: sharedFolders
         )
         try spec.validateV1()
         return spec
     }
 }
 
-private struct PartialAllowedFolder {
+private struct PartialSharedFolder {
     var displayHostPath: String?
     var resolvedHostPath: String?
     var guestPath: String?
@@ -177,16 +177,16 @@ private struct PartialAllowedFolder {
         case "resolvedHostPath": resolvedHostPath = value
         case "guestPath": guestPath = value
         case "accessMode": accessMode = value
-        default: throw SandboxSpecError.unsupportedField("allowedFolders.\(key)")
+        default: throw SandboxSpecError.unsupportedField("sharedFolders.\(key)")
         }
     }
 
-    func build() throws -> AllowedFolder {
-        AllowedFolder(
-            displayHostPath: try required(displayHostPath, "allowedFolders.hostPath"),
-            resolvedHostPath: try required(resolvedHostPath, "allowedFolders.resolvedHostPath"),
-            guestPath: try GuestPath(try required(guestPath, "allowedFolders.guestPath")),
-            accessMode: try AccessMode.parse(try required(accessMode, "allowedFolders.accessMode"))
+    func build() throws -> SharedFolder {
+        SharedFolder(
+            displayHostPath: try required(displayHostPath, "sharedFolders.hostPath"),
+            resolvedHostPath: try required(resolvedHostPath, "sharedFolders.resolvedHostPath"),
+            guestPath: try GuestPath(try required(guestPath, "sharedFolders.guestPath")),
+            accessMode: try AccessMode.parse(try required(accessMode, "sharedFolders.accessMode"))
         )
     }
 }
@@ -280,8 +280,8 @@ public struct MemorySize: Equatable, Sendable, CustomStringConvertible {
     }
 }
 
-/// An allowed host folder mapping.
-public struct AllowedFolder: Equatable, Sendable {
+/// An shared host folder mapping.
+public struct SharedFolder: Equatable, Sendable {
     public var displayHostPath: String
     public var resolvedHostPath: String
     public var guestPath: GuestPath

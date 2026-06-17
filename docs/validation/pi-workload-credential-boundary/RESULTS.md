@@ -20,7 +20,7 @@ Raw evidence: `docs/validation/pi-workload-credential-boundary/run-20260519-0020
 | `sand <name> run pi [args...]` works as a normal Workload Command | PASS | `.build/debug/sand sand-pi-boundary-002050 run pi --version` exited 0 and printed `0.73.1`. |
 | `sand` does not parse or understand Pi-specific flags | PASS | Existing deterministic CLI tests pass Pi args through unchanged; live validation invokes Pi only through generic `run`. |
 | No Pi-specific `sand <name> pi` shortcut in v1 | PASS | `.build/debug/sand "$NAME" pi` failed with `unsupported sandbox action: pi`. |
-| Host Mac `~/.pi` is not mounted by default | PASS | Spec had `allowedFolders: []`; backend inspection did not expose `/Users/`; guest command verified `/Users` and `/host` are absent. |
+| Host Mac `~/.pi` is not mounted by default | PASS | Spec had `sharedFolders: []`; backend inspection did not expose `/Users/`; guest command verified `/Users` and `/host` are absent. |
 | Host credential files are not mounted or forwarded by default | PASS | Guest command verified no `$HOME/.aws`, `$HOME/.config/gcloud`, `$HOME/.ssh`, `/run/host-services/ssh-auth.sock`, or `SSH_AUTH_SOCK`; backend inspection rejected `/Users/`, `.aws`, `.config/gcloud`, `SSH_AUTH_SOCK`, and `/run/host-services`. |
 | Pi Identity lives in Guest State | PASS | Guest command verified `$HOME/.pi -> /state/sandbox/.pi`, wrote `PI_IDENTITY_MARKER`, then `sand apply` recreated the runtime and the marker persisted. |
 | Guest Secrets are sandbox-local in v1 | PASS | Guest command verified `$HOME/.sand-secrets -> /state/sandbox/secrets`; no host secret-forwarding socket/env was present. |

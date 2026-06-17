@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-LOG="$ROOT/docs/validation/allowed-folder-lifecycle-policy/run-$(date +%Y%m%d-%H%M%S).log"
+LOG="$ROOT/docs/validation/shared-folder-lifecycle-policy/run-$(date +%Y%m%d-%H%M%S).log"
 NAME="sand-af-$(date +%H%M%S)"
-HOST_ROOT="/tmp/sand-allowed-folder-$NAME"
+HOST_ROOT="/tmp/sand-shared-folder-$NAME"
 RW_DIR="$HOST_ROOT/rw"
 RO_DIR="$HOST_ROOT/ro"
 EXTRA_DIR="$HOST_ROOT/extra"
@@ -69,7 +69,7 @@ else
   echo "symlink realpath overlap rejected"
 fi
 
-step "Remove and re-add an Allowed Folder while stopped"
+step "Remove and re-add an Shared Folder while stopped"
 run "$SAND" folders remove "$NAME" "$RO_DIR"
 run "$SAND" folders list "$NAME"
 if grep -F '/reference' "$HOME/.sand/specs/$NAME.yaml"; then

@@ -115,7 +115,7 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         XCTAssertEqual(runner.ioModes, [.inherited])
     }
 
-    func testProvisionCreatesNamedStoppedSandboxWithGuestStateVolumeAllowedFolderMountsResourceProfileAndImage() throws {
+    func testProvisionCreatesNamedStoppedSandboxWithGuestStateVolumeSharedFolderMountsResourceProfileAndImage() throws {
         let create = ["create", "--name", "mybox", "--cpus", "6", "--memory", "12288M", "--volume", "sand-state-mybox:/state", "--mount", "type=bind,source=/Users/onur/Projects/sand,target=/workspace/sand", "--mount", "type=bind,source=/Users/onur/Downloads,target=/reference,readonly", "custom:latest"] + guestStateBootstrapCommand
         let runner = ScriptedBackendCommandRunner(results: [
             ["volume", "inspect", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "not found\n", exitCode: 1)),
@@ -127,9 +127,9 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
             name: try SandboxName("mybox"),
             image: SandboxImage(reference: "custom:latest"),
             resourceProfile: ResourceProfile(cpus: 6, memory: MemorySize(gigabytes: 12)),
-            allowedFolders: [
-                AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite),
-                AllowedFolder(displayHostPath: "~/Downloads", resolvedHostPath: "/Users/onur/Downloads", guestPath: try GuestPath("/reference"), accessMode: .readOnly)
+            sharedFolders: [
+                SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite),
+                SharedFolder(displayHostPath: "~/Downloads", resolvedHostPath: "/Users/onur/Downloads", guestPath: try GuestPath("/reference"), accessMode: .readOnly)
             ]
         )
 
@@ -142,7 +142,7 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         ])
     }
 
-    func testProvisionWithoutAllowedFoldersDoesNotMountHostPiOrCredentialsByDefault() throws {
+    func testProvisionWithoutSharedFoldersDoesNotMountHostPiOrCredentialsByDefault() throws {
         let create = ["create", "--name", "mybox", "--cpus", "4", "--memory", "8192M", "--volume", "sand-state-mybox:/state", "sand/developer-ready:ubuntu-lts"] + guestStateBootstrapCommand
         let runner = ScriptedBackendCommandRunner(results: [
             ["volume", "inspect", "sand-state-mybox"]: .success(BackendCommandOutput(stdout: "", stderr: "not found\n", exitCode: 1)),
@@ -161,7 +161,7 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         }
     }
 
-    func testApplyRecreatesStoppedRuntimeWithCurrentAllowedFoldersWhilePreservingGuestStateVolume() throws {
+    func testApplyRecreatesStoppedRuntimeWithCurrentSharedFoldersWhilePreservingGuestStateVolume() throws {
         let create = ["create", "--name", "mybox", "--cpus", "4", "--memory", "8192M", "--volume", "sand-state-mybox:/state", "--mount", "type=bind,source=/Users/onur/Projects/sand,target=/workspace/sand", "sand/developer-ready:ubuntu-lts"] + guestStateBootstrapCommand
         let runner = ScriptedBackendCommandRunner(results: [
             ["inspect", "mybox"]: .success(BackendCommandOutput(stdout: "[{\"status\":\"stopped\"}]\n", stderr: "", exitCode: 0)),
@@ -172,7 +172,7 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
         let backend = AppleContainerCLIBackend(runner: runner)
         let spec = SandboxSpec(
             name: try SandboxName("mybox"),
-            allowedFolders: [AllowedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)]
+            sharedFolders: [SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)]
         )
 
         try backend.apply(spec)

@@ -8,7 +8,7 @@ final class SandboxSpecTests: XCTestCase {
         XCTAssertEqual(spec.schemaVersion, 1)
         XCTAssertEqual(spec.image, .developerReadyDefault)
         XCTAssertEqual(spec.resourceProfile, ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 8)))
-        XCTAssertEqual(spec.allowedFolders, [])
+        XCTAssertEqual(spec.sharedFolders, [])
         XCTAssertFalse(spec.renderedYAML().contains("inbound"))
         XCTAssertFalse(spec.renderedYAML().contains("ports"))
     }
@@ -16,8 +16,8 @@ final class SandboxSpecTests: XCTestCase {
     func testGeneratedSpecRendersAndParsesBackToSameContract() throws {
         let spec = SandboxSpec(
             name: try SandboxName("mybox"),
-            allowedFolders: [
-                AllowedFolder(
+            sharedFolders: [
+                SharedFolder(
                     displayHostPath: "~/Projects/sand",
                     resolvedHostPath: "/Users/onur/Projects/sand",
                     guestPath: try GuestPath("/workspace/sand"),
@@ -37,7 +37,7 @@ final class SandboxSpecTests: XCTestCase {
         resources:
           cpus: 6
           memory: 12GB
-        allowedFolders:
+        sharedFolders:
           - hostPath: ~/Downloads
             resolvedHostPath: /Users/onur/Downloads
             guestPath: /workspace/downloads
@@ -49,7 +49,7 @@ final class SandboxSpecTests: XCTestCase {
         XCTAssertEqual(spec.name, try SandboxName("custom"))
         XCTAssertEqual(spec.image, SandboxImage(reference: "registry.example/sand:dev"))
         XCTAssertEqual(spec.resourceProfile, ResourceProfile(cpus: 6, memory: MemorySize(gigabytes: 12)))
-        XCTAssertEqual(spec.allowedFolders.first?.accessMode, .readOnly)
+        XCTAssertEqual(spec.sharedFolders.first?.accessMode, .readOnly)
     }
 
     func testUnsupportedV1FieldsSuchAsInboundNetworkingAreRejected() throws {
@@ -62,7 +62,7 @@ final class SandboxSpecTests: XCTestCase {
           memory: 8GB
         inboundNetworking:
           - 8080:8080
-        allowedFolders:
+        sharedFolders:
           []
         """
 

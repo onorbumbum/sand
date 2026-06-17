@@ -79,7 +79,7 @@ public struct RunRequest: Equatable {
     }
 }
 
-/// A request to add an allowed folder to a sandbox.
+/// A request to add a shared folder to a sandbox.
 public struct AddFolderRequest: Equatable {
     public var sandboxName: SandboxName
     public var displayHostPath: String
@@ -94,7 +94,7 @@ public struct AddFolderRequest: Equatable {
     }
 }
 
-/// A request to remove an allowed folder from a sandbox.
+/// A request to remove a shared folder from a sandbox.
 public struct RemoveFolderRequest: Equatable {
     public var sandboxName: SandboxName
     public var displayHostPath: String

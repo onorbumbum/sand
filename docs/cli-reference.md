@@ -79,7 +79,7 @@ Creates a Sandbox VM from generated defaults or from an authored spec.
 ```text
 Usage: sand list
 
-Lists known Sandbox VMs with runtime state, image, and allowed folder count.
+Lists known Sandbox VMs with runtime state, image, and shared folder count.
 ```
 
 ## `sand apply`
@@ -87,7 +87,7 @@ Lists known Sandbox VMs with runtime state, image, and allowed folder count.
 ```text
 Usage: sand apply <name>
 
-Applies allowed spec changes to an existing Sandbox VM.
+Applies shared spec changes to an existing Sandbox VM.
 ```
 
 ## `sand delete`

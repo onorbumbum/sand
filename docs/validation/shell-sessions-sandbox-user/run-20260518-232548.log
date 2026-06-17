@@ -24,7 +24,7 @@ name: sand007shell
 state: stopped
 image: sand/developer-ready:ubuntu-lts
 resources: 4 CPUs, 8GB memory
-allowedFolders: 0
+sharedFolders: 0
 
 ## Open two real Sandbox Sessions concurrently
 

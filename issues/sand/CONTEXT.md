@@ -8,20 +8,20 @@ This context describes the product language for a macOS app that creates and man
 An isolated Linux machine with persistent guest state, terminal-style access, and explicit access to selected host folders.
 _Avoid_: Pi Sandbox, generic container, Docker container
 
-**Allowed Folder**:
+**Shared Folder**:
 A host folder explicitly mounted into the Sandbox VM with an explicit access mode.
 _Avoid_: Shared drive, bind mount, exposed folder
 
 **Access Mode**:
-Whether an Allowed Folder is mounted read-only or read-write inside the Sandbox VM.
+Whether an Shared Folder is mounted read-only or read-write inside the Sandbox VM.
 _Avoid_: Permission, sharing setting
 
 **Guest Path**:
-The path where an Allowed Folder appears inside the Sandbox VM, defaulting to a workspace path derived from the host folder name.
+The path where an Shared Folder appears inside the Sandbox VM, defaulting to a workspace path derived from the host folder name.
 _Avoid_: Mount point, target path
 
 **Working Directory Mapping**:
-The launch behavior that maps the Host Mac's current directory into the corresponding Guest Path when it is inside an Allowed Folder.
+The launch behavior that maps the Host Mac's current directory into the corresponding Guest Path when it is inside an Shared Folder.
 _Avoid_: Always start in home, manual cd
 
 **Sandbox Guest**:
@@ -33,7 +33,7 @@ The persistent filesystem state owned by the Sandbox Guest, including installed 
 _Avoid_: Persistent disk, VM disk, image
 
 **Runtime Instance**:
-The disposable backend container/VM process created from Sandbox VM config, Guest State, and Allowed Folders.
+The disposable backend container/VM process created from Sandbox VM config, Guest State, and Shared Folders.
 _Avoid_: Sandbox VM identity, guest state
 
 **Resource Profile**:
@@ -61,7 +61,7 @@ The default non-root Linux user inside the Sandbox Guest used for daily shell an
 _Avoid_: root user, host user
 
 **Host-Safe File Ownership**:
-The requirement that files created or modified through read-write Allowed Folders remain editable and deletable by the Host Mac user without sudo.
+The requirement that files created or modified through read-write Shared Folders remain editable and deletable by the Host Mac user without sudo.
 _Avoid_: Root-owned project files, UID surprises
 
 **Outbound-Only Networking**:
@@ -145,7 +145,7 @@ The explicit per-change classification of whether README, domain language, ADRs,
 _Avoid_: Docs maybe, cleanup later
 
 **Sandbox Spec**:
-The declarative YAML definition of a Sandbox VM, including name, image, Resource Profile, Allowed Folders, Guest Paths, and Access Modes, while excluding unsupported future concerns such as inbound networking in the first version.
+The declarative YAML definition of a Sandbox VM, including name, image, Resource Profile, Shared Folders, Guest Paths, and Access Modes, while excluding unsupported future concerns such as inbound networking in the first version.
 _Avoid_: Hidden imperative setup, backend-only config, future config placeholders
 
 **Host Metadata**:
@@ -173,20 +173,20 @@ A required pre-implementation check that proves the chosen backend can satisfy h
 _Avoid_: Assumed backend fit, speculative wrapper
 
 **Host Mac**:
-The user's macOS system outside the Sandbox VM, protected from sandbox processes except through Allowed Folders.
+The user's macOS system outside the Sandbox VM, protected from sandbox processes except through Shared Folders.
 _Avoid_: Parent machine, main computer
 
 ## Relationships
 
 - A **Sandbox VM** contains a **Sandbox Guest**.
-- A **Sandbox VM** can access only **Allowed Folders** from the **Host Mac**.
-- Each **Allowed Folder** has an **Access Mode** and a **Guest Path**.
+- A **Sandbox VM** can access only **Shared Folders** from the **Host Mac**.
+- Each **Shared Folder** has an **Access Mode** and a **Guest Path**.
 - Folder commands accept `rw`/`read-write` and `ro`/`read-only`, while the **Sandbox Spec** stores canonical `read-write` and `read-only` terms.
 - Adding an existing host folder updates its **Access Mode** or **Guest Path** instead of creating a duplicate.
-- Two different **Allowed Folders** cannot share the same **Guest Path**.
+- Two different **Shared Folders** cannot share the same **Guest Path**.
 - Overlapping host folders are rejected in the first version to keep access rules and working-directory mapping unambiguous.
 - Folder validation and **Working Directory Mapping** use resolved real paths while preserving user-facing display paths.
-- A **Sandbox VM** may be created with no **Allowed Folders**, though folder setup is part of the coding-agent happy path.
+- A **Sandbox VM** may be created with no **Shared Folders**, though folder setup is part of the coding-agent happy path.
 - Processes may have broad control inside the **Sandbox Guest** without having broad control over the **Host Mac**.
 - **Guest State** persists between launches unless the user deletes the **Sandbox VM**.
 - A **Runtime Instance** may be recreated to apply configuration changes without changing the **Sandbox VM** identity.
@@ -196,7 +196,7 @@ _Avoid_: Parent machine, main computer
 - A **Developer-Ready Sandbox** includes the **Default Toolset**.
 - The default **Developer-Ready Sandbox** is created from a **Sandbox Image** rather than installing all tools during first create.
 - Daily **Sandbox Sessions** run as the **Sandbox User**, not root.
-- Read-write **Allowed Folders** must preserve **Host-Safe File Ownership**.
+- Read-write **Shared Folders** must preserve **Host-Safe File Ownership**.
 - **Sandbox VMs** use **Outbound-Only Networking** by default; inbound port publishing is out of scope for the first version.
 - Runtime recreation is mostly an internal repair/config-application step, not a normal user-facing lifecycle concept.
 - **Apply** is the user-facing declarative reconciliation command; recreate remains hidden/internal.
@@ -212,7 +212,7 @@ _Avoid_: Parent machine, main computer
 - The first version avoids explicit TTY policy: `shell` is interactive, and `run` behaves naturally for the current terminal.
 - A **Pi Workload** is invoked through the generic `run` action, e.g. `sand mybox run pi [args...]`.
 - `sand` does not provide a Pi-specific shortcut in the first version.
-- **Working Directory Mapping** starts sessions in the matching **Guest Path** when the host current directory is inside an **Allowed Folder**; otherwise sessions warn and start in `/workspace` or the **Sandbox User** home.
+- **Working Directory Mapping** starts sessions in the matching **Guest Path** when the host current directory is inside an **Shared Folder**; otherwise sessions warn and start in `/workspace` or the **Sandbox User** home.
 - `sand create` writes and applies the initial **Sandbox Spec**, provisions **Guest State**, and leaves the **Sandbox VM** in the stopped state.
 - Daily commands auto-start the target **Sandbox VM** when it is stopped.
 - Each **Sandbox VM** has a globally unique per-user **Sandbox Name** for CLI commands and management.

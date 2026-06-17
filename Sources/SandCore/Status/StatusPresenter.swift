@@ -10,13 +10,13 @@ public struct StatusPresenter {
             image: spec.image.reference,
             cpus: spec.resourceProfile.cpus,
             memory: spec.resourceProfile.memory.description,
-            allowedFolderCount: spec.allowedFolders.count
+            sharedFolderCount: spec.sharedFolders.count
         )
     }
 
     /// Formats a view as a single-line list entry.
     public func listLine(for view: SandboxStatusView) -> String {
-        "\(view.name)\t\(view.runtimeState)\t\(view.image)\t\(view.allowedFolderCount) folders"
+        "\(view.name)\t\(view.runtimeState)\t\(view.image)\t\(view.sharedFolderCount) folders"
     }
 
     /// Formats a view as multiple detail lines.
@@ -26,7 +26,7 @@ public struct StatusPresenter {
             "state: \(view.runtimeState)",
             "image: \(view.image)",
             "resources: \(view.cpus) CPUs, \(view.memory) memory",
-            "allowedFolders: \(view.allowedFolderCount)"
+            "sharedFolders: \(view.sharedFolderCount)"
         ]
     }
 }
@@ -38,15 +38,15 @@ public struct SandboxStatusView: Equatable {
     public var image: String
     public var cpus: Int
     public var memory: String
-    public var allowedFolderCount: Int
+    public var sharedFolderCount: Int
 
-    public init(name: String, runtimeState: String, image: String, cpus: Int, memory: String, allowedFolderCount: Int) {
+    public init(name: String, runtimeState: String, image: String, cpus: Int, memory: String, sharedFolderCount: Int) {
         self.name = name
         self.runtimeState = runtimeState
         self.image = image
         self.cpus = cpus
         self.memory = memory
-        self.allowedFolderCount = allowedFolderCount
+        self.sharedFolderCount = sharedFolderCount
     }
 }
 

@@ -21,7 +21,7 @@ name: sand-tdd-230533
 state: running
 image: sand/developer-ready:ubuntu-lts
 resources: 2 CPUs, 1GB memory
-allowedFolders: 0
+sharedFolders: 0
 [exit 0]
 
 $ .build/debug/sand sand-tdd-230533 run /bin/sh -lc echo marker-005 > /tmp/sand-marker-005 && cat /tmp/sand-marker-005
@@ -35,7 +35,7 @@ name: sand-tdd-230533
 state: stopped
 image: sand/developer-ready:ubuntu-lts
 resources: 2 CPUs, 1GB memory
-allowedFolders: 0
+sharedFolders: 0
 [exit 0]
 
 $ .build/debug/sand sand-tdd-230533 start

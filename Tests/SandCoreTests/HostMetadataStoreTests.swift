@@ -17,7 +17,7 @@ final class HostMetadataStoreTests: XCTestCase {
 
         let updated = SandboxSpec(
             name: try SandboxName("mybox"),
-            allowedFolders: [AllowedFolder(displayHostPath: "~/Projects", resolvedHostPath: "/Users/onur/Projects", guestPath: try GuestPath("/workspace/Projects"), accessMode: .readWrite)]
+            sharedFolders: [SharedFolder(displayHostPath: "~/Projects", resolvedHostPath: "/Users/onur/Projects", guestPath: try GuestPath("/workspace/Projects"), accessMode: .readWrite)]
         )
         try store.writeSpec(updated)
         XCTAssertEqual(try store.readSpec(named: try SandboxName("mybox")), updated)

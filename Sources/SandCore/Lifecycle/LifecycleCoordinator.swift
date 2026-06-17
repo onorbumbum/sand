@@ -196,7 +196,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         return .success
     }
 
-    /// Adds a host folder to the sandbox's allowed folders list.
+    /// Adds a host folder to the sandbox's shared folders list.
     public func addFolder(_ request: AddFolderRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             let current = try metadataStore.readSpec(named: request.sandboxName)
@@ -210,16 +210,16 @@ public struct LifecycleCoordinator: SandboxApplication {
         }
     }
 
-    /// Lists all allowed folders for a sandbox.
+    /// Lists all shared folders for a sandbox.
     public func listFolders(_ request: NamedSandboxRequest) throws -> CommandResult {
-        let folders = try metadataStore.readSpec(named: request.sandboxName).allowedFolders
+        let folders = try metadataStore.readSpec(named: request.sandboxName).sharedFolders
         for line in FolderListPresenter().lines(for: folders) {
             writeOutput(line)
         }
         return .success
     }
 
-    /// Removes a host folder from the sandbox's allowed folders.
+    /// Removes a host folder from the sandbox's shared folders.
     public func removeFolder(_ request: RemoveFolderRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             let current = try metadataStore.readSpec(named: request.sandboxName)

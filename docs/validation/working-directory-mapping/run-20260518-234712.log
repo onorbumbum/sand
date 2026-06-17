@@ -39,7 +39,7 @@ $ container image inspect sand/developer-ready:ubuntu-lts
 [exit 0]
 
 
-### Create Sandbox VM with one Allowed Folder
+### Create Sandbox VM with one Shared Folder
 
 $ /Users/me/Projects/sand/.build/debug/sand create sand-wd-234712 --cpus 2 --memory 1GB
 [exit 0]
@@ -53,7 +53,7 @@ Host Path	Guest Path	Access Mode
 [exit 0]
 
 
-### run maps allowed, nested, symlinked, and outside Host cwd paths
+### run maps shared, nested, symlinked, and outside Host cwd paths
 
 $ (cd /tmp/sand-working-directory-sand-wd-234712/project && /Users/me/Projects/sand/.build/debug/sand sand-wd-234712 run pwd)
 [exit 0]
@@ -81,20 +81,20 @@ $ (cd /tmp/sand-working-directory-sand-wd-234712/outside && /Users/me/Projects/s
 --- stdout ---
 /workspace
 --- stderr ---
-Current directory is not inside an Allowed Folder; starting in /workspace.
+Current directory is not inside an Shared Folder; starting in /workspace.
 
 
-### shell uses the same mapping from inside an Allowed Folder
---- allowed shell capture ---
+### shell uses the same mapping from inside an Shared Folder
+--- shared shell capture ---
 sandbox@sand-wd-234712:/workspace/project/src/module$ pwd; exit
 /workspace/project/src/module
 exit
 SHELL_EXIT:0
 
 
-### shell warns and falls back from outside Allowed Folders
+### shell warns and falls back from outside Shared Folders
 --- outside shell capture ---
-Current directory is not inside an Allowed Folder; starting in /workspace.
+Current directory is not inside an Shared Folder; starting in /workspace.
 sandbox@sand-wd-234712:/workspace$ pwd; exit
 /workspace
 exit

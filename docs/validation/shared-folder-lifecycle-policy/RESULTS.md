@@ -1,12 +1,12 @@
-# Allowed Folder Lifecycle and Policy Validation
+# Shared Folder Lifecycle and Policy Validation
 
 Date: 2026-05-18 23:38 local
 
 Conclusion: **PASS — `sand folders add/list/remove` updates the Sandbox Spec, applies real Apple backend mount configuration, and enforces read-write/read-only behavior with Host-Safe File Ownership.**
 
-Raw evidence: `docs/validation/allowed-folder-lifecycle-policy/run-20260518-233846.log`
+Raw evidence: `docs/validation/shared-folder-lifecycle-policy/run-20260518-233846.log`
 
-Harness: `docs/validation/allowed-folder-lifecycle-policy/validate.sh`
+Harness: `docs/validation/shared-folder-lifecycle-policy/validate.sh`
 
 ## Scenario
 
@@ -14,7 +14,7 @@ Harness: `docs/validation/allowed-folder-lifecycle-policy/validate.sh`
 - Sandbox Image: `sand/developer-ready:ubuntu-lts`
 - Resource Profile: 2 CPUs, 1GB memory
 - Backend: Apple `container` CLI
-- Host test root: `/tmp/sand-allowed-folder-sand-af-233846`
+- Host test root: `/tmp/sand-shared-folder-sand-af-233846`
 
 ## Requirement results
 

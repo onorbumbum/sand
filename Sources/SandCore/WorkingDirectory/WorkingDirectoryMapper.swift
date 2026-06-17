@@ -3,7 +3,7 @@ import Foundation
 /// Maps host working directories to guest paths.
 ///
 /// Determines which guest path corresponds to the host's current
-/// working directory based on allowed folders.
+/// working directory based on shared folders.
 public struct WorkingDirectoryMapper {
     private let fallbackGuestPath: GuestPath
     private let resolvePath: @Sendable (String) -> String
@@ -19,10 +19,10 @@ public struct WorkingDirectoryMapper {
     /// Maps a host path to its corresponding guest path.
     ///
     /// Returns the mapped guest path, or falls back to /workspace
-    /// if the host path is not inside an allowed folder.
+    /// if the host path is not inside a shared folder.
     public func map(hostCurrentDirectory: String, spec: SandboxSpec) -> WorkingDirectoryMapping {
         let resolvedCurrentDirectory = resolvePath(hostCurrentDirectory)
-        for folder in spec.allowedFolders {
+        for folder in spec.sharedFolders {
             if resolvedCurrentDirectory == folder.resolvedHostPath || resolvedCurrentDirectory.hasPrefix(folder.resolvedHostPath + "/") {
                 let suffix = String(resolvedCurrentDirectory.dropFirst(folder.resolvedHostPath.count))
                 return WorkingDirectoryMapping(
@@ -34,7 +34,7 @@ public struct WorkingDirectoryMapper {
 
         return WorkingDirectoryMapping(
             guestPath: fallbackGuestPath,
-            warning: "Current directory is not inside an Allowed Folder; starting in \(fallbackGuestPath.rawValue)."
+            warning: "Current directory is not inside an Shared Folder; starting in \(fallbackGuestPath.rawValue)."
         )
     }
 

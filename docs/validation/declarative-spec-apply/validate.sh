@@ -29,7 +29,7 @@ image: sand/developer-ready:ubuntu-lts
 resources:
   cpus: $cpus
   memory: 1GB
-allowedFolders:
+sharedFolders:
   - hostPath: $CODE_DIR
     resolvedHostPath: $CODE_DIR
     guestPath: /code

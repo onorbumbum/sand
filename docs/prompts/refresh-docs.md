@@ -2,7 +2,7 @@
 
 This prompt is only for refreshing `sand` generated/managed documentation after a change has Documentation Impact. It is not the general onboarding path for AI agents working on code. For normal project work, start with `docs/onboarding.md`, `docs/developer-guide.md`, the task, code, and tests.
 
-When this prompt is applicable, refresh docs for `sand`: a tool that manages **Sandbox VMs** on a **Host Mac** with explicit **Allowed Folders**, **Guest State**, and generic **Workload Commands**. Use the domain language in `issues/sand/CONTEXT.md` exactly.
+When this prompt is applicable, refresh docs for `sand`: a tool that manages **Sandbox VMs** on a **Host Mac** with explicit **Shared Folders**, **Guest State**, and generic **Workload Commands**. Use the domain language in `issues/sand/CONTEXT.md` exactly.
 
 This workflow is manual and agent-run for v1. It must not require Bosun, network access, or a separate LLM quality gate.
 
@@ -29,7 +29,7 @@ Use that exact hash value as the recorded freshness metadata in every registered
 - Public behavior comes from executable specs, CLI parser/application code, actual `sand` help output, and the domain language file.
 - Prefer real `sand --help` and `sand <command> --help` output when producing command examples or option lists. If the binary cannot be built or run, derive the command surface from command definitions and tests, and say so in the evidence.
 - Do not invent features. If source files and tests disagree, document the conflict in your final evidence and do not guess.
-- Use **Sandbox VM**, **Allowed Folder**, **Guest Path**, **Guest State**, **Runtime Instance**, **Sandbox Session**, **Workload Command**, and other terms from `issues/sand/CONTEXT.md`.
+- Use **Sandbox VM**, **Shared Folder**, **Guest Path**, **Guest State**, **Runtime Instance**, **Sandbox Session**, **Workload Command**, and other terms from `issues/sand/CONTEXT.md`.
 - Avoid banned or misleading terms from the context file, such as generic Docker/container wording for user-facing product concepts.
 - The docs website is published from the repository `docs/` directory. Links from pages under `docs/` must not point to `../README.md` or `../issues/...` because those files are outside the GitHub Pages source and will 404. Use repository links such as `https://github.com/onorbumbum/sand/blob/main/README.md` for files outside `docs/`, or link to a site-visible page under `docs/`.
 

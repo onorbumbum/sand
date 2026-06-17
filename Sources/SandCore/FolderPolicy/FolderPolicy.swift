@@ -1,6 +1,6 @@
 import Foundation
 
-/// Manages the allowed folder mappings for a sandbox.
+/// Manages the shared folder mappings for a sandbox.
 ///
 /// Handles adding, removing, and validating folder mappings
 /// to ensure no conflicts or duplicates.
@@ -33,7 +33,7 @@ public struct FolderPolicy {
         let mode = try canonicalAccessMode(from: input)
         let resolvedHostPath = resolvePath(displayHostPath)
         let guestPath = try overrideGuestPath ?? defaultGuestPath(forDisplayHostPath: displayHostPath)
-        let newFolder = AllowedFolder(
+        let newFolder = SharedFolder(
             displayHostPath: displayHostPath,
             resolvedHostPath: resolvedHostPath,
             guestPath: guestPath,
@@ -41,15 +41,15 @@ public struct FolderPolicy {
         )
 
         var updated = spec
-        if let existingIndex = updated.allowedFolders.firstIndex(where: { $0.resolvedHostPath == resolvedHostPath }) {
-            try validateNoDuplicateGuestPath(guestPath, resolvedHostPath: resolvedHostPath, in: updated.allowedFolders)
-            updated.allowedFolders[existingIndex] = newFolder
+        if let existingIndex = updated.sharedFolders.firstIndex(where: { $0.resolvedHostPath == resolvedHostPath }) {
+            try validateNoDuplicateGuestPath(guestPath, resolvedHostPath: resolvedHostPath, in: updated.sharedFolders)
+            updated.sharedFolders[existingIndex] = newFolder
             return updated
         }
 
-        try validateNoDuplicateGuestPath(guestPath, resolvedHostPath: resolvedHostPath, in: updated.allowedFolders)
-        try validateNoOverlappingHostFolders(resolvedHostPath, in: updated.allowedFolders)
-        updated.allowedFolders.append(newFolder)
+        try validateNoDuplicateGuestPath(guestPath, resolvedHostPath: resolvedHostPath, in: updated.sharedFolders)
+        try validateNoOverlappingHostFolders(resolvedHostPath, in: updated.sharedFolders)
+        updated.sharedFolders.append(newFolder)
         return updated
     }
 
@@ -57,19 +57,19 @@ public struct FolderPolicy {
     public func removeFolder(from spec: SandboxSpec, displayHostPath: String) -> SandboxSpec {
         let resolvedHostPath = resolvePath(displayHostPath)
         var updated = spec
-        updated.allowedFolders.removeAll { $0.resolvedHostPath == resolvedHostPath }
+        updated.sharedFolders.removeAll { $0.resolvedHostPath == resolvedHostPath }
         return updated
     }
 
     // Validates that no existing folder uses the same guest path.
-    private func validateNoDuplicateGuestPath(_ guestPath: GuestPath, resolvedHostPath: String, in existing: [AllowedFolder]) throws {
+    private func validateNoDuplicateGuestPath(_ guestPath: GuestPath, resolvedHostPath: String, in existing: [SharedFolder]) throws {
         if let duplicate = existing.first(where: { $0.guestPath == guestPath && $0.resolvedHostPath != resolvedHostPath }) {
             throw FolderPolicyError.duplicateGuestPath(duplicate.guestPath.rawValue)
         }
     }
 
     // Validates that no existing folder's host path overlaps with the new one.
-    private func validateNoOverlappingHostFolders(_ resolvedHostPath: String, in existing: [AllowedFolder]) throws {
+    private func validateNoOverlappingHostFolders(_ resolvedHostPath: String, in existing: [SharedFolder]) throws {
         for folder in existing {
             if pathsOverlap(resolvedHostPath, folder.resolvedHostPath) {
                 throw FolderPolicyError.overlappingHostFolders(folder.resolvedHostPath, resolvedHostPath)
@@ -99,7 +99,7 @@ public struct FolderPolicy {
 public struct FolderListPresenter {
     public init() {}
 
-    public func lines(for folders: [AllowedFolder]) -> [String] {
+    public func lines(for folders: [SharedFolder]) -> [String] {
         var lines = ["Host Path\tGuest Path\tAccess Mode"]
         lines += folders.map { folder in
             "\(folder.displayHostPath)\t\(folder.guestPath.rawValue)\t\(folder.accessMode.rawValue)"
