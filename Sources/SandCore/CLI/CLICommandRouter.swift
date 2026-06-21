@@ -219,7 +219,7 @@ private enum CLIHelp {
       list                           List Sandbox VMs
       apply <name>                   Apply spec changes
       delete <name> [--force]        Delete a Sandbox VM
-      folders <action> ...           Manage allowed Host Mac folders
+      folders <action> ...           Manage shared Host Mac folders
       status <name>                  Show Sandbox VM status
       start <name>                   Start a Sandbox VM
       stop <name>                    Stop a Sandbox VM
