@@ -242,7 +242,6 @@ sand list --help
 sand apply --help
 sand delete --help
 sand folders --help
-sand demo --help
 ```
 
 Folder actions:
