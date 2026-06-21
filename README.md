@@ -41,9 +41,9 @@ It does that by making three things explicit:
 | “Make me a little Linux computer for this work.” | `sand create demo` |
 | “Let it work on this project.” | `sand folders add demo ~/Projects/my-project rw --as /workspace` |
 | “Let it read these references, but not edit them.” | `sand folders add demo ~/Reference ro --as /reference` |
-| “Run Pi in the sandbox.” | `sand demo run pi` |
-| “Open a shell in the sandbox.” | `sand demo shell` |
-| “Pause it without losing its setup.” | `sand demo stop` |
+| “Run Pi in the sandbox.” | `sand run demo pi` |
+| “Open a shell in the sandbox.” | `sand shell demo` |
+| “Pause it without losing its setup.” | `sand stop demo` |
 | “Remove it when I am done.” | `sand delete demo` |
 
 ## Current alpha scope
@@ -157,8 +157,8 @@ sand create demo
 
 # 3. Inspect list, status, and spec.
 sand list
-sand demo status
-sand demo spec
+sand status demo
+sand spec demo
 
 # 4. Allow a Host Mac project folder read-write at /workspace.
 sand folders add demo "$HOME/Projects/my-project" rw --as /workspace
@@ -169,20 +169,20 @@ sand folders list demo
 
 # 6. Run Workload Commands from a mapped Host Mac current working directory.
 cd "$HOME/Projects/my-project"
-sand demo run pwd
-sand demo run bash -lc 'echo hello-from-sand > sand-smoke.txt && ls -la'
+sand run demo pwd
+sand run demo bash -lc 'echo hello-from-sand > sand-smoke.txt && ls -la'
 
 # 7. Open a Sandbox Session.
-sand demo shell
+sand shell demo
 
 # 8. Stop/start and verify Guest State persistence.
-sand demo run bash -lc 'echo persisted > /state/sandbox/persistence-check'
-sand demo stop
-sand demo start
-sand demo run cat /state/sandbox/persistence-check
+sand run demo bash -lc 'echo persisted > /state/sandbox/persistence-check'
+sand stop demo
+sand start demo
+sand run demo cat /state/sandbox/persistence-check
 
 # 9. View logs.
-sand demo logs
+sand logs demo
 
 # 10. Delete the Sandbox VM.
 sand delete demo --force
@@ -200,7 +200,7 @@ Use a two-terminal callback handoff instead.
 Terminal A: start the login and leave it running:
 
 ```sh
-sand demo run pi login
+sand run demo pi login
 ```
 
 Open the authorization URL in your Host Mac browser. After approval, the browser may try to load a URL like this and fail:
@@ -214,7 +214,7 @@ That failure is expected. Copy the full callback URL from the browser address ba
 Terminal B: send that exact callback URL to the Sandbox Guest while Terminal A is still waiting:
 
 ```sh
-sand demo run curl -sS 'http://localhost:1455/auth/callback?code=...&scope=...&state=...'
+sand run demo curl -sS 'http://localhost:1455/auth/callback?code=...&scope=...&state=...'
 ```
 
 Quote the URL so shell `&` characters are not interpreted. The callback URL is usually short-lived and tied to the still-running login process, so rerun the login if Terminal A exited or the code expired.
@@ -242,7 +242,6 @@ sand list --help
 sand apply --help
 sand delete --help
 sand folders --help
-sand demo --help
 ```
 
 Folder actions:
