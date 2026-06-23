@@ -214,6 +214,27 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(screenSharing.openedURLs, ["vnc://admin@192.168.65.2"])
     }
 
+    func testInstallSigningCredentialsInjectsP12AndProvisioningProfileIntoGuestKeychain() throws {
+        let name = try SandboxName("macbox")
+        let runner = PermissiveTartRunner()
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: RecordingTartVMStarter(), keyStore: StaticTartKeyStore(), sleeper: { _ in }, maxIPAttempts: 1)
+
+        XCTAssertEqual(try backend.installSigningCredentials(BackendSigningCredentialsRequest(sandboxName: name, certificateP12: Data("CERT".utf8), certificatePassword: "cert-pass", provisioningProfile: Data("PROFILE".utf8), keychainName: "ci-signing", keychainPassword: "kc-pass")), .success)
+
+        XCTAssertEqual(runner.calls.count, 1)
+        XCTAssertEqual(Array(runner.calls[0].prefix(3)), ["exec", "macbox", "/bin/zsh"])
+        XCTAssertEqual(runner.calls[0][3], "-lc")
+        let script = runner.calls[0][4]
+        XCTAssertTrue(script.contains("CERT_B64='Q0VSVA=='"))
+        XCTAssertTrue(script.contains("PROFILE_B64='UFJPRklMRQ=='"))
+        XCTAssertTrue(script.contains("/usr/bin/security create-keychain -p \"$KEYCHAIN_PASSWORD\" \"$KEYCHAIN_PATH\""))
+        XCTAssertTrue(script.contains("/usr/bin/security import \"$WORKDIR/certificate.p12\" -k \"$KEYCHAIN_PATH\" -P \"$CERT_PASSWORD\""))
+        XCTAssertTrue(script.contains("/usr/bin/security set-key-partition-list -S apple-tool:,apple:,codesign:"))
+        XCTAssertTrue(script.contains("$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"))
+        XCTAssertTrue(script.contains("SAND_SIGNING_CREDENTIALS_INSTALLED"))
+        XCTAssertFalse(script.contains("login.keychain"))
+    }
+
     func testStatusReadsOnlyTheRequestedVMFromActualTartJSON() throws {
         let runner = ScriptedTartRunner(results: [
             ["list", "--format", "json"]: .success(.init(stdout: """
@@ -274,6 +295,15 @@ private final class ScriptedTartRunner: BackendCommandRunner {
         case .success(let output): return output
         case .failure(let error): throw error
         }
+    }
+}
+
+private final class PermissiveTartRunner: BackendCommandRunner {
+    var calls: [[String]] = []
+
+    func run(arguments: [String], io: BackendCommandIO) throws -> BackendCommandOutput {
+        calls.append(arguments)
+        return BackendCommandOutput(stdout: "SAND_SIGNING_CREDENTIALS_INSTALLED TEST-UUID\n", stderr: "", exitCode: 0)
     }
 }
 

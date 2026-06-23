@@ -144,6 +144,11 @@ public struct TartCLIBackend: SandboxBackend {
         return .success
     }
 
+    public func installSigningCredentials(_ request: BackendSigningCredentialsRequest) throws -> CommandResult {
+        let output = try runRequiredRetried(["exec", request.sandboxName.rawValue, "/bin/zsh", "-lc", signingCredentialsScript(for: request)])
+        return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
+    }
+
     public func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus {
         let output = try runRequired(["list", "--format", "json"])
         guard let rows = try JSONSerialization.jsonObject(with: Data(output.stdout.utf8)) as? [[String: Any]] else {
@@ -225,6 +230,39 @@ public struct TartCLIBackend: SandboxBackend {
     private func configureSharedFolderSymlinks(for spec: SandboxSpec) throws {
         guard !spec.sharedFolders.isEmpty else { return }
         _ = try runRequiredRetried(["exec", spec.name.rawValue, "/bin/zsh", "-lc", sharedFolderSymlinkScript(for: spec.sharedFolders)])
+    }
+
+    private func signingCredentialsScript(for request: BackendSigningCredentialsRequest) -> String {
+        let certificateBase64 = request.certificateP12.base64EncodedString()
+        let profileBase64 = request.provisioningProfile.base64EncodedString()
+        let keychainFileName = request.keychainName.hasSuffix(".keychain-db") ? request.keychainName : "\(request.keychainName).keychain-db"
+        return [
+            "set -euo pipefail",
+            "CERT_B64=\(shellQuoted(certificateBase64))",
+            "PROFILE_B64=\(shellQuoted(profileBase64))",
+            "CERT_PASSWORD=\(shellQuoted(request.certificatePassword))",
+            "KEYCHAIN_PASSWORD=\(shellQuoted(request.keychainPassword))",
+            "KEYCHAIN_PATH=\"$HOME/Library/Keychains/\"\(shellQuoted(keychainFileName))",
+            "WORKDIR=$(mktemp -d)",
+            "cleanup() { rm -rf \"$WORKDIR\"; }",
+            "trap cleanup EXIT",
+            "printf '%s' \"$CERT_B64\" | /usr/bin/base64 -D > \"$WORKDIR/certificate.p12\"",
+            "printf '%s' \"$PROFILE_B64\" | /usr/bin/base64 -D > \"$WORKDIR/profile.mobileprovision\"",
+            "if [ ! -f \"$KEYCHAIN_PATH\" ]; then /usr/bin/security create-keychain -p \"$KEYCHAIN_PASSWORD\" \"$KEYCHAIN_PATH\"; fi",
+            "/usr/bin/security unlock-keychain -p \"$KEYCHAIN_PASSWORD\" \"$KEYCHAIN_PATH\"",
+            "/usr/bin/security set-keychain-settings -lut 21600 \"$KEYCHAIN_PATH\"",
+            "EXISTING_KEYCHAINS=$(/usr/bin/security list-keychains -d user | /usr/bin/tr -d '\"')",
+            "case \"$EXISTING_KEYCHAINS\" in *\"$KEYCHAIN_PATH\"*) /usr/bin/security list-keychains -d user -s \"$KEYCHAIN_PATH\" $EXISTING_KEYCHAINS ;; *) /usr/bin/security list-keychains -d user -s \"$KEYCHAIN_PATH\" $EXISTING_KEYCHAINS ;; esac",
+            "/usr/bin/security default-keychain -d user -s \"$KEYCHAIN_PATH\"",
+            "/usr/bin/security import \"$WORKDIR/certificate.p12\" -k \"$KEYCHAIN_PATH\" -P \"$CERT_PASSWORD\" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/xcodebuild 2>\"$WORKDIR/import.err\" || { if /usr/bin/grep -qi 'already exists' \"$WORKDIR/import.err\"; then /bin/cat \"$WORKDIR/import.err\" >&2; else /bin/cat \"$WORKDIR/import.err\" >&2; exit 1; fi; }",
+            "/usr/bin/security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \"$KEYCHAIN_PASSWORD\" \"$KEYCHAIN_PATH\"",
+            "/usr/bin/security cms -D -i \"$WORKDIR/profile.mobileprovision\" > \"$WORKDIR/profile.plist\"",
+            "PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' \"$WORKDIR/profile.plist\")",
+            "/bin/mkdir -p \"$HOME/Library/MobileDevice/Provisioning Profiles\"",
+            "/bin/cp \"$WORKDIR/profile.mobileprovision\" \"$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision\"",
+            "sync",
+            "echo SAND_SIGNING_CREDENTIALS_INSTALLED \"$PROFILE_UUID\""
+        ].joined(separator: "\n")
     }
 
     private func sharedFolderSymlinkScript(for folders: [SharedFolder]) -> String {

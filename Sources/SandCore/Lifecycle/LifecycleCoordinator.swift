@@ -218,6 +218,30 @@ public struct LifecycleCoordinator: SandboxApplication {
         return try backend(for: spec).gui(BackendGUIRequest(spec: spec))
     }
 
+    /// Installs distribution-signing credentials as a macOS Sandbox Guest Secret.
+    public func installSigningCredentials(_ request: SigningCredentialsRequest) throws -> CommandResult {
+        try metadataStore.withLifecycleMutationLock {
+            let spec = try metadataStore.readSpec(named: request.sandboxName)
+            guard spec.guestOS == .macOS else {
+                throw SandboxSigningError.unsupportedGuestOS(spec.guestOS.rawValue)
+            }
+            let backend = try backend(for: spec)
+            if try backend.status(spec.name) == .stopped {
+                try backend.start(spec)
+            }
+            return try backend.installSigningCredentials(
+                BackendSigningCredentialsRequest(
+                    sandboxName: spec.name,
+                    certificateP12: request.certificateP12,
+                    certificatePassword: request.certificatePassword,
+                    provisioningProfile: request.provisioningProfile,
+                    keychainName: request.keychainName,
+                    keychainPassword: request.keychainPassword
+                )
+            )
+        }
+    }
+
     /// Retrieves and displays logs from the sandbox VM.
     public func logs(_ request: NamedSandboxRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)

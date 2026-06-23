@@ -6,16 +6,22 @@ public struct CLICommandRouter {
 
     private let application: any SandboxApplication
     private let readTextFile: (String) throws -> String
+    private let readBinaryFile: (String) throws -> Data
+    private let readEnvironment: (String) -> String?
     private let writeOutput: (String) -> Void
 
     /// Initializes the command router with an application handler.
     public init(
         application: any SandboxApplication,
         readTextFile: @escaping (String) throws -> String = { try String(contentsOfFile: $0, encoding: .utf8) },
+        readBinaryFile: @escaping (String) throws -> Data = { try Data(contentsOf: URL(fileURLWithPath: $0)) },
+        readEnvironment: @escaping (String) -> String? = { ProcessInfo.processInfo.environment[$0] },
         writeOutput: @escaping (String) -> Void = { Swift.print($0) }
     ) {
         self.application = application
         self.readTextFile = readTextFile
+        self.readBinaryFile = readBinaryFile
+        self.readEnvironment = readEnvironment
         self.writeOutput = writeOutput
     }
 
@@ -61,6 +67,9 @@ public struct CLICommandRouter {
         case "folders":
             if try printHelpIfRequested(arguments, CLIHelp.folders) { return .success }
             return try dispatchFolders(Array(arguments.dropFirst()))
+        case "signing":
+            if try printHelpIfRequested(arguments, CLIHelp.signing) { return .success }
+            return try dispatchSigning(Array(arguments.dropFirst()))
         case "status":
             if try printHelpIfRequested(arguments, CLIHelp.status) { return .success }
             let name = try singleNameArgument(arguments, command: "status")
@@ -186,6 +195,81 @@ public struct CLICommandRouter {
         return try application.delete(DeleteRequest(sandboxName: name, force: force))
     }
 
+    // Parses and dispatches the `signing` subcommand.
+    private func dispatchSigning(_ arguments: [String]) throws -> CommandResult {
+        guard let action = arguments.first else { throw CLICommandError.missingAction }
+        guard action == "install" else { throw CLICommandError.unsupportedAction(action) }
+        guard arguments.count >= 3 else { throw CLICommandError.missingArgument("signing install <name> --certificate <p12> --certificate-password <password> --profile <mobileprovision> --keychain-password <password>") }
+        let name = try SandboxName(arguments[1])
+        var certificatePath: String?
+        var certificatePassword: String?
+        var certificatePasswordEnv: String?
+        var profilePath: String?
+        var keychainName = "sand-signing"
+        var keychainPassword: String?
+        var keychainPasswordEnv: String?
+        var index = 2
+        while index < arguments.count {
+            switch arguments[index] {
+            case "--certificate":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--certificate") }
+                certificatePath = arguments[index]
+            case "--certificate-password":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--certificate-password") }
+                certificatePassword = arguments[index]
+            case "--certificate-password-env":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--certificate-password-env") }
+                certificatePasswordEnv = arguments[index]
+            case "--profile":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--profile") }
+                profilePath = arguments[index]
+            case "--keychain":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--keychain") }
+                keychainName = arguments[index]
+            case "--keychain-password":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--keychain-password") }
+                keychainPassword = arguments[index]
+            case "--keychain-password-env":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--keychain-password-env") }
+                keychainPasswordEnv = arguments[index]
+            default:
+                throw CLICommandError.unsupportedOption(arguments[index])
+            }
+            index += 1
+        }
+        guard let certificatePath else { throw CLICommandError.missingOptionValue("--certificate") }
+        guard let profilePath else { throw CLICommandError.missingOptionValue("--profile") }
+        let resolvedCertificatePassword = try resolveSecret(
+            literal: certificatePassword,
+            environmentVariable: certificatePasswordEnv,
+            literalOption: "--certificate-password",
+            environmentOption: "--certificate-password-env"
+        )
+        let resolvedKeychainPassword = try resolveSecret(
+            literal: keychainPassword,
+            environmentVariable: keychainPasswordEnv,
+            literalOption: "--keychain-password",
+            environmentOption: "--keychain-password-env"
+        )
+        return try application.installSigningCredentials(
+            SigningCredentialsRequest(
+                sandboxName: name,
+                certificateP12: readBinaryFile(certificatePath),
+                certificatePassword: resolvedCertificatePassword,
+                provisioningProfile: readBinaryFile(profilePath),
+                keychainName: keychainName,
+                keychainPassword: resolvedKeychainPassword
+            )
+        )
+    }
+
     // Parses and dispatches the `folders` subcommand.
     private func dispatchFolders(_ arguments: [String]) throws -> CommandResult {
         guard let action = arguments.first else { throw CLICommandError.missingAction }
@@ -220,6 +304,29 @@ public struct CLICommandRouter {
         }
     }
 
+    // Resolves a secret from either a literal flag value or a named environment
+    // variable. Exactly one source must be supplied.
+    private func resolveSecret(
+        literal: String?,
+        environmentVariable: String?,
+        literalOption: String,
+        environmentOption: String
+    ) throws -> String {
+        switch (literal, environmentVariable) {
+        case (.some, .some):
+            throw CLICommandError.conflictingOptions(literalOption, environmentOption)
+        case let (.some(value), .none):
+            return value
+        case let (.none, .some(name)):
+            guard let value = readEnvironment(name) else {
+                throw CLICommandError.missingEnvironmentValue(environmentOption, name)
+            }
+            return value
+        case (.none, .none):
+            throw CLICommandError.missingOptionValue(literalOption)
+        }
+    }
+
     private func singleNameArgument(_ arguments: [String], command: String) throws -> SandboxName {
         guard arguments.count == 2 else { throw CLICommandError.missingArgument("\(command) <name>") }
         return try SandboxName(arguments[1])
@@ -248,6 +355,7 @@ private enum CLIHelp {
       apply <name>                   Apply spec changes
       delete <name> [--force]        Delete a Sandbox VM
       folders <action> ...           Manage shared Host Mac folders
+      signing <action> ...           Install macOS Signing Credentials Guest Secrets
       status <name>                  Show Sandbox VM status
       start <name>                   Start a Sandbox VM
       stop <name>                    Stop a Sandbox VM
@@ -297,6 +405,14 @@ private enum CLIHelp {
       folders add <name> <host-path> <rw|ro> [--as <guest-path>]
       folders list <name>
       folders remove <name> <host-path>
+    """
+
+    static let signing = """
+    Usage: sand signing install <name> --certificate <p12> (--certificate-password <password> | --certificate-password-env <var>) --profile <mobileprovision> (--keychain-password <password> | --keychain-password-env <var>) [--keychain <name>]
+
+    Installs macOS Signing Credentials into Guest State as a Guest Secret. The Host Mac keychain is never mounted or shared.
+
+    Prefer the `--*-password-env` flags so passwords are read from environment variables instead of appearing in shell history or the process list.
     """
 
     static let status = """
@@ -349,6 +465,8 @@ public enum CLICommandError: Error, Equatable, CustomStringConvertible {
     case missingAction
     case missingArgument(String)
     case missingOptionValue(String)
+    case missingEnvironmentValue(String, String)
+    case conflictingOptions(String, String)
     case unsupportedCommand(String)
     case unsupportedAction(String)
     case unsupportedOption(String)
@@ -362,6 +480,8 @@ public enum CLICommandError: Error, Equatable, CustomStringConvertible {
         case .missingAction: return "missing sandbox action"
         case .missingArgument(let usage): return "missing argument: \(usage)"
         case .missingOptionValue(let option): return "missing value for option: \(option)"
+        case .missingEnvironmentValue(let option, let name): return "environment variable for \(option) is not set: \(name)"
+        case .conflictingOptions(let first, let second): return "conflicting options: \(first) and \(second) cannot be used together"
         case .unsupportedCommand(let command): return "unsupported command: \(command)"
         case .unsupportedAction(let action): return "unsupported sandbox action: \(action)"
         case .unsupportedOption(let option): return "unsupported option: \(option)"

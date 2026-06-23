@@ -419,6 +419,35 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(macOSBackend.calls, [.gui("macbox")])
     }
 
+    func testSigningCredentialsRejectLinuxSandboxWithoutReadingHostKeychain() throws {
+        let spec = SandboxSpec.generated(name: try SandboxName("linuxbox"))
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [spec]), backend: backend)
+        let request = SigningCredentialsRequest(sandboxName: spec.name, certificateP12: Data("CERT".utf8), certificatePassword: "cert-pass", provisioningProfile: Data("PROFILE".utf8), keychainPassword: "kc-pass")
+
+        XCTAssertThrowsError(try coordinator.installSigningCredentials(request)) { error in
+            XCTAssertEqual(String(describing: error), "signing credentials are macOS-only; Sandbox VM uses linux.")
+        }
+        XCTAssertEqual(backend.calls, [])
+    }
+
+    func testSigningCredentialsAutoStartsStoppedMacOSSandboxAndDelegatesGuestSecretInjection() throws {
+        let spec = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS)
+        let linuxBackend = RecordingSandboxBackend(status: .running)
+        let macOSBackend = RecordingSandboxBackend(status: .stopped)
+        let resolver = RecordingBackendResolver(linuxBackend: linuxBackend, macOSBackend: macOSBackend)
+        let metadataStore = MemoryMetadataStore(specs: [spec])
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backendResolver: resolver)
+        let request = SigningCredentialsRequest(sandboxName: spec.name, certificateP12: Data("CERT".utf8), certificatePassword: "cert-pass", provisioningProfile: Data("PROFILE".utf8), keychainName: "ci-signing", keychainPassword: "kc-pass")
+
+        XCTAssertEqual(try coordinator.installSigningCredentials(request), .success)
+
+        XCTAssertEqual(resolver.requestedGuestOS, [.macOS])
+        XCTAssertEqual(linuxBackend.calls, [])
+        XCTAssertEqual(macOSBackend.calls, [.status("macbox"), .start("macbox"), .installSigningCredentials("macbox", "CERT", "cert-pass", "PROFILE", "ci-signing", "kc-pass")])
+        XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit"])
+    }
+
     func testStartStopAndDeleteAreLifecycleMutationsAndUpdateBackendState() throws {
         let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
         let metadataStore = MemoryMetadataStore(specs: [spec])

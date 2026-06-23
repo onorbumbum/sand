@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 4611688f2471ede3a9c27aa0340797287c49354225e6bbf68a7472d6629486cd -->
+<!-- docs-input-hash: 74d880da8775d220f4919b85dde149b1c3b779eb22f963776d057825adbfaa24 -->
 
 # sand Developer Guide
 
@@ -29,7 +29,7 @@ Keep backend-specific wording inside backend implementation and tests. User-faci
 | Working Directory Mapping | `Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift` | Map the Host Mac current directory into the matching Guest Path when it is inside an Shared Folder; otherwise warn and use `/workspace`. |
 | Host Metadata | `Sources/SandCore/Metadata/HostMetadataStore.swift` | Store active Sandbox Specs and creation-time specs under Host Metadata, and provide the lifecycle mutation lock. |
 | Doctor Checks | `Sources/SandCore/Doctor/DoctorChecks.swift` | Verify supported Host Mac platform, Sandbox Backend readiness, default Sandbox Image availability through the backend, and Host Metadata writability. |
-| Sandbox Backend | `Sources/SandCore/Backend/SandboxBackend.swift`, `Sources/SandCore/Backend/AppleContainerCLIBackend.swift`, `Sources/SandCore/Backend/BackendErrorTranslation.swift` | Hide backend operations behind a narrow interface and translate backend failures into Sandbox VM language. |
+| Sandbox Backend | `Sources/SandCore/Backend/SandboxBackend.swift`, `Sources/SandCore/Backend/AppleContainerCLIBackend.swift`, `Sources/SandCore/Backend/TartCLIBackend.swift`, `Sources/SandCore/Backend/BackendErrorTranslation.swift` | Hide backend operations behind a narrow interface and translate backend failures into Sandbox VM language. |
 | Status and prompts | `Sources/SandCore/Status/StatusPresenter.swift`, `Sources/SandCore/Prompt/PromptConfirmation.swift` | Present concise Sandbox Status and ask before destructive or interrupting Lifecycle Mutations. |
 
 The intended dependency direction is CLI → application boundary → domain/policy/backend interfaces. Backend adapter details should not spread into CLI help, Sandbox Specs, or general domain modules.
@@ -46,7 +46,7 @@ Behavior is specified with XCTest under `Tests/SandCoreTests/`. Start with the r
 | Working Directory Mapping | `Tests/SandCoreTests/WorkingDirectoryMapperTests.swift` checks exact and nested Shared Folder mapping, symlink-resolved mapping, and fallback warning behavior outside Shared Folders. |
 | Lifecycle coordination | `Tests/SandCoreTests/LifecycleCoordinatorTests.swift` checks create rollback, apply prompts, status/list/spec/logs output, run/shell auto-start, folder mutation auto-apply, deletion prompts, lifecycle locks, and concurrent session boundaries. |
 | Doctor Checks | `Tests/SandCoreTests/DoctorChecksTests.swift` and `Tests/SandCoreTests/AppleContainerCLIBackendDoctorTests.swift` check platform gating, Host Metadata writability, backend readiness, default Sandbox Image checks, and backend command construction. |
-| Backend error translation | `Tests/SandCoreTests/BackendErrorTranslationTests.swift` checks that raw backend failures become actionable Sandbox VM messages without leaking adapter internals. |
+| Backend behavior and error translation | `Tests/SandCoreTests/TartCLIBackendTests.swift` checks macOS backend command construction, including Signing Credentials injection, and `Tests/SandCoreTests/BackendErrorTranslationTests.swift` checks that raw backend failures become actionable Sandbox VM messages without leaking adapter internals. |
 | Architecture boundaries | `Tests/SandCoreTests/ArchitectureBoundaryTests.swift` checks that fake backends stay out of product sources and backend-specific implementation wording stays inside the adapter. |
 | Pi workload and credential boundaries | `Tests/SandCoreTests/PiWorkloadCredentialBoundaryValidationTests.swift` checks validation evidence that Pi runs as an ordinary Workload Command and Host Mac credentials are not mounted by default. |
 

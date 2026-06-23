@@ -1,3 +1,5 @@
+import Foundation
+
 /// Defines the interface for sandbox VM operations.
 ///
 /// Implementations handle the lifecycle of sandbox VMs.
@@ -18,6 +20,7 @@ public protocol SandboxApplication {
     func addFolder(_ request: AddFolderRequest) throws -> CommandResult
     func listFolders(_ request: NamedSandboxRequest) throws -> CommandResult
     func removeFolder(_ request: RemoveFolderRequest) throws -> CommandResult
+    func installSigningCredentials(_ request: SigningCredentialsRequest) throws -> CommandResult
 }
 
 /// A request containing only a sandbox name.
@@ -143,6 +146,42 @@ public struct RemoveFolderRequest: Equatable {
     public init(sandboxName: SandboxName, displayHostPath: String) {
         self.sandboxName = sandboxName
         self.displayHostPath = displayHostPath
+    }
+}
+
+/// A request to install distribution-signing credentials as a Sandbox Guest Secret.
+public struct SigningCredentialsRequest: Equatable {
+    public var sandboxName: SandboxName
+    public var certificateP12: Data
+    public var certificatePassword: String
+    public var provisioningProfile: Data
+    public var keychainName: String
+    public var keychainPassword: String
+
+    public init(
+        sandboxName: SandboxName,
+        certificateP12: Data,
+        certificatePassword: String,
+        provisioningProfile: Data,
+        keychainName: String = "sand-signing",
+        keychainPassword: String
+    ) {
+        self.sandboxName = sandboxName
+        self.certificateP12 = certificateP12
+        self.certificatePassword = certificatePassword
+        self.provisioningProfile = provisioningProfile
+        self.keychainName = keychainName
+        self.keychainPassword = keychainPassword
+    }
+}
+
+public enum SandboxSigningError: Error, Equatable, CustomStringConvertible {
+    case unsupportedGuestOS(String)
+
+    public var description: String {
+        switch self {
+        case .unsupportedGuestOS(let guestOS): return "signing credentials are macOS-only; Sandbox VM uses \(guestOS)."
+        }
     }
 }
 

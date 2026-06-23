@@ -2,17 +2,17 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: 4611688f2471ede3a9c27aa0340797287c49354225e6bbf68a7472d6629486cd -->
+<!-- docs-input-hash: 74d880da8775d220f4919b85dde149b1c3b779eb22f963776d057825adbfaa24 -->
 
 > A safer place to run Pi and other developer tools.
 
-`sand` creates small, named Linux environments on your Apple silicon Mac. Each environment feels like a little computer: it has its own files, tools, shell state, and login state, but it can only see the Mac folders you choose to share with it.
+`sand` creates small, named Linux or macOS Sandbox VMs on your Apple silicon Mac. Each environment feels like a little computer: it has its own files, tools, shell state, and login state, but it can only see the Mac folders you choose to share with it.
 
 ## Why sand exists
 
 Modern coding agents and developer CLIs are powerful because they can read code, run commands, install packages, and keep working state. That same power is risky when the tool runs directly in your everyday Mac shell, where your home directory, credentials, dotfiles, project history, and local machine state are all nearby.
 
-`sand` gives those tools a dedicated workspace. Pi can still work like a capable coding assistant, but the boundary is easier to understand: the Sandbox VM gets its own Linux world, and your Mac only exposes the folders you explicitly allow.
+`sand` gives those tools a dedicated workspace. Pi can still work like a capable coding assistant, but the boundary is easier to understand: the Sandbox VM gets its own guest world, and your Mac only exposes the folders you explicitly allow.
 
 For the longer write-up on why I built it, read [Sand — simple VMs for Mac](https://onuruzunismail.com/blog/sand.html).
 
@@ -57,10 +57,13 @@ This alpha is intentionally focused on the daily loop:
 - open an interactive Sandbox Session with `sand shell <name>`
 - keep Guest State under `/state/sandbox` across stop/start for the same Sandbox VM
 - use the Developer-Ready Sandbox image with common development tools already installed
+- create macOS Sandbox VMs through Tart for Xcode/iOS work
+- open macOS GUI Sessions with `sand <name> gui`
+- install macOS Signing Credentials as Guest Secrets for headless distribution signing
 
 ## Current boundaries
 
-In this version, access is intentionally simple: choose folders, run commands, keep guest state. Host credentials and Host Mac Pi config are not shared automatically. Inbound port publishing is not part of the first release, so browser callback logins need the handoff flow described below.
+In this version, access is intentionally simple: choose folders, run commands, keep guest state. Host credentials and Host Mac Pi config are not shared automatically. macOS Signing Credentials are injected into the Sandbox Guest keychain as Guest Secrets; the Host Mac keychain is not mounted or shared. Simulator builds do not need signing or Apple ID. Physical-device deploy/debug is unsupported because macOS guests do not get USB passthrough; `gui` gives desktop access to the VM, not a forwarded host device. Inbound port publishing is not part of the first release, so browser callback logins need the handoff flow described below.
 
 ## Documentation
 
@@ -80,8 +83,9 @@ The documentation refresh workflow is a guardrail for changes with Documentation
 
 - Apple silicon Mac.
 - Swift toolchain compatible with this package (`Package.swift` uses Swift tools 6.2 and declares macOS v26).
-- Apple `container` CLI installed and available on `PATH`.
-- Apple `container` backend service running or startable by `container system start`.
+- Apple `container` CLI installed and available on `PATH` for Linux Sandbox VMs.
+- Apple `container` backend service running or startable by `container system start` for Linux Sandbox VMs.
+- Tart CLI installed and available on `PATH` for macOS Sandbox VMs.
 - The developer-ready image built locally: `sand/developer-ready:ubuntu-lts`.
 
 ## Build and smoke-test the developer-ready image
@@ -229,8 +233,8 @@ For the complete generated reference, see [`docs/cli-reference.md`](docs/cli-ref
 Supported v1 commands:
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`
-- Sandbox actions: `sand status <name>`, `sand start <name>`, `sand stop <name>`, `sand shell <name>`, `sand run <name> <command> [args...]`, `sand logs <name>`, `sand spec <name>`
+- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`, `sand signing <action> ...`
+- Sandbox actions: `sand status <name>`, `sand start <name>`, `sand stop <name>`, `sand shell <name>`, `sand run <name> <command> [args...]`, `sand <name> gui`, `sand logs <name>`, `sand spec <name>`
 
 Command help:
 
@@ -252,6 +256,19 @@ sand folders add demo "$HOME/Reference" ro --as /reference
 sand folders list demo
 sand folders remove demo "$HOME/Reference"
 ```
+
+macOS signing:
+
+```sh
+sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-sequoia-xcode:latest
+# Read passwords from environment variables so they never land in shell history or the process list.
+export P12_PASSWORD=... KEYCHAIN_PASSWORD=...
+sand signing install iosbox --certificate "$HOME/Secrets/dist.p12" --certificate-password-env P12_PASSWORD --profile "$HOME/Secrets/App.mobileprovision" --keychain-password-env KEYCHAIN_PASSWORD
+# Unlock the signing keychain in the build session, then archive with manual signing.
+sand run iosbox /bin/zsh -lc 'security unlock-keychain -p "'$KEYCHAIN_PASSWORD'" "$HOME/Library/Keychains/sand-signing.keychain-db" && xcodebuild -scheme App -configuration Release archive CODE_SIGN_STYLE=Manual'
+```
+
+> Headless signing needs the injected keychain unlocked in the same session as `xcodebuild`. Without the `security unlock-keychain` step, `codesign` fails with `errSecInternalComponent`. Distribution signing uses Manual signing (`CODE_SIGN_STYLE=Manual` with `DEVELOPMENT_TEAM`, `PROVISIONING_PROFILE_SPECIFIER`, and `CODE_SIGN_IDENTITY`).
 
 Current v1 boundaries:
 

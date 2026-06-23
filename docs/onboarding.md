@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 4611688f2471ede3a9c27aa0340797287c49354225e6bbf68a7472d6629486cd -->
+<!-- docs-input-hash: 74d880da8775d220f4919b85dde149b1c3b779eb22f963776d057825adbfaa24 -->
 
 # sand Onboarding Guide
 
@@ -8,7 +8,7 @@
 
 ## What this repo is
 
-`sand` is a Swift CLI for creating and managing **Sandbox VMs**: isolated Linux machines on a **Host Mac** with persistent **Guest State**, explicit **Shared Folders**, and generic **Workload Commands**. Pi is the primary workflow, and the same sandbox can run other developer tools when needed.
+`sand` is a Swift CLI for creating and managing **Sandbox VMs**: isolated Linux or macOS guests on a **Host Mac** with persistent **Guest State**, explicit **Shared Folders**, and generic **Workload Commands**. Pi is the primary workflow, and the same sandbox can run other developer tools when needed.
 
 `sand` is experimental alpha software released under the Apache License 2.0. Public issues are welcome, but there is no support guarantee or response SLA, and external pull requests are not accepted yet.
 
@@ -55,7 +55,7 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 | --- | --- |
 | `Sources/sand/main.swift` | CLI executable entry point. |
 | `Sources/SandCore/CLI/` | Command routing and application orchestration for the `sand` API Surface. |
-| `Sources/SandCore/Backend/` | Sandbox Backend interfaces and Apple `container` backend plumbing. Backend details should not leak into user-facing language. |
+| `Sources/SandCore/Backend/` | Sandbox Backend interfaces plus Apple `container` and Tart backend plumbing. Backend details should not leak into user-facing language. |
 | `Sources/SandCore/Doctor/` | Doctor Checks for Host Mac support, backend readiness, default image availability, and Host Metadata writability. |
 | `Sources/SandCore/Domain/` | Small domain types such as Sandbox Name and Workload Command. |
 | `Sources/SandCore/FolderPolicy/` | Shared Folder validation, Access Mode handling, Guest Path rules, duplicate and overlap policy. |

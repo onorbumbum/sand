@@ -17,6 +17,7 @@ final class CLICommandRouterTests: XCTestCase {
 
         XCTAssertTrue(output[0].contains("Usage: sand <command>"))
         XCTAssertTrue(output[0].contains("doctor"))
+        XCTAssertTrue(output[0].contains("signing <action>"))
         XCTAssertTrue(output[0].contains("run <name>"))
         XCTAssertEqual(output[1], "sand 0.1.0-dev")
         XCTAssertEqual(app.calls, [])
@@ -31,6 +32,7 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertEqual(try router.dispatch(arguments: ["delete", "--help"]), .success)
         XCTAssertEqual(try router.dispatch(arguments: ["apply", "--help"]), .success)
         XCTAssertEqual(try router.dispatch(arguments: ["folders", "--help"]), .success)
+        XCTAssertEqual(try router.dispatch(arguments: ["signing", "--help"]), .success)
 
         XCTAssertTrue(output[0].contains("Usage: sand create <name>"))
         XCTAssertTrue(output[0].contains("--os <linux|macos>"))
@@ -39,6 +41,8 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertTrue(output[2].contains("Usage: sand apply <name>"))
         XCTAssertTrue(output[3].contains("Usage: sand folders <action>"))
         XCTAssertTrue(output[3].contains("folders add <name> <host-path> <rw|ro>"))
+        XCTAssertTrue(output[4].contains("Usage: sand signing install <name>"))
+        XCTAssertTrue(output[4].contains("Host Mac keychain is never mounted or shared"))
         XCTAssertEqual(app.calls, [])
     }
 
@@ -77,7 +81,9 @@ final class CLICommandRouterTests: XCTestCase {
             (["folders", "add", "mybox", "~/Projects", "rw"], .addFolder("mybox", "~/Projects", "rw", nil)),
             (["folders", "add", "mybox", "~/Projects", "ro", "--as", "/code"], .addFolder("mybox", "~/Projects", "ro", "/code")),
             (["folders", "list", "mybox"], .listFolders("mybox")),
-            (["folders", "remove", "mybox", "~/Projects"], .removeFolder("mybox", "~/Projects"))
+            (["folders", "remove", "mybox", "~/Projects"], .removeFolder("mybox", "~/Projects")),
+            (["signing", "install", "mybox", "--certificate", "cert.p12", "--certificate-password", "cert-pass", "--profile", "app.mobileprovision", "--keychain-password", "kc-pass"], .installSigningCredentials("mybox", "CERT", "cert-pass", "PROFILE", "sand-signing", "kc-pass")),
+            (["signing", "install", "mybox", "--certificate", "cert.p12", "--certificate-password", "cert-pass", "--profile", "app.mobileprovision", "--keychain", "ci-signing", "--keychain-password", "kc-pass"], .installSigningCredentials("mybox", "CERT", "cert-pass", "PROFILE", "ci-signing", "kc-pass"))
         ]
 
         for testCase in cases {
@@ -85,11 +91,110 @@ final class CLICommandRouterTests: XCTestCase {
             let router = CLICommandRouter(application: app, readTextFile: { path in
                 XCTAssertEqual(path, "spec.yaml")
                 return authoredSpecText
+            }, readBinaryFile: { path in
+                switch path {
+                case "cert.p12": return Data("CERT".utf8)
+                case "app.mobileprovision": return Data("PROFILE".utf8)
+                default: XCTFail("unexpected binary path: \(path)"); return Data()
+                }
             })
 
             XCTAssertEqual(try router.dispatch(arguments: testCase.arguments), .success, "\(testCase.arguments)")
             XCTAssertEqual(app.calls, [testCase.expected], "\(testCase.arguments)")
         }
+    }
+
+    func testSigningInstallReadsCertificatePasswordFromEnvironment() throws {
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(
+            application: app,
+            readBinaryFile: { path in
+                switch path {
+                case "cert.p12": return Data("CERT".utf8)
+                case "app.mobileprovision": return Data("PROFILE".utf8)
+                default: XCTFail("unexpected binary path: \(path)"); return Data()
+                }
+            },
+            readEnvironment: { ["CERT_PW": "cert-pass"][$0] }
+        )
+
+        let result = try router.dispatch(arguments: [
+            "signing", "install", "mybox",
+            "--certificate", "cert.p12",
+            "--certificate-password-env", "CERT_PW",
+            "--profile", "app.mobileprovision",
+            "--keychain-password", "kc-pass"
+        ])
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(app.calls, [.installSigningCredentials("mybox", "CERT", "cert-pass", "PROFILE", "sand-signing", "kc-pass")])
+    }
+
+    func testSigningInstallReadsBothPasswordsFromEnvironment() throws {
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(
+            application: app,
+            readBinaryFile: { path in
+                switch path {
+                case "cert.p12": return Data("CERT".utf8)
+                case "app.mobileprovision": return Data("PROFILE".utf8)
+                default: XCTFail("unexpected binary path: \(path)"); return Data()
+                }
+            },
+            readEnvironment: { ["CERT_PW": "cert-pass", "KC_PW": "kc-pass"][$0] }
+        )
+
+        let result = try router.dispatch(arguments: [
+            "signing", "install", "mybox",
+            "--certificate", "cert.p12",
+            "--certificate-password-env", "CERT_PW",
+            "--profile", "app.mobileprovision",
+            "--keychain-password-env", "KC_PW"
+        ])
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(app.calls, [.installSigningCredentials("mybox", "CERT", "cert-pass", "PROFILE", "sand-signing", "kc-pass")])
+    }
+
+    func testSigningInstallRejectsBothLiteralAndEnvironmentPassword() throws {
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(
+            application: app,
+            readBinaryFile: { _ in Data("X".utf8) },
+            readEnvironment: { ["CERT_PW": "cert-pass"][$0] }
+        )
+
+        XCTAssertThrowsError(try router.dispatch(arguments: [
+            "signing", "install", "mybox",
+            "--certificate", "cert.p12",
+            "--certificate-password", "cert-pass",
+            "--certificate-password-env", "CERT_PW",
+            "--profile", "app.mobileprovision",
+            "--keychain-password", "kc-pass"
+        ])) { error in
+            XCTAssertEqual(error as? CLICommandError, .conflictingOptions("--certificate-password", "--certificate-password-env"))
+        }
+        XCTAssertEqual(app.calls, [])
+    }
+
+    func testSigningInstallRejectsUnsetEnvironmentPassword() throws {
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(
+            application: app,
+            readBinaryFile: { _ in Data("X".utf8) },
+            readEnvironment: { _ in nil }
+        )
+
+        XCTAssertThrowsError(try router.dispatch(arguments: [
+            "signing", "install", "mybox",
+            "--certificate", "cert.p12",
+            "--certificate-password-env", "CERT_PW",
+            "--profile", "app.mobileprovision",
+            "--keychain-password", "kc-pass"
+        ])) { error in
+            XCTAssertEqual(error as? CLICommandError, .missingEnvironmentValue("--certificate-password-env", "CERT_PW"))
+        }
+        XCTAssertEqual(app.calls, [])
     }
 
     func testRunCommandDispatchesOpaqueWorkloadThroughLifecycleBoundaryUnchangedAndDoesNotSpecialCasePi() throws {
@@ -163,6 +268,9 @@ private final class RecordingSandboxApplication: SandboxApplication {
     func addFolder(_ request: AddFolderRequest) throws -> CommandResult { calls.append(.addFolder(request.sandboxName.rawValue, request.displayHostPath, request.accessMode, request.guestPath?.rawValue)); return .success }
     func listFolders(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.listFolders(request.sandboxName.rawValue)); return .success }
     func removeFolder(_ request: RemoveFolderRequest) throws -> CommandResult { calls.append(.removeFolder(request.sandboxName.rawValue, request.displayHostPath)); return .success }
+    func installSigningCredentials(_ request: SigningCredentialsRequest) throws -> CommandResult {
+        calls.append(.installSigningCredentials(request.sandboxName.rawValue, String(decoding: request.certificateP12, as: UTF8.self), request.certificatePassword, String(decoding: request.provisioningProfile, as: UTF8.self), request.keychainName, request.keychainPassword)); return .success
+    }
 }
 
 private enum AppCall: Equatable {
@@ -182,4 +290,5 @@ private enum AppCall: Equatable {
     case addFolder(String, String, String, String?)
     case listFolders(String)
     case removeFolder(String, String)
+    case installSigningCredentials(String, String, String, String, String, String)
 }

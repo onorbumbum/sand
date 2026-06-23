@@ -31,6 +31,7 @@ list_help="$(capture_sand list --help)"
 apply_help="$(capture_sand apply --help)"
 delete_help="$(capture_sand delete --help)"
 folders_help="$(capture_sand folders --help)"
+signing_help="$(capture_sand signing --help)"
 status_help="$(capture_sand status --help)"
 start_help="$(capture_sand start --help)"
 stop_help="$(capture_sand stop --help)"
@@ -62,7 +63,7 @@ This reference captures the v1 **API Surface** for managing **Sandbox VMs**, **A
 ## Supported v1 command surface
 
 - Global: \`sand --help\`, \`sand --version\`
-- Top-level commands: \`doctor\`, \`create\`, \`list\`, \`apply\`, \`delete\`, \`folders\`, \`status\`, \`start\`, \`stop\`, \`shell\`, \`run\`, \`logs\`, \`spec\`
+- Top-level commands: \`doctor\`, \`create\`, \`list\`, \`apply\`, \`delete\`, \`folders\`, \`signing\`, \`status\`, \`start\`, \`stop\`, \`shell\`, \`run\`, \`logs\`, \`spec\`
 
 ## Current v1 boundaries
 
@@ -119,6 +120,12 @@ $delete_help
 
 \`\`\`text
 $folders_help
+\`\`\`
+
+## \`sand signing\`
+
+\`\`\`text
+$signing_help
 \`\`\`
 
 ## \`sand status\`

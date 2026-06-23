@@ -1,3 +1,5 @@
+import Foundation
+
 /// Defines the interface for sandbox VM backend operations.
 ///
 /// Implementations handle VM provisioning, starting, stopping,
@@ -11,6 +13,7 @@ public protocol SandboxBackend {
     func run(_ request: BackendRunRequest) throws -> CommandResult
     func shell(_ request: BackendShellRequest) throws -> CommandResult
     func gui(_ request: BackendGUIRequest) throws -> CommandResult
+    func installSigningCredentials(_ request: BackendSigningCredentialsRequest) throws -> CommandResult
     func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus
     func logs(_ sandboxName: SandboxName) throws -> SandboxLogs
     func delete(_ sandboxName: SandboxName) throws
@@ -52,6 +55,32 @@ public struct BackendGUIRequest: Equatable {
 
     public init(spec: SandboxSpec) {
         self.spec = spec
+    }
+}
+
+/// A backend request to install distribution-signing credentials inside Guest State.
+public struct BackendSigningCredentialsRequest: Equatable {
+    public var sandboxName: SandboxName
+    public var certificateP12: Data
+    public var certificatePassword: String
+    public var provisioningProfile: Data
+    public var keychainName: String
+    public var keychainPassword: String
+
+    public init(
+        sandboxName: SandboxName,
+        certificateP12: Data,
+        certificatePassword: String,
+        provisioningProfile: Data,
+        keychainName: String,
+        keychainPassword: String
+    ) {
+        self.sandboxName = sandboxName
+        self.certificateP12 = certificateP12
+        self.certificatePassword = certificatePassword
+        self.provisioningProfile = provisioningProfile
+        self.keychainName = keychainName
+        self.keychainPassword = keychainPassword
     }
 }
 

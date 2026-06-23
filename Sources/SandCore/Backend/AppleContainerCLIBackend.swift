@@ -150,6 +150,11 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         throw SandboxGUIError.unsupportedGuestOS(request.spec.guestOS.rawValue)
     }
 
+    /// Linux sandboxes do not support macOS distribution-signing credentials.
+    public func installSigningCredentials(_ request: BackendSigningCredentialsRequest) throws -> CommandResult {
+        throw SandboxSigningError.unsupportedGuestOS(GuestOS.linux.rawValue)
+    }
+
     // Builds exec arguments, adding --tty if stdin/stdout are terminals.
     private func execArguments(sandboxName: SandboxName, workingDirectory: GuestPath, command: [String]) -> [String] {
         var arguments = ["exec", "--interactive"]

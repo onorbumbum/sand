@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: 8ca860129690ce9cda29fdc549c31473e5389b7443f6b14b493f38741283170e -->
+<!-- docs-input-hash: 74d880da8775d220f4919b85dde149b1c3b779eb22f963776d057825adbfaa24 -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **API Surface** for managing **Sandbox VMs**, **A
 
 ## Generation source
 
-- Docs input hash: `8ca860129690ce9cda29fdc549c31473e5389b7443f6b14b493f38741283170e`
+- Docs input hash: `74d880da8775d220f4919b85dde149b1c3b779eb22f963776d057825adbfaa24`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, and `sand --version` output.
@@ -18,7 +18,7 @@ This reference captures the v1 **API Surface** for managing **Sandbox VMs**, **A
 ## Supported v1 command surface
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `doctor`, `create`, `list`, `apply`, `delete`, `folders`, `status`, `start`, `stop`, `shell`, `run`, `logs`, `spec`
+- Top-level commands: `doctor`, `create`, `list`, `apply`, `delete`, `folders`, `signing`, `status`, `start`, `stop`, `shell`, `run`, `logs`, `spec`
 
 ## Current v1 boundaries
 
@@ -47,11 +47,13 @@ Commands:
   apply <name>                   Apply spec changes
   delete <name> [--force]        Delete a Sandbox VM
   folders <action> ...           Manage shared Host Mac folders
+  signing <action> ...           Install macOS Signing Credentials Guest Secrets
   status <name>                  Show Sandbox VM status
   start <name>                   Start a Sandbox VM
   stop <name>                    Stop a Sandbox VM
   shell <name>                   Open a shell
   run <name> <command> [args...] Run a Workload Command
+  <name> gui                     Open a graphical desktop session
   logs <name>                    Show logs
   spec <name>                    Print the sandbox spec
 
@@ -69,9 +71,9 @@ Verifies host support, backend readiness, default image availability, and ~/.san
 ## `sand create`
 
 ```text
-Usage: sand create <name> [--image <image>] [--cpus <count>] [--memory <size>] [--from <spec.yaml>]
+Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--cpus <count>] [--memory <size>] [--disk <size>]
 
-Creates a Sandbox VM from generated defaults or from an authored spec.
+Creates a Sandbox VM from generated defaults, an authored Linux spec, a backend image, or a stopped local macOS sandbox.
 ```
 
 ## `sand list`
@@ -107,6 +109,16 @@ Actions:
   folders add <name> <host-path> <rw|ro> [--as <guest-path>]
   folders list <name>
   folders remove <name> <host-path>
+```
+
+## `sand signing`
+
+```text
+Usage: sand signing install <name> --certificate <p12> (--certificate-password <password> | --certificate-password-env <var>) --profile <mobileprovision> (--keychain-password <password> | --keychain-password-env <var>) [--keychain <name>]
+
+Installs macOS Signing Credentials into Guest State as a Guest Secret. The Host Mac keychain is never mounted or shared.
+
+Prefer the `--*-password-env` flags so passwords are read from environment variables instead of appearing in shell history or the process list.
 ```
 
 ## `sand status`

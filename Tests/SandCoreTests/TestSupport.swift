@@ -134,6 +134,11 @@ final class RecordingSandboxBackend: SandboxBackend {
         return .success
     }
 
+    func installSigningCredentials(_ request: BackendSigningCredentialsRequest) throws -> CommandResult {
+        calls.append(.installSigningCredentials(request.sandboxName.rawValue, String(decoding: request.certificateP12, as: UTF8.self), request.certificatePassword, String(decoding: request.provisioningProfile, as: UTF8.self), request.keychainName, request.keychainPassword))
+        return .success
+    }
+
     func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus {
         calls.append(.status(sandboxName.rawValue))
         return runtimeStatus
@@ -191,6 +196,7 @@ enum BackendCall: Equatable {
     case status(String)
     case logs(String)
     case delete(String)
+    case installSigningCredentials(String, String, String, String, String, String)
 }
 
 final class RecordingPromptConfirmation: PromptConfirmation {
