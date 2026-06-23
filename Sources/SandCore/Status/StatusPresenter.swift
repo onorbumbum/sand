@@ -11,6 +11,7 @@ public struct StatusPresenter {
             image: spec.image.reference,
             cpus: spec.resourceProfile.cpus,
             memory: spec.resourceProfile.memory.description,
+            diskSize: spec.diskSize?.description,
             sharedFolderCount: spec.sharedFolders.count
         )
     }
@@ -22,14 +23,18 @@ public struct StatusPresenter {
 
     /// Formats a view as multiple detail lines.
     public func detailLines(for view: SandboxStatusView) -> [String] {
-        [
+        var lines = [
             "name: \(view.name)",
             "state: \(view.runtimeState)",
             "os: \(view.guestOS)",
             "image: \(view.image)",
-            "resources: \(view.cpus) CPUs, \(view.memory) memory",
-            "sharedFolders: \(view.sharedFolderCount)"
+            "resources: \(view.cpus) CPUs, \(view.memory) memory"
         ]
+        if let diskSize = view.diskSize {
+            lines.append("disk: \(diskSize)")
+        }
+        lines.append("sharedFolders: \(view.sharedFolderCount)")
+        return lines
     }
 }
 
@@ -41,15 +46,17 @@ public struct SandboxStatusView: Equatable {
     public var image: String
     public var cpus: Int
     public var memory: String
+    public var diskSize: String?
     public var sharedFolderCount: Int
 
-    public init(name: String, runtimeState: String, guestOS: String, image: String, cpus: Int, memory: String, sharedFolderCount: Int) {
+    public init(name: String, runtimeState: String, guestOS: String, image: String, cpus: Int, memory: String, diskSize: String? = nil, sharedFolderCount: Int) {
         self.name = name
         self.runtimeState = runtimeState
         self.guestOS = guestOS
         self.image = image
         self.cpus = cpus
         self.memory = memory
+        self.diskSize = diskSize
         self.sharedFolderCount = sharedFolderCount
     }
 }

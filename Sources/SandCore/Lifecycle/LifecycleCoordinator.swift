@@ -79,9 +79,16 @@ public struct LifecycleCoordinator: SandboxApplication {
             let spec: SandboxSpec
             if let authoredSpecText = request.authoredSpecText {
                 spec = try SandboxSpec.parseYAML(authoredSpecText)
+            } else if let clone = try localCloneSource(for: request) {
+                spec = clone.spec
+                try spec.validateLocalClone(from: clone.sourceSpec)
+                if try backend(for: clone.sourceSpec).status(clone.sourceSpec.name) != .stopped {
+                    throw SandboxCreateError.localCloneSourceNotStopped(clone.sourceSpec.name.rawValue)
+                }
             } else {
-                spec = SandboxSpec.generated(name: request.sandboxName, image: request.image, guestOS: request.guestOS, resourceProfile: request.resourceProfile)
+                spec = SandboxSpec.generated(name: request.sandboxName, image: request.image, guestOS: request.guestOS, resourceProfile: request.resourceProfile, diskSize: request.diskSize)
             }
+            try spec.validateV1()
             try metadataStore.createSpec(spec)
             do {
                 try backend(for: spec).provision(spec)
@@ -256,6 +263,27 @@ public struct LifecycleCoordinator: SandboxApplication {
         }
     }
 
+    private func localCloneSource(for request: CreateRequest) throws -> LocalCloneRequest? {
+        guard let sourceReference = request.sourceReference, let sourceName = try? SandboxName(sourceReference) else { return nil }
+        let sourceSpec: SandboxSpec
+        do {
+            sourceSpec = try metadataStore.readSpec(named: sourceName)
+        } catch HostMetadataError.specNotFound(_) {
+            return nil
+        }
+        let sourceDefaults = ResourceProfile.default(for: sourceSpec.guestOS)
+        let requestDefaults = ResourceProfile.default(for: request.guestOS)
+        let resourceProfile = request.resourceProfile == requestDefaults ? sourceDefaults : request.resourceProfile
+        let spec = SandboxSpec.generated(
+            name: request.sandboxName,
+            image: SandboxImage(reference: sourceName.rawValue),
+            guestOS: sourceSpec.guestOS,
+            resourceProfile: resourceProfile,
+            diskSize: request.diskSize ?? sourceSpec.diskSize
+        )
+        return LocalCloneRequest(sourceSpec: sourceSpec, spec: spec)
+    }
+
     private func backend(for spec: SandboxSpec) throws -> any SandboxBackend {
         try backendResolver.backend(for: spec.guestOS)
     }
@@ -294,6 +322,11 @@ public struct LifecycleCoordinator: SandboxApplication {
 }
 
 /// Always-approve prompt for non-interactive use.
+private struct LocalCloneRequest {
+    var sourceSpec: SandboxSpec
+    var spec: SandboxSpec
+}
+
 public struct AlwaysProceedPromptConfirmation: PromptConfirmation {
     public init() {}
 

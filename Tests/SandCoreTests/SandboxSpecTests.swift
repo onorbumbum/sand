@@ -14,10 +14,50 @@ final class SandboxSpecTests: XCTestCase {
         XCTAssertFalse(spec.renderedYAML().contains("ports"))
     }
 
-    func testMacOSSpecsDefaultToFourCPUsAndSixteenGB() throws {
+    func testMacOSSpecsDefaultToFourCPUsAndSixteenGBAndOneHundredGBDisk() throws {
         let spec = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS)
 
         XCTAssertEqual(spec.resourceProfile, ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 16)))
+        XCTAssertEqual(spec.diskSize, DiskSize(gigabytes: 100))
+    }
+
+    func testMacOSSpecParsesAndRendersDiskSize() throws {
+        let yaml = """
+        schemaVersion: 1
+        name: macbox
+        image: ghcr.io/example/macos:latest
+        os: macos
+        disk: 150GB
+        resources:
+          cpus: 4
+          memory: 16GB
+        sharedFolders:
+          []
+        """
+
+        let spec = try SandboxSpec.parseYAML(yaml)
+
+        XCTAssertEqual(spec.diskSize, DiskSize(gigabytes: 150))
+        XCTAssertTrue(spec.renderedYAML().contains("disk: 150GB"))
+    }
+
+    func testLinuxSpecRejectsMacOSOnlyDiskSize() throws {
+        let yaml = """
+        schemaVersion: 1
+        name: linuxbox
+        image: sand/developer-ready:ubuntu-lts
+        os: linux
+        disk: 150GB
+        resources:
+          cpus: 4
+          memory: 8GB
+        sharedFolders:
+          []
+        """
+
+        XCTAssertThrowsError(try SandboxSpec.parseYAML(yaml)) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .diskUnsupportedForGuestOS(.linux))
+        }
     }
 
     func testGeneratedSpecRendersAndParsesBackToSameContract() throws {
@@ -124,6 +164,8 @@ final class SandboxSpecTests: XCTestCase {
         let osEdited = SandboxSpec(name: original.name, guestOS: .macOS)
         let cpuEdited = SandboxSpec(name: original.name, resourceProfile: ResourceProfile(cpus: 8, memory: .init(gigabytes: 8)))
         let memoryEdited = SandboxSpec(name: original.name, resourceProfile: ResourceProfile(cpus: 4, memory: .init(gigabytes: 16)))
+        let macOriginal = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 100))
+        let diskEdited = SandboxSpec(name: macOriginal.name, guestOS: .macOS, diskSize: DiskSize(gigabytes: 150))
 
         XCTAssertThrowsError(try imageEdited.validateUpdate(from: original)) { error in
             XCTAssertEqual(error as? SandboxSpecError, .imageImmutable)
@@ -136,6 +178,18 @@ final class SandboxSpecTests: XCTestCase {
         }
         XCTAssertThrowsError(try memoryEdited.validateUpdate(from: original)) { error in
             XCTAssertEqual(error as? SandboxSpecError, .resourceProfileImmutable(field: "memory"))
+        }
+        XCTAssertThrowsError(try diskEdited.validateUpdate(from: macOriginal)) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .diskSizeImmutable)
+        }
+    }
+
+    func testLocalMacOSCloneRejectsSmallerDiskThanSource() throws {
+        let source = SandboxSpec(name: try SandboxName("clean"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 150))
+        let clone = SandboxSpec(name: try SandboxName("work"), image: SandboxImage(reference: "clean"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 100))
+
+        XCTAssertThrowsError(try clone.validateLocalClone(from: source)) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .cloneDiskTooSmall(source: DiskSize(gigabytes: 150), requested: DiskSize(gigabytes: 100)))
         }
     }
 

@@ -35,19 +35,35 @@ public struct CreateRequest: Equatable {
     public var image: SandboxImage
     public var guestOS: GuestOS
     public var resourceProfile: ResourceProfile
+    public var diskSize: DiskSize?
+    public var sourceReference: String?
 
     public init(
         sandboxName: SandboxName,
         authoredSpecText: String? = nil,
         image: SandboxImage = .developerReadyDefault,
         guestOS: GuestOS = .linux,
-        resourceProfile: ResourceProfile? = nil
+        resourceProfile: ResourceProfile? = nil,
+        diskSize: DiskSize? = nil,
+        sourceReference: String? = nil
     ) {
         self.sandboxName = sandboxName
         self.authoredSpecText = authoredSpecText
         self.image = image
         self.guestOS = guestOS
         self.resourceProfile = resourceProfile ?? ResourceProfile.default(for: guestOS)
+        self.diskSize = diskSize
+        self.sourceReference = sourceReference
+    }
+}
+
+public enum SandboxCreateError: Error, Equatable, CustomStringConvertible {
+    case localCloneSourceNotStopped(String)
+
+    public var description: String {
+        switch self {
+        case .localCloneSourceNotStopped(let name): return "local macOS clone source must be stopped: \(name)"
+        }
     }
 }
 

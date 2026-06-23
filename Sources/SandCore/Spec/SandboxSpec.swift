@@ -12,6 +12,7 @@ public struct SandboxSpec: Equatable, Sendable {
     public var image: SandboxImage
     public var guestOS: GuestOS
     public var resourceProfile: ResourceProfile
+    public var diskSize: DiskSize?
     public var sharedFolders: [SharedFolder]
 
     public init(
@@ -20,6 +21,7 @@ public struct SandboxSpec: Equatable, Sendable {
         image: SandboxImage = .developerReadyDefault,
         guestOS: GuestOS = .linux,
         resourceProfile: ResourceProfile? = nil,
+        diskSize: DiskSize? = nil,
         sharedFolders: [SharedFolder] = []
     ) {
         self.schemaVersion = schemaVersion
@@ -27,17 +29,21 @@ public struct SandboxSpec: Equatable, Sendable {
         self.image = image
         self.guestOS = guestOS
         self.resourceProfile = resourceProfile ?? ResourceProfile.default(for: guestOS)
+        self.diskSize = diskSize ?? DiskSize.default(for: guestOS)
         self.sharedFolders = sharedFolders
     }
 
     /// Creates a spec with default settings.
-    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile? = nil) -> SandboxSpec {
-        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile ?? ResourceProfile.default(for: guestOS), sharedFolders: [])
+    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile? = nil, diskSize: DiskSize? = nil) -> SandboxSpec {
+        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile ?? ResourceProfile.default(for: guestOS), diskSize: diskSize, sharedFolders: [])
     }
 
     public func validateV1() throws {
         guard schemaVersion == SandboxSpec.supportedSchemaVersion else {
             throw SandboxSpecError.unsupportedSchemaVersion(schemaVersion)
+        }
+        if guestOS == .linux, diskSize != nil {
+            throw SandboxSpecError.diskUnsupportedForGuestOS(guestOS)
         }
     }
 
@@ -54,6 +60,18 @@ public struct SandboxSpec: Equatable, Sendable {
         if resourceProfile.memory != existing.resourceProfile.memory {
             throw SandboxSpecError.resourceProfileImmutable(field: "memory")
         }
+        if diskSize != existing.diskSize {
+            throw SandboxSpecError.diskSizeImmutable
+        }
+    }
+
+    public func validateLocalClone(from source: SandboxSpec) throws {
+        guard guestOS == .macOS, source.guestOS == .macOS else {
+            throw SandboxSpecError.localCloneRequiresMacOS
+        }
+        if let requested = diskSize, let sourceDisk = source.diskSize, requested.gigabytes < sourceDisk.gigabytes {
+            throw SandboxSpecError.cloneDiskTooSmall(source: sourceDisk, requested: requested)
+        }
     }
 
     /// Renders the spec as YAML for storage.
@@ -63,6 +81,9 @@ public struct SandboxSpec: Equatable, Sendable {
         lines.append("name: \(name.rawValue)")
         lines.append("image: \(image.reference)")
         lines.append("os: \(guestOS.rawValue)")
+        if let diskSize {
+            lines.append("disk: \(diskSize.description)")
+        }
         lines.append("resources:")
         lines.append("  cpus: \(resourceProfile.cpus)")
         lines.append("  memory: \(resourceProfile.memory.description)")
@@ -89,6 +110,7 @@ public struct SandboxSpec: Equatable, Sendable {
         var guestOS: GuestOS?
         var cpus: Int?
         var memory: MemorySize?
+        var diskSize: DiskSize?
         var sharedFolders: [SharedFolder] = []
         var inResources = false
         var inSharedFolders = false
@@ -146,6 +168,7 @@ public struct SandboxSpec: Equatable, Sendable {
             case "name": name = try SandboxName(value)
             case "image": image = SandboxImage(reference: value)
             case "os": guestOS = try GuestOS.parse(value)
+            case "disk": diskSize = try DiskSize.parse(value)
             case "resources":
                 guard value.isEmpty else { throw SandboxSpecError.malformedLine(rawLine) }
                 inResources = true
@@ -171,6 +194,7 @@ public struct SandboxSpec: Equatable, Sendable {
             image: image ?? .developerReadyDefault,
             guestOS: guestOS ?? .linux,
             resourceProfile: ResourceProfile(cpus: try required(cpus, "resources.cpus"), memory: try required(memory, "resources.memory")),
+            diskSize: diskSize,
             sharedFolders: sharedFolders
         )
         try spec.validateV1()
@@ -227,6 +251,10 @@ public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
     case imageImmutable
     case guestOSImmutable
     case resourceProfileImmutable(field: String)
+    case diskUnsupportedForGuestOS(GuestOS)
+    case diskSizeImmutable
+    case localCloneRequiresMacOS
+    case cloneDiskTooSmall(source: DiskSize, requested: DiskSize)
 
     public var description: String {
         switch self {
@@ -237,6 +265,10 @@ public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
         case .imageImmutable: return "image cannot be edited after creation"
         case .guestOSImmutable: return "guest OS cannot be edited after creation"
         case .resourceProfileImmutable(let field): return "resource profile field cannot be edited after creation: \(field)"
+        case .diskUnsupportedForGuestOS(let guestOS): return "disk size is only supported for macOS sandboxes, not \(guestOS.rawValue)"
+        case .diskSizeImmutable: return "disk size cannot be edited after creation"
+        case .localCloneRequiresMacOS: return "local sandbox clone is only supported for macOS sandboxes"
+        case .cloneDiskTooSmall(let source, let requested): return "clone disk size \(requested.description) is smaller than source disk size \(source.description)"
         }
     }
 }
@@ -284,6 +316,37 @@ public struct ResourceProfile: Equatable, Sendable {
         case .linux: return .default
         case .macOS: return .macOSDefault
         }
+    }
+}
+
+/// A disk size value.
+public struct DiskSize: Equatable, Sendable, CustomStringConvertible {
+    public var gigabytes: Int
+
+    public init(gigabytes: Int) {
+        self.gigabytes = gigabytes
+    }
+
+    public var description: String {
+        "\(gigabytes)GB"
+    }
+
+    public static func `default`(for guestOS: GuestOS) -> DiskSize? {
+        switch guestOS {
+        case .linux: return nil
+        case .macOS: return DiskSize(gigabytes: 100)
+        }
+    }
+
+    public static func parse(_ rawValue: String) throws -> DiskSize {
+        let upper = rawValue.uppercased()
+        if upper.hasSuffix("GB"), let value = Int(upper.dropLast(2)) {
+            return DiskSize(gigabytes: value)
+        }
+        if let value = Int(rawValue) {
+            return DiskSize(gigabytes: value)
+        }
+        throw SandboxSpecError.malformedLine("disk: \(rawValue)")
     }
 }
 

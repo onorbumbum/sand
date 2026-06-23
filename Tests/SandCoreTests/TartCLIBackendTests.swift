@@ -9,7 +9,7 @@ final class TartCLIBackendTests: XCTestCase {
         let runner = ScriptedTartRunner(results: [
             ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
             ["clone", "ghcr.io/example/macos:latest", "macbox"]: .success(.init(stdout: "cloned\n", stderr: "", exitCode: 0)),
-            ["set", "macbox", "--cpu", "4", "--memory", "16384"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "100"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
             ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
             ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
@@ -21,7 +21,7 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(runner.calls, [
             ["--version"],
             ["clone", "ghcr.io/example/macos:latest", "macbox"],
-            ["set", "macbox", "--cpu", "4", "--memory", "16384"],
+            ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "100"],
             ["ip", "macbox"],
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"],
             ["stop", "macbox", "--timeout", "120"]
@@ -29,6 +29,27 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(starter.calls, [TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "macbox"], logPath: "/tmp/macbox-start.log")])
         XCTAssertEqual(keyStore.created, ["macbox"])
         XCTAssertTrue(keyStore.logs["macbox:clone"]?.contains("cloned") == true)
+    }
+
+    func testProvisionCanCloneFromLocalSandboxAndGrowDisk() throws {
+        let name = try SandboxName("workbox")
+        let runner = ScriptedTartRunner(results: [
+            ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
+            ["clone", "cleanbox", "workbox"]: .success(.init(stdout: "cloned\n", stderr: "", exitCode: 0)),
+            ["set", "workbox", "--cpu", "4", "--memory", "16384", "--disk-size", "150"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["ip", "workbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
+            ["exec", "workbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-workbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-workbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["stop", "workbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: RecordingTartVMStarter(), keyStore: StaticTartKeyStore(), sleeper: { _ in }, maxIPAttempts: 1)
+
+        try backend.provision(SandboxSpec(name: name, image: SandboxImage(reference: "cleanbox"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 150)))
+
+        XCTAssertEqual(runner.calls.prefix(3), [
+            ["--version"],
+            ["clone", "cleanbox", "workbox"],
+            ["set", "workbox", "--cpu", "4", "--memory", "16384", "--disk-size", "150"]
+        ])
     }
 
     func testStartMountsMacOSSharedFoldersAndCreatesGuestPathSymlinks() throws {

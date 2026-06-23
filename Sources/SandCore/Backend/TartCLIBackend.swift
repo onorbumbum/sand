@@ -41,7 +41,11 @@ public struct TartCLIBackend: SandboxBackend {
         try ensureInstalled()
         try keyStore.createKeyPair(for: spec.name)
         try runRequiredLogged(["clone", spec.image.reference, spec.name.rawValue], sandboxName: spec.name, logKind: "clone")
-        _ = try runRequired(["set", spec.name.rawValue, "--cpu", String(spec.resourceProfile.cpus), "--memory", String(spec.resourceProfile.memory.megabytes)])
+        var setArguments = ["set", spec.name.rawValue, "--cpu", String(spec.resourceProfile.cpus), "--memory", String(spec.resourceProfile.memory.megabytes)]
+        if let diskSize = spec.diskSize {
+            setArguments += ["--disk-size", String(diskSize.gigabytes)]
+        }
+        _ = try runRequired(setArguments)
         try startVM(spec)
         _ = try waitForIPAddress(spec.name)
         try injectPublicKey(for: spec.name)

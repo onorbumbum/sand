@@ -102,7 +102,9 @@ public struct CLICommandRouter {
         var guestOS = GuestOS.linux
         var cpus: Int?
         var memory: MemorySize?
+        var diskSize: DiskSize?
         var authoredSpecText: String?
+        var sourceReference: String?
         var fromValue: String?
         var index = 0
 
@@ -125,6 +127,10 @@ public struct CLICommandRouter {
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--memory") }
                 memory = try MemorySize.parse(arguments[index])
+            case "--disk":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--disk") }
+                diskSize = try DiskSize.parse(arguments[index])
             case "--image":
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--image") }
@@ -151,6 +157,7 @@ public struct CLICommandRouter {
                 name = spec.name
                 authoredSpecText = text
             } else {
+                sourceReference = fromValue
                 image = SandboxImage(reference: fromValue)
             }
         }
@@ -158,7 +165,7 @@ public struct CLICommandRouter {
         guard let name else { throw CLICommandError.missingSandboxName }
         let defaults = ResourceProfile.default(for: guestOS)
         let resourceProfile = ResourceProfile(cpus: cpus ?? defaults.cpus, memory: memory ?? defaults.memory)
-        return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, guestOS: guestOS, resourceProfile: resourceProfile))
+        return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, guestOS: guestOS, resourceProfile: resourceProfile, diskSize: diskSize, sourceReference: sourceReference))
     }
 
     // Parses and dispatches the `delete` command with its options.
@@ -261,9 +268,9 @@ private enum CLIHelp {
     """
 
     static let create = """
-    Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image>] [--cpus <count>] [--memory <size>]
+    Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--cpus <count>] [--memory <size>] [--disk <size>]
 
-    Creates a Sandbox VM from generated defaults, an authored Linux spec, or a backend image.
+    Creates a Sandbox VM from generated defaults, an authored Linux spec, a backend image, or a stopped local macOS sandbox.
     """
 
     static let apply = """

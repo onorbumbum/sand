@@ -244,6 +244,38 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(backend.calls, [.logs("mybox")])
     }
 
+    func testCreateClonesExistingStoppedMacOSSandboxAndRejectsShrink() throws {
+        let source = SandboxSpec(name: try SandboxName("cleanbox"), image: SandboxImage(reference: "ghcr.io/example/macos:latest"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 150))
+        let metadataStore = MemoryMetadataStore(specs: [source])
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
+
+        let result = try coordinator.create(CreateRequest(sandboxName: try SandboxName("workbox"), diskSize: DiskSize(gigabytes: 200), sourceReference: "cleanbox"))
+
+        XCTAssertEqual(result, .success)
+        let clone = try metadataStore.readSpec(named: try SandboxName("workbox"))
+        XCTAssertEqual(clone.image, SandboxImage(reference: "cleanbox"))
+        XCTAssertEqual(clone.guestOS, .macOS)
+        XCTAssertEqual(clone.resourceProfile, ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 16)))
+        XCTAssertEqual(clone.diskSize, DiskSize(gigabytes: 200))
+        XCTAssertEqual(backend.calls, [.status("cleanbox"), .provision("workbox")])
+
+        XCTAssertThrowsError(try coordinator.create(CreateRequest(sandboxName: try SandboxName("tinybox"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 100), sourceReference: "cleanbox"))) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .cloneDiskTooSmall(source: DiskSize(gigabytes: 150), requested: DiskSize(gigabytes: 100)))
+        }
+    }
+
+    func testCreateRejectsRunningLocalMacOSCloneSourceBeforeProvisioning() throws {
+        let source = SandboxSpec(name: try SandboxName("cleanbox"), guestOS: .macOS)
+        let backend = RecordingSandboxBackend(status: .running)
+        let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [source]), backend: backend)
+
+        XCTAssertThrowsError(try coordinator.create(CreateRequest(sandboxName: try SandboxName("workbox"), guestOS: .macOS, sourceReference: "cleanbox"))) { error in
+            XCTAssertEqual(error as? SandboxCreateError, .localCloneSourceNotStopped("cleanbox"))
+        }
+        XCTAssertEqual(backend.calls, [.status("cleanbox")])
+    }
+
     func testStatusPrintsUsefulConfigAndRuntimeStateWithoutRawBackendDump() throws {
         var output: [String] = []
         let spec = SandboxSpec(
@@ -267,6 +299,15 @@ final class LifecycleCoordinatorTests: XCTestCase {
             "sharedFolders: 0"
         ])
         XCTAssertEqual(backend.calls, [.status("mybox")])
+    }
+
+    func testMacOSStatusIncludesDiskSize() throws {
+        var output: [String] = []
+        let spec = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 150))
+        let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [spec]), backend: RecordingSandboxBackend(status: .stopped), writeOutput: { output.append($0) })
+
+        XCTAssertEqual(try coordinator.status(NamedSandboxRequest(sandboxName: spec.name)), .success)
+        XCTAssertTrue(output.contains("disk: 150GB"))
     }
 
     func testRunAutoStartsStoppedSandboxAndDelegatesOpaqueCommandToBackend() throws {
