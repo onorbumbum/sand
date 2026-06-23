@@ -69,4 +69,4 @@ Fixed the live-acceptance defects found on Apple Silicon: parse Tart's actual ca
 
 ## Blocked by
 
-- `issues/sand/done/022-tart-backend-validation-spike.md` — completed
+- #### `issues/sand/done/022-tart-backend-validation-spike.md` — completed
