@@ -8,6 +8,7 @@ public struct TartCLIBackend: SandboxBackend {
     private let keyStore: any TartSSHKeyStore
     private let screenSharing: any TartScreenSharingOpener
     private let passwordSSHRunner: any TartPasswordSSHRunner
+    private let writeProgress: (String) -> Void
     private let sleeper: (TimeInterval) -> Void
     private let maxIPAttempts: Int
 
@@ -18,6 +19,7 @@ public struct TartCLIBackend: SandboxBackend {
         keyStore: any TartSSHKeyStore = FileTartSSHKeyStore(),
         screenSharing: any TartScreenSharingOpener = ProcessTartScreenSharingOpener(),
         passwordSSHRunner: any TartPasswordSSHRunner = ExpectTartPasswordSSHRunner(),
+        writeProgress: @escaping (String) -> Void = { _ in },
         sleeper: @escaping (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) },
         maxIPAttempts: Int = 60
     ) {
@@ -27,6 +29,7 @@ public struct TartCLIBackend: SandboxBackend {
         self.keyStore = keyStore
         self.screenSharing = screenSharing
         self.passwordSSHRunner = passwordSSHRunner
+        self.writeProgress = writeProgress
         self.sleeper = sleeper
         self.maxIPAttempts = maxIPAttempts
     }
@@ -46,23 +49,31 @@ public struct TartCLIBackend: SandboxBackend {
     public func provision(_ spec: SandboxSpec) throws {
         try ensureInstalled()
         try keyStore.createKeyPair(for: spec.name)
+        reportProgressLine("Cloning macOS Sandbox VM image \(spec.image.reference)...")
         try runRequiredLogged(["clone", spec.image.reference, spec.name.rawValue], sandboxName: spec.name, logKind: "clone")
+        reportProgressLine("Setting macOS Sandbox VM resources...")
         var setArguments = ["set", spec.name.rawValue, "--cpu", String(spec.resourceProfile.cpus), "--memory", String(spec.resourceProfile.memory.megabytes)]
         if let diskSize = spec.diskSize {
             setArguments += ["--disk-size", String(diskSize.gigabytes)]
         }
         _ = try runRequired(setArguments)
+        reportProgressLine("Booting macOS Sandbox VM for first-time setup...")
         try startVM(spec)
+        reportProgressLine("Waiting for macOS Sandbox VM network...")
         _ = try waitForIPAddress(spec.name)
+        reportProgressLine("Injecting Sand SSH key...")
         try injectPublicKey(for: spec.name)
         try configureSharedFolderSymlinks(for: spec)
+        reportProgressLine("Stopping macOS Sandbox VM after setup...")
         try stop(spec.name)
     }
 
     public func provisionFromIPSW(_ spec: SandboxSpec, ipswSource: String) throws {
         try ensureInstalled()
         try keyStore.createKeyPair(for: spec.name)
+        reportProgressLine("Creating macOS Sandbox VM \(spec.name.rawValue) from IPSW \(ipswSource)...")
         try runRequiredLogged(["create", spec.name.rawValue, "--from-ipsw", ipswSource], sandboxName: spec.name, logKind: "create")
+        reportProgressLine("Setting macOS Sandbox VM resources...")
         var setArguments = ["set", spec.name.rawValue, "--cpu", String(spec.resourceProfile.cpus), "--memory", String(spec.resourceProfile.memory.megabytes)]
         if let diskSize = spec.diskSize {
             setArguments += ["--disk-size", String(diskSize.gigabytes)]
@@ -411,6 +422,10 @@ public struct TartCLIBackend: SandboxBackend {
         throw BackendTranslatedError.serviceUnavailable("Could not reach the macOS Sandbox VM over SSH yet. Run `sand logs \(sandboxName.rawValue)` and retry.")
     }
 
+    private func reportProgressLine(_ line: String) {
+        writeProgress(line + "\n")
+    }
+
     private func commandSucceeds(_ arguments: [String]) -> Bool {
         do { return try runner.run(arguments: arguments).exitCode == 0 } catch { return false }
     }
@@ -429,7 +444,7 @@ public struct TartCLIBackend: SandboxBackend {
 
     private func runRequiredLogged(_ arguments: [String], sandboxName: SandboxName, logKind: String) throws {
         do {
-            let output = try runner.run(arguments: arguments)
+            let output = try runner.runStreaming(arguments: arguments, onOutput: writeProgress)
             try keyStore.writeLog("$ tart \(arguments.joined(separator: " "))\n\(output.stdout)\(output.stderr)", for: sandboxName, kind: logKind)
             guard output.exitCode == 0 else {
                 throw TartCLIBackendError.commandFailed(arguments: arguments, exitCode: output.exitCode, stderr: output.stderr)

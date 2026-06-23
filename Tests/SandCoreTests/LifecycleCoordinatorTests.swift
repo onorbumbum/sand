@@ -37,7 +37,8 @@ final class LifecycleCoordinatorTests: XCTestCase {
         let name = try SandboxName("mybox")
         let metadataStore = MemoryMetadataStore()
         let backend = RecordingSandboxBackend(status: .missing)
-        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
+        var output: [String] = []
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeOutput: { output.append($0) })
 
         let result = try coordinator.create(CreateRequest(sandboxName: name))
 
@@ -46,6 +47,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(backend.calls, [.provision("mybox")])
         XCTAssertEqual(backend.runtimeStatus, .stopped)
         XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit"])
+        XCTAssertEqual(output, ["Creating Sandbox VM mybox...", "Created Sandbox VM mybox."])
     }
 
     func testListPrintsConciseStatusForStoredSandboxes() throws {
@@ -100,6 +102,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(spec.guestOS, .macOS)
         XCTAssertEqual(spec.bootstrapState, .setupRequired)
         XCTAssertEqual(spec.image, SandboxImage(reference: "ipsw:latest"))
+        XCTAssertEqual(output.first, "Creating setup-required macOS Sandbox VM ipswbox from IPSW...")
         let joined = output.joined(separator: "\n")
         XCTAssertTrue(joined.contains("sand gui ipswbox"))
         XCTAssertTrue(joined.contains("sand bootstrap ipswbox"))
@@ -402,7 +405,8 @@ final class LifecycleCoordinatorTests: XCTestCase {
         )
         let metadataStore = MemoryMetadataStore(specs: [spec], currentHostDirectory: "/Users/onur/Projects/sand/Sources")
         let backend = RecordingSandboxBackend(status: .stopped)
-        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
+        var output: [String] = []
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeOutput: { output.append($0) })
 
         let result = try coordinator.run(
             RunRequest(
@@ -413,6 +417,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(result, .success)
         XCTAssertEqual(backend.calls, [.status("mybox"), .start("mybox"), .run("mybox", ["pi", "--model", "gpt-5"], "/workspace/sand/Sources")])
+        XCTAssertEqual(output, ["Starting Sandbox VM mybox..."])
         XCTAssertEqual(metadataStore.lockEvents, [])
     }
 
@@ -552,7 +557,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(try coordinator.delete(DeleteRequest(sandboxName: spec.name)), .success)
 
         XCTAssertEqual(backend.calls, [.status("mybox"), .start("mybox"), .stop("mybox"), .delete("mybox")])
-        XCTAssertEqual(output, ["Started Sandbox VM mybox."])
+        XCTAssertEqual(output, ["Starting Sandbox VM mybox...", "Started Sandbox VM mybox."])
         XCTAssertEqual(prompt.requests, [ConfirmationRequest(message: "Delete Sandbox VM mybox?", destructive: true)])
         XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit", "enter", "exit", "enter", "exit"])
         XCTAssertThrowsError(try metadataStore.readSpec(named: spec.name))

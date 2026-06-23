@@ -31,6 +31,31 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertTrue(keyStore.logs["macbox:clone"]?.contains("cloned") == true)
     }
 
+    func testProvisionReportsTartCloneProgress() throws {
+        let name = try SandboxName("macbox")
+        let runner = ScriptedTartRunner(results: [
+            ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
+            ["clone", "ghcr.io/example/macos:latest", "macbox"]: .success(.init(stdout: "pulling manifest...\npulling disk (25.4 GB compressed)...\n42%\n", stderr: "", exitCode: 0)),
+            ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
+            ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        var progress = ""
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: RecordingTartVMStarter(), keyStore: StaticTartKeyStore(), writeProgress: { progress += $0 }, sleeper: { _ in }, maxIPAttempts: 1)
+
+        try backend.provision(SandboxSpec(name: name, image: SandboxImage(reference: "ghcr.io/example/macos:latest"), guestOS: .macOS))
+
+        XCTAssertTrue(progress.contains("Cloning macOS Sandbox VM image ghcr.io/example/macos:latest..."))
+        XCTAssertTrue(progress.contains("pulling manifest..."))
+        XCTAssertTrue(progress.contains("pulling disk (25.4 GB compressed)..."))
+        XCTAssertTrue(progress.contains("42%"))
+        XCTAssertTrue(progress.contains("Setting macOS Sandbox VM resources..."))
+        XCTAssertTrue(progress.contains("Booting macOS Sandbox VM for first-time setup..."))
+        XCTAssertTrue(progress.contains("Injecting Sand SSH key..."))
+        XCTAssertTrue(progress.contains("Stopping macOS Sandbox VM after setup..."))
+    }
+
     func testProvisionCanCloneFromLocalSandboxAndGrowDisk() throws {
         let name = try SandboxName("workbox")
         let runner = ScriptedTartRunner(results: [
@@ -61,7 +86,8 @@ final class TartCLIBackendTests: XCTestCase {
             ["create", "ipswbox", "--from-ipsw", "latest"]: .success(.init(stdout: "created\n", stderr: "", exitCode: 0)),
             ["set", "ipswbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
         ])
-        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: keyStore, sleeper: { _ in }, maxIPAttempts: 1)
+        var progress = ""
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: keyStore, writeProgress: { progress += $0 }, sleeper: { _ in }, maxIPAttempts: 1)
 
         try backend.provisionFromIPSW(SandboxSpec(name: name, image: SandboxImage(reference: "ipsw:latest"), guestOS: .macOS, bootstrapState: .setupRequired), ipswSource: "latest")
 
@@ -73,6 +99,8 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(starter.calls, [])
         XCTAssertEqual(keyStore.created, ["ipswbox"])
         XCTAssertTrue(keyStore.logs["ipswbox:create"]?.contains("created") == true)
+        XCTAssertTrue(progress.contains("Creating macOS Sandbox VM ipswbox from IPSW latest..."))
+        XCTAssertTrue(progress.contains("Setting macOS Sandbox VM resources..."))
     }
 
     func testBootstrapInjectsKeyOverSSHPasswordAuthThenVerifiesWithKeyAndStops() throws {

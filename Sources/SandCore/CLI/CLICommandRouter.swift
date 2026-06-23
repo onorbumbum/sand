@@ -2,7 +2,7 @@ import Foundation
 
 /// Parses and dispatches CLI commands to the application layer.
 public struct CLICommandRouter {
-    public static let productVersion = "0.2.3-dev"
+    public static let productVersion = "0.2.4-dev"
 
     private let application: any SandboxApplication
     private let readTextFile: (String) throws -> String

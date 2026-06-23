@@ -302,11 +302,19 @@ public enum BackendCommandIO: Equatable {
 /// Runs backend commands as processes.
 public protocol BackendCommandRunner {
     func run(arguments: [String], io: BackendCommandIO) throws -> BackendCommandOutput
+    func runStreaming(arguments: [String], onOutput: @escaping (String) -> Void) throws -> BackendCommandOutput
 }
 
 public extension BackendCommandRunner {
     func run(arguments: [String]) throws -> BackendCommandOutput {
         try run(arguments: arguments, io: .captured)
+    }
+
+    func runStreaming(arguments: [String], onOutput: @escaping (String) -> Void) throws -> BackendCommandOutput {
+        let output = try run(arguments: arguments, io: .captured)
+        if !output.stdout.isEmpty { onOutput(output.stdout) }
+        if !output.stderr.isEmpty { onOutput(output.stderr) }
+        return output
     }
 }
 
@@ -339,6 +347,42 @@ public struct BackendCommandOutput: Equatable {
         self.stdout = stdout
         self.stderr = stderr
         self.exitCode = exitCode
+    }
+}
+
+private final class BackendStreamingCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stdout = Data()
+    private var stderr = Data()
+    private let onOutput: (String) -> Void
+
+    init(onOutput: @escaping (String) -> Void) {
+        self.onOutput = onOutput
+    }
+
+    func append(_ chunk: Data, isStdout: Bool) {
+        lock.lock()
+        if isStdout {
+            stdout.append(chunk)
+        } else {
+            stderr.append(chunk)
+        }
+        lock.unlock()
+        if let text = String(data: chunk, encoding: .utf8) {
+            onOutput(text)
+        }
+    }
+
+    func output(exitCode: Int) -> BackendCommandOutput {
+        lock.lock()
+        let stdout = self.stdout
+        let stderr = self.stderr
+        lock.unlock()
+        return BackendCommandOutput(
+            stdout: String(data: stdout, encoding: .utf8) ?? "",
+            stderr: String(data: stderr, encoding: .utf8) ?? "",
+            exitCode: exitCode
+        )
     }
 }
 
@@ -376,6 +420,42 @@ public struct ProcessBackendCommandRunner: BackendCommandRunner {
             // stdin/stdout/stderr and terminal control are exactly the user's shell.
             try execReplacingCurrentProcess(arguments: [executable] + arguments)
         }
+    }
+
+    public func runStreaming(arguments: [String], onOutput: @escaping (String) -> Void) throws -> BackendCommandOutput {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = [executable] + arguments
+
+        let standardOutput = Pipe()
+        let standardError = Pipe()
+        process.standardOutput = standardOutput
+        process.standardError = standardError
+
+        let capture = BackendStreamingCapture(onOutput: onOutput)
+        let group = DispatchGroup()
+
+        func consume(_ pipe: Pipe, isStdout: Bool) {
+            group.enter()
+            DispatchQueue.global().async {
+                while true {
+                    let chunk = pipe.fileHandleForReading.availableData
+                    if chunk.isEmpty { break }
+                    capture.append(chunk, isStdout: isStdout)
+                }
+                group.leave()
+            }
+        }
+
+        try process.run()
+
+        consume(standardOutput, isStdout: true)
+        consume(standardError, isStdout: false)
+
+        process.waitUntilExit()
+        group.wait()
+
+        return capture.output(exitCode: Int(process.terminationStatus))
     }
 
     private func execReplacingCurrentProcess(arguments: [String]) throws -> Never {

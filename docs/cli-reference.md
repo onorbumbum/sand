@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: d423445febdaed9019d045042030464047c07d640c5ec6d274d8efe4e7956ae3 -->
+<!-- docs-input-hash: 6f1147572af21e71a953e7287318f4fb9c3e797f24df4d603b3f0c0cc302896f -->
 
 # sand CLI Reference
 
@@ -10,9 +10,9 @@ This reference captures the v1 **API Surface** for managing Linux and macOS **Sa
 
 ## Generation source
 
-- Docs input hash: `e4afc81ac714b6a9dbf3d50dd299046c1e92b5eb4fc6eb9727d753e26bbe9261`
+- Docs input hash: `6f1147572af21e71a953e7287318f4fb9c3e797f24df4d603b3f0c0cc302896f`
 - Generator: `scripts/generate-cli-reference.sh`
-- Help source command: `.build/debug/sand`
+- Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, and `sand --version` output.
 
 ## Supported v1 command surface
@@ -44,7 +44,7 @@ Plan macOS Sandbox VMs as a handful, not dozens: Apple's macOS guest license all
 ## `sand --version`
 
 ```text
-sand 0.2.3-dev
+sand 0.2.4-dev
 ```
 
 ## `sand --help`

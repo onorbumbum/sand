@@ -15,7 +15,11 @@ import SandCore
 /// - `0`: Successful execution
 /// - `1`: Error occurred during processing
 let metadataStore = FileHostMetadataStore()
-let backendResolver = GuestOSBackendResolver(linuxBackend: AppleContainerCLIBackend(), macOSBackend: TartCLIBackend())
+let writeProgress: (String) -> Void = { FileHandle.standardError.write(Data($0.utf8)) }
+let backendResolver = GuestOSBackendResolver(
+    linuxBackend: AppleContainerCLIBackend(),
+    macOSBackend: TartCLIBackend(writeProgress: writeProgress)
+)
 let application = LifecycleCoordinator(metadataStore: metadataStore, backendResolver: backendResolver, prompt: StandardInputPromptConfirmation())
 let router = CLICommandRouter(application: application)
 

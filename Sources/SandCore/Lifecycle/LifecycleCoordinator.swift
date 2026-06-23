@@ -78,6 +78,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         if let ipswSource = request.ipswSource {
             return try createFromIPSW(request, ipswSource: ipswSource)
         }
+        writeOutput("Creating Sandbox VM \(request.sandboxName.rawValue)...")
         try metadataStore.withLifecycleMutationLock {
             let spec: SandboxSpec
             if let authoredSpecText = request.authoredSpecText {
@@ -100,6 +101,7 @@ public struct LifecycleCoordinator: SandboxApplication {
                 throw error
             }
         }
+        writeOutput("Created Sandbox VM \(request.sandboxName.rawValue).")
         return .success
     }
 
@@ -110,6 +112,8 @@ public struct LifecycleCoordinator: SandboxApplication {
     /// setup-required and guides the user to complete first boot in a GUI
     /// session before running `sand bootstrap`.
     private func createFromIPSW(_ request: CreateRequest, ipswSource: String) throws -> CommandResult {
+        let name = request.sandboxName.rawValue
+        writeOutput("Creating setup-required macOS Sandbox VM \(name) from IPSW...")
         try metadataStore.withLifecycleMutationLock {
             let spec = SandboxSpec.generated(
                 name: request.sandboxName,
@@ -128,7 +132,6 @@ public struct LifecycleCoordinator: SandboxApplication {
                 throw error
             }
         }
-        let name = request.sandboxName.rawValue
         writeOutput("Created setup-required macOS Sandbox VM '\(name)' from IPSW.")
         writeOutput("Complete one-time first boot, then bootstrap:")
         writeOutput("  1. Run `sand gui \(name)` and finish macOS Setup Assistant.")
@@ -225,6 +228,7 @@ public struct LifecycleCoordinator: SandboxApplication {
                 writeOutput("Sandbox VM \(request.sandboxName.rawValue) is already running.")
                 return
             }
+            writeOutput("Starting Sandbox VM \(request.sandboxName.rawValue)...")
             try backend.start(spec)
             writeOutput("Started Sandbox VM \(request.sandboxName.rawValue).")
         }
@@ -252,6 +256,7 @@ public struct LifecycleCoordinator: SandboxApplication {
 
         let backend = try backend(for: spec)
         if try backend.status(request.sandboxName) == .stopped {
+            writeOutput("Starting Sandbox VM \(request.sandboxName.rawValue)...")
             try backend.start(spec)
         }
 
@@ -267,6 +272,7 @@ public struct LifecycleCoordinator: SandboxApplication {
 
         let backend = try backend(for: spec)
         if try backend.status(request.sandboxName) == .stopped {
+            writeOutput("Starting Sandbox VM \(request.sandboxName.rawValue)...")
             try backend.start(spec)
         }
 

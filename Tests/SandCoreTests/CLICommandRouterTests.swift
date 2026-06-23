@@ -19,7 +19,7 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertTrue(output[0].contains("doctor"))
         XCTAssertTrue(output[0].contains("signing <action>"))
         XCTAssertTrue(output[0].contains("run <name>"))
-        XCTAssertEqual(output[1], "sand 0.2.3-dev")
+        XCTAssertEqual(output[1], "sand 0.2.4-dev")
         XCTAssertEqual(app.calls, [])
     }
 
