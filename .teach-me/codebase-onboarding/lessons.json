@@ -1,0 +1,2093 @@
+{
+  "schemaVersion": 1,
+  "lessons": [
+    {
+      "id": "lesson-01",
+      "title": "Run the app like a user",
+      "objective": "Use the main sand command loop from doctor through delete without touching internals.",
+      "summary": "This lesson walks the normal user path for sand: verify the host, create a Sandbox VM, attach only the folders it should see, run commands, inspect state, and clean up. You will treat Pi like any other workload and build a dry-run checklist that makes safe use repeatable.",
+      "sources": [
+        {
+          "label": "README quickstart and prerequisites",
+          "path": "README.md"
+        },
+        {
+          "label": "Generated CLI reference",
+          "path": "docs/cli-reference.md"
+        },
+        {
+          "label": "Canonical product language",
+          "path": "issues/sand/CONTEXT.md"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat-01",
+          "type": "explain",
+          "title": "What sand is",
+          "text": "sand is a Swift CLI that creates named Sandbox VMs on an Apple silicon Host Mac. Each Sandbox VM is an isolated Linux environment with its own Guest State, shell, tools, and login state. It can only see Host Mac folders that you explicitly add as Allowed Folders. That lets powerful developer tools run in a dedicated place instead of directly beside your home directory, credentials, dotfiles, and everyday shell state.",
+          "sources": [
+            "README.md",
+            "issues/sand/CONTEXT.md"
+          ]
+        },
+        {
+          "id": "beat-02",
+          "type": "explain",
+          "title": "Before running commands",
+          "text": "The README expects a prepared Host Mac: Apple silicon, a compatible Swift toolchain, the Apple container CLI on PATH, the container backend service running or startable, and the developer-ready image available locally. The app-level check is `sand doctor`. Run it before creating a Sandbox VM; success means the host, backend readiness, default image, and `~/.sand` writability checks are passing.",
+          "sources": [
+            "README.md",
+            "docs/cli-reference.md"
+          ]
+        },
+        {
+          "id": "beat-03",
+          "type": "single-choice",
+          "prompt": "What should you do first on a fresh machine before creating `demo`?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Run `sand doctor` and fix reported prerequisite failures first.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Run `sand demo shell` so sand can create the VM automatically.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "Mount your whole home directory read-write to avoid later folder work.",
+              "correct": false
+            }
+          ],
+          "feedback": "Doctor comes first because it verifies host support, backend readiness, default image availability, and metadata writability before the user workflow depends on them.",
+          "sources": [
+            "README.md",
+            "docs/cli-reference.md"
+          ]
+        },
+        {
+          "id": "beat-04",
+          "type": "explain",
+          "title": "The durable Sandbox VM loop",
+          "text": "The main loop is: `sand doctor`; `sand create demo`; inspect with `sand list`, `sand demo status`, and `sand demo spec`; add Allowed Folders; run commands with `sand demo run ...`; open `sand demo shell`; stop and start; read logs; delete. Commands name the Sandbox VM explicitly, so you always know which environment you are operating.",
+          "sources": [
+            "README.md",
+            "docs/cli-reference.md"
+          ]
+        },
+        {
+          "id": "beat-05",
+          "type": "explain",
+          "title": "Allowed Folders: write only where needed",
+          "text": "Use read-write for project folders the workload may edit: `sand folders add demo \"$HOME/Projects/my-project\" rw --as /workspace`. Use read-only for references it should inspect but not change: `sand folders add demo \"$HOME/Reference\" ro --as /reference`. Then run `sand folders list demo` and confirm each Host Mac folder appears at the intended Guest Path with the intended Access Mode.",
+          "sources": [
+            "README.md",
+            "docs/cli-reference.md",
+            "issues/sand/CONTEXT.md"
+          ]
+        },
+        {
+          "id": "beat-06",
+          "type": "multi-choice",
+          "prompt": "Choose the safe Allowed Folder setup for a coding-agent session that may edit one project but should only read supporting notes.",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Project folder as `rw` at `/workspace`.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Reference notes as `ro` at `/reference`.",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "Entire home directory as `rw` because it is convenient.",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "No folder list check after adding folders.",
+              "correct": false
+            }
+          ],
+          "feedback": "Give the Sandbox VM only the folders it needs. Writable project access and read-only reference access match the README examples and keep intent visible.",
+          "sources": [
+            "README.md"
+          ]
+        },
+        {
+          "id": "beat-07",
+          "type": "explain",
+          "title": "Run workloads, including Pi",
+          "text": "A Workload Command is just a command and arguments executed inside the Sandbox VM. `sand demo run pwd` should print a Guest Path such as `/workspace` when your Host Mac current directory is inside a matching Allowed Folder. `sand demo run bash -lc 'echo hello-from-sand > sand-smoke.txt && ls -la'` should create the file through the read-write folder. Pi uses the same shape: `sand demo run pi` or `sand demo run pi <args>`.",
+          "sources": [
+            "README.md",
+            "docs/cli-reference.md",
+            "issues/sand/CONTEXT.md"
+          ]
+        },
+        {
+          "id": "beat-08",
+          "type": "prediction",
+          "prompt": "You run `cd \"$HOME/Projects/my-project\"`, then `sand demo run pwd`, after adding that Host Mac folder as `rw --as /workspace`. What should success look like?",
+          "answer": "The command should run inside the Sandbox VM and print a Guest Path under `/workspace`, not the Host Mac path under `$HOME/Projects`.",
+          "explanation": "The current directory is mapped from the Host Mac folder to its Guest Path. That shows the workload started in the sandbox view of the project.",
+          "sources": [
+            "README.md",
+            "issues/sand/CONTEXT.md"
+          ]
+        },
+        {
+          "id": "beat-09",
+          "type": "explain",
+          "title": "Success signals for the full quickstart",
+          "text": "After `create`, `demo` exists. `list`, `status`, and `spec` show the VM and YAML. Folder commands show `/workspace` as read-write and `/reference` as read-only. `run` prints expected output; `shell` opens an interactive Sandbox Session. A file written to `/state/sandbox` survives `stop` then `start`. `logs` prints recent logs. `ephemeral init` writes a YAML template; `ephemeral --from` completes and prints a run record path. `delete --force` removes `demo`.",
+          "sources": [
+            "README.md",
+            "docs/cli-reference.md"
+          ]
+        },
+        {
+          "id": "beat-10",
+          "type": "practice",
+          "instruction": "Build your personal dry-run checklist for using sand safely on a project. Copy the template, replace paths with real folders, and add one expected success signal after each command before running anything destructive.",
+          "copyText": "# sand safe-use dry-run checklist\n\n- [ ] `sand doctor` → all prerequisite checks pass.\n- [ ] `sand create demo` → Sandbox VM is created.\n- [ ] `sand list` → `demo` appears.\n- [ ] `sand demo status` → status is understandable.\n- [ ] `sand demo spec` → spec uses expected image/resources and no surprise folders.\n- [ ] `sand folders add demo \"$HOME/Projects/my-project\" rw --as /workspace` → project is writable only where intended.\n- [ ] `sand folders add demo \"$HOME/Reference\" ro --as /reference` → references are read-only.\n- [ ] `sand folders list demo` → mappings and Access Modes are correct.\n- [ ] `cd \"$HOME/Projects/my-project\" && sand demo run pwd` → starts under `/workspace`.\n- [ ] `sand demo run pi` → Pi is treated as an ordinary Workload Command.\n- [ ] `sand demo shell` → opens an interactive Sandbox Session.\n- [ ] Persistence check under `/state/sandbox` survives `sand demo stop` and `sand demo start`.\n- [ ] `sand demo logs` → logs are available for inspection.\n- [ ] `sand ephemeral init ephemeral-spec.yaml` → starter spec is written only after choosing a safe directory.\n- [ ] `sand ephemeral --from ephemeral-spec.yaml` → bounded run completes and prints a run record path.\n- [ ] `sand delete demo --force` → only after confirming `demo` can be removed.",
+          "signsOfSuccess": "Your checklist has real host paths, explicit read-write/read-only intent, one expected observation for every command, and a deliberate delete confirmation step.",
+          "hints": [
+            "Use `demo` for learning; use a clearer name for real work.",
+            "Prefer the smallest read-write folder that still lets the workload do its job.",
+            "Keep read-only references separate from writable project files."
+          ],
+          "sources": [
+            "README.md",
+            "docs/cli-reference.md"
+          ]
+        },
+        {
+          "id": "beat-11",
+          "type": "checkpoint",
+          "recap": "You can now rehearse the user workflow without touching internals: doctor, create, inspect, add folders, run commands, use Pi as a normal workload, open a shell, stop/start, check logs, try an explicit ephemeral run, and delete. The key safety move is making folder access intentional before any powerful tool runs.",
+          "readyPrompt": "Ready for the next lesson when you can explain what you would mount read-write, what you would mount read-only, and what success should look like after each command.",
+          "sources": [
+            "README.md",
+            "docs/cli-reference.md",
+            "issues/sand/CONTEXT.md"
+          ]
+        }
+      ],
+      "referenceNeeds": [
+        "cheat-sheet: durable quickstart command loop with one-line success signals",
+        "cheat-sheet: Allowed Folder examples for read-write project work and read-only references",
+        "practice-bank: dry-run checklist exercise with blanks for project path, reference path, Guest Paths, and delete condition"
+      ]
+    },
+    {
+      "id": "lesson-02",
+      "title": "Draw the Sandbox VM mental model",
+      "objective": "Explain the product model using sand's canonical language.",
+      "summary": "This lesson turns the command workflow into a compact architecture picture. You will name the Host Mac, Sandbox VM, Sandbox Guest, Allowed Folders, Guest Paths, Guest State, Runtime Instance, Sandbox Sessions, and Workload Commands, then explain how the boundary protects the Host Mac.",
+      "sources": [
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "README product model and OAuth handoff",
+          "path": "README.md"
+        },
+        {
+          "label": "Generated CLI reference",
+          "path": "docs/cli-reference.md"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat-01",
+          "type": "explain",
+          "title": "The picture to keep in your head",
+          "text": "A Sandbox VM is a named, isolated Linux environment on the Host Mac. Inside it is the Sandbox Guest, where commands run and tools can have broad control without having broad control over macOS. The Host Mac stays outside the boundary. The only host files the Sandbox Guest can see are Allowed Folders you explicitly add, each appearing at a Guest Path with a read-only or read-write Access Mode.",
+          "sources": [
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)",
+            "README product model (README.md)"
+          ]
+        },
+        {
+          "id": "beat-02",
+          "type": "explain",
+          "title": "Minimal sketch",
+          "text": "The boundary model is easiest to see as a nested map. The Host Mac owns the managed Sandbox VM. The Sandbox VM contains the Sandbox Guest. Host files cross the boundary only through Allowed Folders, each defined by a host path, a guest path, and an access mode. Guest State persists with the Sandbox VM identity; the Runtime Instance is the disposable running process around it.",
+          "diagram": {
+            "syntax": "mermaid",
+            "code": "flowchart TB\n  host[Host Mac]\n  vm[Sandbox VM]\n  guest[Sandbox Guest]\n  allowed[Allowed Folder]\n  hostPath[Host Path on Mac]\n  guestPath[Guest Path in Linux]\n  access[Access Mode]\n  state[Guest State persists]\n  runtime[Runtime Instance is disposable]\n\n  host --> vm\n  vm --> guest\n  hostPath -->|mounts through| allowed\n  allowed -->|appears as| guestPath\n  access -->|controls read/write| allowed\n  guest --> state\n  guest --> runtime",
+            "caption": "Use the arrows to track what crosses the host/guest boundary and what stays inside the sandbox."
+          },
+          "sources": [
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+          ]
+        },
+        {
+          "id": "beat-03",
+          "type": "multi-choice",
+          "prompt": "Which labels belong on the mental-model sketch?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Host Mac outside the sandbox boundary",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Sandbox Guest inside the Sandbox VM",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "Allowed Folder arrow with Access Mode and Guest Path",
+              "correct": true
+            },
+            {
+              "id": "d",
+              "text": "Pi-only launch channel that bypasses normal commands",
+              "correct": false
+            },
+            {
+              "id": "e",
+              "text": "Inbound port publishing as a normal v1 feature",
+              "correct": false
+            }
+          ],
+          "feedback": "Pi uses the ordinary Workload Command path, and inbound port publishing is outside v1. The core sketch is Host Mac, Sandbox VM, Sandbox Guest, Allowed Folders, Guest Paths, Access Modes, Guest State, Runtime Instance, Sandbox Session, and Workload Command.",
+          "sources": [
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+          ]
+        },
+        {
+          "id": "beat-04",
+          "type": "explain",
+          "title": "Allowed Folders are the file boundary",
+          "text": "An Allowed Folder is a Host Mac folder mounted into the Sandbox VM on purpose. The Access Mode says what the Sandbox Guest can do: read-write for project work, read-only for references. The Guest Path is the Linux path where that folder appears, such as /workspace or /reference. This model is the safety story: sand does not give the Sandbox Guest your whole Mac; it gives it named, intentional windows into selected folders.",
+          "sources": [
+            "README quickstart (README.md)",
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+          ]
+        },
+        {
+          "id": "beat-05",
+          "type": "prediction",
+          "prompt": "A Sandbox VM has a read-write Allowed Folder from ~/Projects/app to /workspace and a read-only Allowed Folder from ~/Reference to /reference. A tool running in the Sandbox Guest tries to edit /reference/notes.md and create /workspace/todo.txt. What should your user-model expectation be?",
+          "answer": "Creating or editing /workspace/todo.txt is allowed by the read-write Access Mode. Editing /reference/notes.md should not be allowed because that Allowed Folder is read-only.",
+          "explanation": "The Host Mac folder is not just exposed; it is exposed with an Access Mode. The same Sandbox Guest can have different rights for different Allowed Folders.",
+          "sources": [
+            "README quickstart (README.md)",
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+          ]
+        },
+        {
+          "id": "beat-06",
+          "type": "explain",
+          "title": "Persistent Guest State, disposable Runtime Instance",
+          "text": "Separate identity from process. The Sandbox VM is the named environment you manage. Guest State is the persistent Linux-side state: installed tools, shell config, package caches, and sandbox-local app config such as Pi identity. A Runtime Instance is the disposable running backend process built from the Sandbox VM config, Guest State, and Allowed Folders. Stop/start can replace the running instance without meaning the Sandbox VM lost its guest state.",
+          "sources": [
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)",
+            "README persistence expectation (README.md)"
+          ]
+        },
+        {
+          "id": "beat-07",
+          "type": "single-choice",
+          "prompt": "You run `sand demo stop`, then `sand demo start`. Which statement best matches the model?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "The Sandbox VM identity and Guest State can remain, while the Runtime Instance is stopped and later started again.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Stopping always deletes Guest State and Host Metadata.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "A stopped Sandbox VM keeps editing all Host Mac folders, even those not added as Allowed Folders.",
+              "correct": false
+            }
+          ],
+          "feedback": "Delete is the destructive flow. Stop/start is about the running instance; Guest State persists for the same Sandbox VM unless the VM is deleted.",
+          "sources": [
+            "README quickstart (README.md)",
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+          ]
+        },
+        {
+          "id": "beat-08",
+          "type": "explain",
+          "title": "Sessions and workloads stay generic",
+          "text": "A Sandbox Session is an interactive shell connection into the Sandbox VM as the Sandbox User. A Workload Command is any command and arguments run inside that session path after lifecycle and working-directory mapping are handled. sand treats the workload as opaque: `pi`, `pwd`, `bash -lc ...`, and other tools all use the same user model. sand should not need to understand the workload tool's own flags.",
+          "sources": [
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)",
+            "README command surface (README.md)"
+          ]
+        },
+        {
+          "id": "beat-09",
+          "type": "single-choice",
+          "prompt": "A CLI login inside the Sandbox Guest opens a Host Mac browser callback to `http://localhost:1455/...`, but the browser page fails. What is the correct v1 mental model?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "The Sandbox Guest can make outbound network requests, but its localhost is not the Host Mac browser's localhost; copy the callback URL and send it back with a second `sand demo run curl ...` command while login waits.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "sand automatically publishes inbound guest ports to the Host Mac in v1, so the failure means the Sandbox VM is broken.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "The fix is to mount the Host Mac's credential folder into the Sandbox Guest by default.",
+              "correct": false
+            }
+          ],
+          "feedback": "v1 networking is outbound-only from the Sandbox VM. Browser callback logins use a two-terminal handoff; resulting tokens live in Guest State, not the Host Mac credential store.",
+          "sources": [
+            "README OAuth handoff (README.md)",
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+          ]
+        },
+        {
+          "id": "beat-10",
+          "type": "practice",
+          "instruction": "Draw and label a small architecture sketch for this scenario: `sand create demo`; add `~/Projects/app` as read-write at `/workspace`; add `~/Reference` as read-only at `/reference`; run `sand demo run pi`; stop and start the Sandbox VM. Then write three sentences explaining why this protects the Host Mac.",
+          "copyText": "Sketch labels to include:\n- Host Mac\n- Sandbox VM: demo\n- Sandbox Guest\n- Allowed Folder: ~/Projects/app -> /workspace, read-write\n- Allowed Folder: ~/Reference -> /reference, read-only\n- Guest State\n- Runtime Instance\n- Sandbox Session\n- Workload Command: pi\n\nThree-sentence explanation:\n1. The workload runs inside the Sandbox Guest, not directly in the Host Mac shell.\n2. The Sandbox Guest can see only the Allowed Folders, each with its Access Mode and Guest Path.\n3. Guest State can persist across stop/start, while the Runtime Instance remains disposable.",
+          "signsOfSuccess": "Your sketch shows the Host Mac/Sandbox Guest boundary, labels both Allowed Folders with Access Modes and Guest Paths, places Pi on the generic Workload Command path, and distinguishes Guest State from Runtime Instance.",
+          "hints": [
+            "Do not draw Pi as a special sand subsystem.",
+            "Put read-only/read-write on the folder arrows, not on the whole Sandbox VM.",
+            "Stop/start affects the Runtime Instance; delete is the destructive operation."
+          ],
+          "sources": [
+            "README quickstart (README.md)",
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+          ]
+        },
+        {
+          "id": "beat-11",
+          "type": "checkpoint",
+          "recap": "The product model is a boundary model. Work runs in a Sandbox Guest inside a named Sandbox VM. Host Mac files enter only through Allowed Folders, with Guest Paths and Access Modes. Guest State persists for the Sandbox VM, while the Runtime Instance can be disposable. Workload Commands, including Pi, stay opaque and generic; networking is outbound-only in v1, so browser login callbacks use handoff rather than inbound publishing.",
+          "readyPrompt": "Can you redraw the model without notes and explain what the Sandbox Guest can and cannot touch on the Host Mac?",
+          "sources": [
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)",
+            "README (README.md)"
+          ]
+        }
+      ],
+      "referenceNeeds": [
+        "Add a glossary cluster for Host Mac, Sandbox VM, Sandbox Guest, Allowed Folder, Access Mode, Guest Path, Guest State, Runtime Instance, Sandbox Session, and Workload Command.",
+        "Add a cheat-sheet diagram note: Host Mac outside, Sandbox Guest inside, Allowed Folder arrows labeled with Guest Path and Access Mode.",
+        "Add a short OAuth handoff reminder: outbound-only networking; copy browser callback URL into a second sand run curl command while login waits."
+      ]
+    },
+    {
+      "id": "lesson-03",
+      "title": "Tour the repo like a maintainer",
+      "objective": "Map the repository into product docs, source modules, tests, scripts, and completion gates.",
+      "summary": "This lesson turns the repo into a navigable map: package wiring, executable entry point, SandCore modules, matching tests, documentation sources, and local gates. The maintainer habit is to start from the behavior, choose the owning source area and test file, then verify with the right command instead of browsing randomly.",
+      "sources": [
+        {
+          "label": "Package manifest",
+          "path": "Package.swift"
+        },
+        {
+          "label": "Executable composition root",
+          "path": "Sources/sand/main.swift"
+        },
+        {
+          "label": "SandCore command router",
+          "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+        },
+        {
+          "label": "Sandbox application boundary",
+          "path": "Sources/SandCore/CLI/SandboxApplication.swift"
+        },
+        {
+          "label": "Onboarding guide",
+          "path": "docs/onboarding.md"
+        },
+        {
+          "label": "Developer guide",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "Generated CLI reference",
+          "path": "docs/cli-reference.md"
+        },
+        {
+          "label": "Domain context",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "Ephemeral ADR",
+          "path": "docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md"
+        },
+        {
+          "label": "Local gates",
+          "path": "Makefile"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat-01",
+          "type": "explain",
+          "title": "Tour by responsibility, not by wandering",
+          "text": "A maintainer does not open random files until something looks relevant. Start with the user-facing behavior, name it using the Sandbox VM vocabulary from CONTEXT, then pick one likely source area and one likely test file. The repo is set up for that: docs explain the product contract, Sources/SandCore is split by responsibility, and Tests/SandCoreTests mirrors behavior areas. This lesson is a map, not a line-by-line source reading.",
+          "sources": [
+            "Onboarding repo map (docs/onboarding.md)",
+            "Domain context (issues/sand/CONTEXT.md)"
+          ]
+        },
+        {
+          "id": "beat-02",
+          "type": "explain",
+          "title": "Package.swift tells you the build shape",
+          "text": "Package.swift defines the project as a Swift package named sand. It exposes an executable product named sand from the executable target Sources/sand, a library product named SandCore from Sources/SandCore, and a test target named SandCoreTests under Tests/SandCoreTests. That means most behavior lives in SandCore, the CLI binary composes and runs it, and tests target the library rather than shelling through the installed command for every case.",
+          "sources": [
+            "Package manifest (Package.swift)"
+          ]
+        },
+        {
+          "id": "beat-03",
+          "type": "single-choice",
+          "prompt": "A command behavior changes. Which Package.swift target usually owns the implementation behavior?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "The sand executable target, because every command starts at the binary entry point.",
+              "correct": false
+            },
+            {
+              "id": "b",
+              "text": "The SandCore library target, with SandCoreTests covering the behavior.",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "The generated CLI reference, because it documents command behavior.",
+              "correct": false
+            }
+          ],
+          "feedback": "The executable is important, but most maintainable behavior belongs in SandCore and its tests. Generated docs describe current behavior; they are not the first implementation stop.",
+          "sources": [
+            "Package manifest (Package.swift)",
+            "Developer guide testing strategy (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-04",
+          "type": "explain",
+          "title": "main.swift is the composition root",
+          "text": "Sources/sand/main.swift is intentionally small. It creates FileHostMetadataStore, AppleContainerCLIBackend, LifecycleCoordinator, and CLICommandRouter, then dispatches command-line arguments and exits with CommandResult.processExitCode. Read it to see what concrete pieces are wired together at runtime. Do not expect it to explain folder policy, spec parsing, lifecycle rules, or backend behavior; those live in SandCore modules.",
+          "sources": [
+            "Executable composition root (Sources/sand/main.swift)",
+            "Command result boundary (Sources/SandCore/CLI/SandboxApplication.swift)"
+          ]
+        },
+        {
+          "id": "beat-05",
+          "type": "explain",
+          "title": "SandCore neighborhoods",
+          "text": "Sources/SandCore is organized by responsibility. CLI parses command shapes and request structs. Lifecycle coordinates create, apply, start, stop, run, shell, logs, status, spec, and folder mutations. Backend hides adapter details. Spec models Sandbox Specs. FolderPolicy owns Allowed Folder rules. WorkingDirectory maps Host Mac cwd to Guest Paths. Metadata stores Host Metadata. Ephemeral owns bounded Ephemeral Sandbox Runs. Doctor checks prerequisites. Domain holds small domain types. Status and Prompt handle presentation boundaries.",
+          "sources": [
+            "Onboarding repo map (docs/onboarding.md)",
+            "Developer guide architecture (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-06",
+          "type": "multi-choice",
+          "prompt": "Which source/test pairings are good first stops for the described behavior?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Allowed Folder duplicate Guest Path rejection: Sources/SandCore/FolderPolicy/ and Tests/SandCoreTests/FolderPolicyTests.swift.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Command shape and unsupported v1 command routing: Sources/SandCore/CLI/ and Tests/SandCoreTests/CLICommandRouterTests.swift.",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "Working Directory Mapping fallback: Sources/SandCore/WorkingDirectory/ and Tests/SandCoreTests/WorkingDirectoryMapperTests.swift.",
+              "correct": true
+            },
+            {
+              "id": "d",
+              "text": "Generated CLI wording bug: edit docs/cli-reference.md by hand first, then look for tests later.",
+              "correct": false
+            }
+          ],
+          "feedback": "Good first stops pair the behavior area with its representative tests. Generated CLI Reference is refreshed through the documentation workflow when public command behavior or help changes; it is not the first hand-editing target.",
+          "sources": [
+            "Developer guide testing strategy (docs/developer-guide.md)",
+            "Generated CLI reference warning (docs/cli-reference.md)"
+          ]
+        },
+        {
+          "id": "beat-07",
+          "type": "explain",
+          "title": "Docs are part of the map",
+          "text": "Use README for product purpose, prerequisites, install, quickstart, and examples. Use docs/onboarding.md for the repo map and working loop. Use docs/developer-guide.md for architecture, testing strategy, command-change workflow, and Definition of Done. Use docs/cli-reference.md for the generated command surface. Use issues/sand/CONTEXT.md before naming user-facing behavior. Use ADRs for durable design decisions, especially the durable Sandbox Spec versus Ephemeral Spec boundary.",
+          "sources": [
+            "README (README.md)",
+            "Onboarding guide (docs/onboarding.md)",
+            "Developer guide (docs/developer-guide.md)",
+            "CLI reference (docs/cli-reference.md)",
+            "Domain context (issues/sand/CONTEXT.md)",
+            "Ephemeral ADR (docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md)"
+          ]
+        },
+        {
+          "id": "beat-08",
+          "type": "explain",
+          "title": "Tests are behavior landmarks",
+          "text": "Tests/SandCoreTests maps to behavior areas: CLICommandRouterTests for command shapes and help, SandboxSpecTests for Sandbox Spec rules, FolderPolicyTests for Allowed Folders, WorkingDirectoryMapperTests for cwd mapping, LifecycleCoordinatorTests for normal Sandbox VM flows, EphemeralRunCoordinatorTests for bounded runs, DoctorChecksTests for prerequisites, BackendErrorTranslationTests for user-facing backend failures, and ArchitectureBoundaryTests for dependency and language boundaries. Start with representative tests before changing behavior.",
+          "sources": [
+            "Developer guide testing strategy (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-09",
+          "type": "explain",
+          "title": "Completion gates",
+          "text": "The Makefile gives the local gates. swift test runs the SandCore XCTest suite. make docs-check runs scripts/docs-check.sh, the Documentation Freshness Gate for generated or managed docs. make check runs swift test and then make docs-check, so it is the normal local completion gate. Use targeted tests while exploring, but a maintainer should know that make check is the repo-level done signal.",
+          "sources": [
+            "Makefile (Makefile)",
+            "Local verification flow (docs/onboarding.md)"
+          ]
+        },
+        {
+          "id": "beat-10",
+          "type": "practice",
+          "instruction": "For each hypothetical task, choose the first source area and first test file to inspect. Task 1: duplicate Guest Paths are accepted when adding Allowed Folders. Task 2: sand demo run pwd starts in the wrong Guest Path when the Host Mac cwd is inside an Allowed Folder. Task 3: sand ephemeral init --stdout appears to create Host Metadata even though it should only print a starter spec.",
+          "copyText": "Task 1 source: ____\nTask 1 test: ____\n\nTask 2 source: ____\nTask 2 test: ____\n\nTask 3 source: ____\nTask 3 test: ____",
+          "signsOfSuccess": "- Task 1 points to Sources/SandCore/FolderPolicy/ and Tests/SandCoreTests/FolderPolicyTests.swift.\n- Task 2 points to Sources/SandCore/WorkingDirectory/ and Tests/SandCoreTests/WorkingDirectoryMapperTests.swift.\n- Task 3 points first to Sources/SandCore/CLI/CLICommandRouter.swift and Tests/SandCoreTests/CLICommandRouterTests.swift, with Ephemeral sources only if execution behavior is implicated.\n- No answer starts by editing generated docs or changing files before finding the owner.",
+          "hints": [
+            "Match the noun in the symptom to the repo map: Allowed Folder, Working Directory Mapping, Ephemeral init.",
+            "Prefer the smallest owning module before jumping to LifecycleCoordinator.",
+            "Use tests as behavior documentation."
+          ],
+          "sources": [
+            "Developer guide testing strategy (docs/developer-guide.md)",
+            "CLI router (Sources/SandCore/CLI/CLICommandRouter.swift)"
+          ]
+        },
+        {
+          "id": "beat-11",
+          "type": "checkpoint",
+          "recap": "You can now read the repo as a maintainer map: Package.swift shows products and targets; main.swift wires the executable; Sources/SandCore is split by behavior responsibility; Tests/SandCoreTests mirrors those responsibilities; docs define public contracts and vocabulary; Makefile defines the local gates. The next step is tracing one durable command through that map.",
+          "readyPrompt": "Given a user-facing behavior, can you name one source area, one test file, one documentation source, and the completion gate you would use before calling the work done?",
+          "sources": [
+            "Onboarding repo map (docs/onboarding.md)",
+            "Makefile (Makefile)"
+          ]
+        }
+      ],
+      "referenceNeeds": [
+        "cheat-sheet: repo map from behavior terms to first source area, representative test, and relevant docs",
+        "cheat-sheet: local gates summary for swift test, make docs-check, and make check",
+        "practice-bank: additional symptom-to-file mapping drills for CLI, lifecycle, folder policy, specs, working directory, and ephemeral init"
+      ]
+    },
+    {
+      "id": "lesson-04",
+      "title": "Trace one durable command",
+      "objective": "Follow a normal command from CLI arguments to application request to lifecycle coordination to backend boundary.",
+      "summary": "Trace one durable `sand` command by following responsibility boundaries, not every line of code. The main path is `sand demo run pwd`: entry point composition, router dispatch, request structs, lifecycle orchestration, metadata lookup, working-directory policy, backend delegation, and process exit code.",
+      "sources": [
+        {
+          "label": "main.swift composition root",
+          "path": "Sources/sand/main.swift"
+        },
+        {
+          "label": "CLI command router",
+          "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+        },
+        {
+          "label": "SandboxApplication and request/result types",
+          "path": "Sources/SandCore/CLI/SandboxApplication.swift"
+        },
+        {
+          "label": "LifecycleCoordinator orchestration",
+          "path": "Sources/SandCore/Lifecycle/LifecycleCoordinator.swift"
+        },
+        {
+          "label": "SandboxBackend adapter port",
+          "path": "Sources/SandCore/Backend/SandboxBackend.swift"
+        },
+        {
+          "label": "Host metadata store",
+          "path": "Sources/SandCore/Metadata/HostMetadataStore.swift"
+        },
+        {
+          "label": "Working directory policy",
+          "path": "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+        },
+        {
+          "label": "CLI routing tests",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        },
+        {
+          "label": "Lifecycle orchestration tests",
+          "path": "Tests/SandCoreTests/LifecycleCoordinatorTests.swift"
+        },
+        {
+          "label": "Developer guide architecture map",
+          "path": "docs/developer-guide.md"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat-01",
+          "type": "explain",
+          "title": "Trace landmarks, not every branch",
+          "text": "A durable command is a normal command for a named Sandbox VM, such as `sand demo run pwd` or `sand create demo`. Trace it as a handoff chain: executable entry point builds objects, router parses arguments, application boundary receives a typed request, lifecycle code coordinates metadata and policies, then the backend port performs VM work. Stay on one command path. Do not read every `switch` case or backend process detail yet.",
+          "sources": [
+            "Developer guide architecture map (docs/developer-guide.md)",
+            "CLI command router (Sources/SandCore/CLI/CLICommandRouter.swift)"
+          ]
+        },
+        {
+          "id": "beat-02",
+          "type": "explain",
+          "title": "The composition root",
+          "text": "`Sources/sand/main.swift` wires the real app together. It creates `FileHostMetadataStore`, `AppleContainerCLIBackend`, `LifecycleCoordinator`, and `CLICommandRouter`. That file is intentionally small: it chooses concrete production implementations, calls `router.dispatch(arguments:)`, then exits with `result.processExitCode`. If dispatch throws, `main.swift` prints `sand: ...` to stderr and exits `1`.",
+          "sources": [
+            "main.swift composition root (Sources/sand/main.swift)",
+            "SandboxApplication and request/result types (Sources/SandCore/CLI/SandboxApplication.swift)"
+          ]
+        },
+        {
+          "id": "beat-03",
+          "type": "single-choice",
+          "prompt": "For `sand demo run pwd`, which object first receives the parsed command-line arguments after `main.swift` drops the executable name?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "`CLICommandRouter`",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "`AppleContainerCLIBackend`",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "`FileHostMetadataStore`",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "`WorkingDirectoryMapper`",
+              "correct": false
+            }
+          ],
+          "feedback": "`main.swift` constructs the router and calls `router.dispatch(arguments:)`. Backend, metadata, and mapping are reached later through lifecycle orchestration.",
+          "sources": [
+            "main.swift composition root (Sources/sand/main.swift)",
+            "CLI command router (Sources/SandCore/CLI/CLICommandRouter.swift)"
+          ]
+        },
+        {
+          "id": "beat-04",
+          "type": "explain",
+          "title": "Router dispatch pattern",
+          "text": "`CLICommandRouter.dispatch` reads the first argument. Top-level commands like `create` get their own dispatch helpers. Unknown top-level words are treated as sandbox names and routed through `dispatchSandboxFirst`. For `sand demo run pwd`, `demo` becomes `SandboxName`, `run` becomes the action, and `pwd` becomes an opaque `WorkloadCommand`. The router then calls `application.run(RunRequest(...))`.",
+          "sources": [
+            "CLI command router (Sources/SandCore/CLI/CLICommandRouter.swift)",
+            "Workload command type (Sources/SandCore/Domain/WorkloadCommand.swift)",
+            "CLI routing tests (Tests/SandCoreTests/CLICommandRouterTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-05",
+          "type": "multi-choice",
+          "prompt": "Which responsibilities belong to `CLICommandRouter` on this path?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Recognize the sandbox-first shape `<name> run <command> [args...]`.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Construct `RunRequest` with a `SandboxName` and opaque `WorkloadCommand`.",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "Start the Sandbox VM if it is stopped.",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "Translate host current directory to a Guest Path.",
+              "correct": false
+            },
+            {
+              "id": "e",
+              "text": "Build low-level backend process arguments.",
+              "correct": false
+            }
+          ],
+          "feedback": "The router owns command shape and typed requests. Auto-start, working-directory mapping, and backend execution happen after the application boundary.",
+          "sources": [
+            "CLI command router (Sources/SandCore/CLI/CLICommandRouter.swift)",
+            "CLI routing tests (Tests/SandCoreTests/CLICommandRouterTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-06",
+          "type": "explain",
+          "title": "Application boundary",
+          "text": "`SandboxApplication` is the seam between command parsing and application behavior. It declares methods like `create`, `run`, `status`, `addFolder`, and `ephemeral`, plus request structs such as `CreateRequest`, `RunRequest`, and `NamedSandboxRequest`. The router depends on this protocol, not directly on `LifecycleCoordinator`. Tests use recording applications to prove routing without provisioning a real Sandbox VM.",
+          "sources": [
+            "SandboxApplication and request/result types (Sources/SandCore/CLI/SandboxApplication.swift)",
+            "CLI routing tests (Tests/SandCoreTests/CLICommandRouterTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-07",
+          "type": "explain",
+          "title": "LifecycleCoordinator orchestrates run",
+          "text": "For `run`, `LifecycleCoordinator` reads the Sandbox Spec from Host Metadata, asks `WorkingDirectoryMapper` to map the Host Mac current directory into a Guest Path, emits a warning if it falls back to `/workspace`, checks backend status, starts the Sandbox VM if stopped, then delegates to `backend.run(BackendRunRequest(...))`. It coordinates; it does not become the backend adapter.",
+          "sources": [
+            "LifecycleCoordinator orchestration (Sources/SandCore/Lifecycle/LifecycleCoordinator.swift)",
+            "Working directory policy (Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift)",
+            "Lifecycle orchestration tests (Tests/SandCoreTests/LifecycleCoordinatorTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-08",
+          "type": "prediction",
+          "prompt": "Predict the high-level calls for `sand demo run pwd` when metadata contains `demo` and the backend reports it is stopped. Ignore low-level process execution.",
+          "answer": "Router creates `RunRequest`; `LifecycleCoordinator.run` reads the spec, maps the working directory, asks backend for status, calls backend start, then calls backend run with `pwd` and the chosen Guest Path.",
+          "explanation": "The lifecycle test `testRunAutoStartsStoppedSandboxAndDelegatesOpaqueCommandToBackend` shows the expected backend calls: status, start, run. The command arguments stay opaque all the way to the backend request.",
+          "sources": [
+            "Lifecycle orchestration tests (Tests/SandCoreTests/LifecycleCoordinatorTests.swift)",
+            "SandboxBackend adapter port (Sources/SandCore/Backend/SandboxBackend.swift)"
+          ]
+        },
+        {
+          "id": "beat-09",
+          "type": "explain",
+          "title": "Backend port and exit result",
+          "text": "`SandboxBackend` is the narrow adapter port: readiness, provision, apply, start, stop, run, shell, status, logs, and delete. `LifecycleCoordinator` calls this interface rather than embedding backend command construction. `backend.run` and `backend.shell` return `CommandResult`, so workload exit status can flow back up. `CommandResult.success` maps to process exit `0`; `.failure(exitCode: n)` maps to `n` in `main.swift`.",
+          "sources": [
+            "SandboxBackend adapter port (Sources/SandCore/Backend/SandboxBackend.swift)",
+            "SandboxApplication and request/result types (Sources/SandCore/CLI/SandboxApplication.swift)",
+            "main.swift composition root (Sources/sand/main.swift)"
+          ]
+        },
+        {
+          "id": "beat-10",
+          "type": "practice",
+          "instruction": "Annotate one durable command path. Pick either `sand demo run pwd` or `sand create demo`. Write a numbered trace with file path, object/function, and responsibility for each handoff. Keep it to 8-12 lines; stop at the `SandboxBackend` boundary and the final `CommandResult` exit mapping.",
+          "copyText": "Command: sand demo run pwd\n1. Sources/sand/main.swift — constructs FileHostMetadataStore, AppleContainerCLIBackend, LifecycleCoordinator, CLICommandRouter.\n2. Sources/SandCore/CLI/CLICommandRouter.swift — ...\n3. Sources/SandCore/CLI/SandboxApplication.swift — ...\n4. Sources/SandCore/Lifecycle/LifecycleCoordinator.swift — ...\n5. Sources/SandCore/Metadata/HostMetadataStore.swift — ...\n6. Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift — ...\n7. Sources/SandCore/Backend/SandboxBackend.swift — ...\n8. Sources/SandCore/CLI/SandboxApplication.swift + Sources/sand/main.swift — CommandResult becomes process exit code.",
+          "signsOfSuccess": "Your trace names the router, request struct, application boundary, lifecycle coordinator, metadata read or write, one relevant policy, backend port, and exit-code conversion. It does not explain every command branch or backend process internals.",
+          "hints": [
+            "For `run`, follow `dispatchSandboxFirst` to `application.run(RunRequest(...))`.",
+            "For `create`, follow `dispatchCreate` to `CreateRequest`, then metadata `createSpec` and backend `provision`.",
+            "Use lifecycle tests as examples of expected backend calls."
+          ],
+          "sources": [
+            "main.swift composition root (Sources/sand/main.swift)",
+            "CLI command router (Sources/SandCore/CLI/CLICommandRouter.swift)",
+            "LifecycleCoordinator orchestration (Sources/SandCore/Lifecycle/LifecycleCoordinator.swift)",
+            "Lifecycle orchestration tests (Tests/SandCoreTests/LifecycleCoordinatorTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-11",
+          "type": "checkpoint",
+          "recap": "A durable command flows through a small set of seams: `main.swift` composes concrete objects, `CLICommandRouter` parses command shape, `SandboxApplication` carries typed requests, `LifecycleCoordinator` coordinates metadata, policies, and runtime state, and `SandboxBackend` is the narrow adapter port. The command's `CommandResult` returns to `main.swift`, where it becomes the process exit code.",
+          "readyPrompt": "Ready to study the policies inside the flow: Sandbox Specs, Allowed Folders, Access Modes, Guest Paths, and Working Directory Mapping?",
+          "sources": [
+            "Developer guide architecture map (docs/developer-guide.md)"
+          ]
+        }
+      ],
+      "referenceNeeds": [
+        "Add a cheat-sheet trace diagram for `sand demo run pwd`: main.swift → CLICommandRouter.dispatch → dispatchSandboxFirst → RunRequest → LifecycleCoordinator.run → HostMetadataStore.readSpec/currentHostDirectory → WorkingDirectoryMapper.map → SandboxBackend.status/start/run → CommandResult.processExitCode.",
+        "Add a practice-bank prompt asking learners to annotate `sand create demo`, including `CreateRequest`, metadata `createSpec`, backend `provision`, rollback on provision error, and exit-code mapping."
+      ]
+    },
+    {
+      "id": "lesson-05",
+      "title": "Understand specs, folders, and working directories",
+      "objective": "Explain how sand decides what a Sandbox VM can see and where commands start.",
+      "summary": "A Sandbox Spec is the durable YAML contract for a reusable Sandbox VM. FolderPolicy controls which Host Mac folders become Allowed Folders, how Access Modes are normalized, and which conflicting mappings are rejected. WorkingDirectoryMapper then uses those accepted mappings to decide where shell and run commands start inside the Sandbox Guest.",
+      "sources": [
+        {
+          "label": "Domain language and relationships",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "SandboxSpec model and YAML rendering/parsing",
+          "path": "Sources/SandCore/Spec/SandboxSpec.swift"
+        },
+        {
+          "label": "FolderPolicy rules",
+          "path": "Sources/SandCore/FolderPolicy/FolderPolicy.swift"
+        },
+        {
+          "label": "WorkingDirectoryMapper behavior",
+          "path": "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+        },
+        {
+          "label": "SandboxSpec behavior tests",
+          "path": "Tests/SandCoreTests/SandboxSpecTests.swift"
+        },
+        {
+          "label": "FolderPolicy behavior tests",
+          "path": "Tests/SandCoreTests/FolderPolicyTests.swift"
+        },
+        {
+          "label": "WorkingDirectoryMapper behavior tests",
+          "path": "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+        },
+        {
+          "label": "Folders command surface",
+          "path": "docs/cli-reference.md"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat-01",
+          "type": "explain",
+          "title": "The spec is the durable contract",
+          "text": "A Sandbox Spec is the source of truth for a reusable Sandbox VM. In v1, its YAML surface includes `schemaVersion`, `name`, `image`, `resources` with `cpus` and `memory`, and `allowedFolders`. Each Allowed Folder records the user-facing `hostPath`, resolved real host path, `guestPath`, and canonical `accessMode`. The spec deliberately excludes future or ephemeral concerns such as inbound networking, lifecycle hooks, workload fields, and run records.",
+          "sources": [
+            "Sources/SandCore/Spec/SandboxSpec.swift",
+            "Tests/SandCoreTests/SandboxSpecTests.swift",
+            "issues/sand/CONTEXT.md"
+          ]
+        },
+        {
+          "id": "beat-02",
+          "type": "explain",
+          "title": "FolderPolicy turns folder commands into spec changes",
+          "text": "`sand folders add <name> <host-path> <rw|ro> [--as <guest-path>]` is a spec mutation. FolderPolicy resolves the host path for comparisons, preserves the display path for humans, parses the Access Mode, chooses a Guest Path, and returns an updated SandboxSpec. Adding the same resolved host folder updates the existing entry instead of appending a duplicate. Removing a folder resolves the supplied host path and deletes any matching mapping.",
+          "sources": [
+            "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+            "docs/cli-reference.md",
+            "Tests/SandCoreTests/FolderPolicyTests.swift"
+          ]
+        },
+        {
+          "id": "beat-03",
+          "type": "single-choice",
+          "prompt": "A user runs `sand folders add demo ~/Projects/sand rw` without `--as`. The display host path is `~/Projects/sand`. What Guest Path does FolderPolicy derive by default?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "`/workspace`",
+              "correct": false
+            },
+            {
+              "id": "b",
+              "text": "`/workspace/sand`",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "`~/Projects/sand`",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "`/Users/onur/Projects/sand`",
+              "correct": false
+            }
+          ],
+          "feedback": "Default Guest Paths are `/workspace/` plus the last path component of the display host path. Here the folder name is `sand`.",
+          "sources": [
+            "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+            "Tests/SandCoreTests/FolderPolicyTests.swift"
+          ]
+        },
+        {
+          "id": "beat-04",
+          "type": "explain",
+          "title": "Aliases at the command edge, canonical terms in the spec",
+          "text": "Folder commands accept short aliases and full terms: `rw` and `read-write` both mean read-write; `ro` and `read-only` both mean read-only. The stored Sandbox Spec uses the canonical raw values `read-write` and `read-only`. That keeps the command line convenient while keeping saved specs stable and domain-language-friendly.",
+          "sources": [
+            "Sources/SandCore/Spec/SandboxSpec.swift",
+            "Tests/SandCoreTests/FolderPolicyTests.swift",
+            "issues/sand/CONTEXT.md"
+          ]
+        },
+        {
+          "id": "beat-05",
+          "type": "multi-choice",
+          "prompt": "Start with one Allowed Folder: resolved host path `/Users/onur/Projects`, Guest Path `/workspace/Projects`, Access Mode `read-write`. Which later adds are rejected?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Add `/Users/onur/Projects/sand` as `/workspace/sand`.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Add `/Users/onur/Downloads` as `/workspace/Projects`.",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "Add `/Users/onur/Downloads` as `/workspace/downloads`.",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "Add `/Users/onur/Projects` again with Access Mode `read-only`.",
+              "correct": false
+            }
+          ],
+          "feedback": "Overlapping host folders are rejected, so a nested Projects path is not allowed. A different host folder cannot reuse an existing Guest Path. A non-overlapping host folder with a unique Guest Path is accepted. Re-adding the same resolved host folder updates the existing mapping.",
+          "sources": [
+            "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+            "Tests/SandCoreTests/FolderPolicyTests.swift",
+            "issues/sand/CONTEXT.md"
+          ]
+        },
+        {
+          "id": "beat-06",
+          "type": "explain",
+          "title": "Why duplicate and overlap rules exist",
+          "text": "FolderPolicy rejects two different host folders with the same Guest Path and rejects overlapping host folders such as `/Users/onur/Projects` plus `/Users/onur/Projects/sand`. Both checks use resolved real paths, so symlinks do not bypass the rule. These rejections keep access rules and Working Directory Mapping unambiguous: one guest location should not secretly mean two host folders, and one host directory tree should not have competing access modes.",
+          "sources": [
+            "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+            "Tests/SandCoreTests/FolderPolicyTests.swift",
+            "issues/sand/CONTEXT.md"
+          ]
+        },
+        {
+          "id": "beat-07",
+          "type": "prediction",
+          "prompt": "A spec has one Allowed Folder: resolved host path `/Users/onur/Projects/sand`, Guest Path `/workspace/sand`. The Host Mac current directory is `/Users/onur/Projects/sand/Sources/SandCore`. Where will a Sandbox Session start?",
+          "answer": "`/workspace/sand/Sources/SandCore`, with no warning.",
+          "explanation": "WorkingDirectoryMapper resolves the current directory, finds that it is inside the allowed host folder, keeps the suffix `/Sources/SandCore`, and appends that suffix to the Allowed Folder's Guest Path.",
+          "sources": [
+            "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift",
+            "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+          ]
+        },
+        {
+          "id": "beat-08",
+          "type": "prediction",
+          "prompt": "The same spec allows only `/Users/onur/Projects/sand` at `/workspace/sand`. The Host Mac current directory is `/Users/onur/Downloads`. Where does sand start the command, and what warning should the learner expect?",
+          "answer": "It starts in `/workspace` and warns: `Current directory is not inside an Allowed Folder; starting in /workspace.`",
+          "explanation": "If the Host Mac current directory is not equal to or nested under any Allowed Folder's resolved host path, WorkingDirectoryMapper uses its fallback Guest Path. The default fallback in code is `/workspace`.",
+          "sources": [
+            "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift",
+            "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+          ]
+        },
+        {
+          "id": "beat-09",
+          "type": "practice",
+          "instruction": "For each proposed mapping, mark it accepted, rejected, or update. Then write the resulting Guest Path for a command launched from the listed Host Mac current directory.\n\nStarting spec: no folders.\n1. Add `/Users/onur/Projects/sand` with `rw`, no `--as`. CWD: `/Users/onur/Projects/sand/Tests`.\n2. Add `/Users/onur/Projects/sand` again with `ro --as /code`. CWD: `/Users/onur/Projects/sand/Tests`.\n3. Add `/Users/onur/Projects` with `rw --as /workspace/projects`.\n4. Add `/Users/onur/Downloads` with `ro --as /code`.\n5. Launch from `/Users/onur/Desktop`.",
+          "copyText": "1. Decision: ___; command starts at: ___\n2. Decision: ___; command starts at: ___\n3. Decision: ___; reason: ___\n4. Decision: ___; reason: ___\n5. command starts at: ___; warning: ___",
+          "signsOfSuccess": "- Recognizes that the first add is accepted and defaults to `/workspace/sand`.\n- Recognizes that adding the same resolved host path updates the existing mapping to `/code` and read-only.\n- Rejects the overlapping `/Users/onur/Projects` host folder.\n- Rejects duplicate Guest Path `/code` for a different host folder.\n- Uses `/workspace` plus the fallback warning when the CWD is outside Allowed Folders.",
+          "hints": [
+            "Compare resolved host paths, not only the spelling the user typed.",
+            "Same resolved host folder means update; different host folder with same Guest Path means reject.",
+            "Working directory mapping uses the current accepted spec, not the rejected proposal."
+          ],
+          "sources": [
+            "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+            "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift",
+            "Tests/SandCoreTests/FolderPolicyTests.swift",
+            "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+          ]
+        },
+        {
+          "id": "beat-10",
+          "type": "checkpoint",
+          "recap": "SandboxSpec stores the durable VM contract. FolderPolicy is the gatekeeper for Allowed Folder changes: aliases normalize to canonical Access Modes, default Guest Paths come from the host folder name, same host folders update, duplicate Guest Paths and overlapping host folders are rejected. WorkingDirectoryMapper maps a Host Mac CWD into the matching Guest Path, or falls back to `/workspace` with a warning.",
+          "readyPrompt": "Ready for the next lesson when you can explain why each practice example is accepted, rejected, or mapped without reading the implementation.",
+          "sources": [
+            "issues/sand/CONTEXT.md",
+            "Sources/SandCore/Spec/SandboxSpec.swift",
+            "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+            "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+          ]
+        }
+      ],
+      "referenceNeeds": [
+        "glossary: define Sandbox Spec, Allowed Folder, Access Mode, Guest Path, Working Directory Mapping, Host Mac, Sandbox Guest, and Host Metadata",
+        "cheat-sheet: add folder-policy decision rules, Access Mode alias table, default Guest Path rule, and working-directory fallback rule",
+        "practice-bank: include accepted/rejected folder mapping scenarios and CWD-to-Guest-Path prediction drills"
+      ]
+    },
+    {
+      "id": "lesson-06",
+      "title": "Understand Ephemeral Sandbox Runs",
+      "objective": "Explain why ephemeral runs are separate and trace their bounded lifecycle.",
+      "summary": "This lesson separates durable Sandbox VMs from bounded Ephemeral Sandbox Runs. You will trace the explicit `sand ephemeral --from` lifecycle from Ephemeral Spec through hooks, Foreground Workload, cleanup, and Ephemeral Run Record, then practice identifying the phase to inspect when a run fails.",
+      "sources": [
+        {
+          "label": "ADR: Separate Ephemeral Specs from durable Sandbox Specs",
+          "path": "docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md"
+        },
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "Generated CLI reference",
+          "path": "docs/cli-reference.md"
+        },
+        {
+          "label": "Ephemeral run coordinator",
+          "path": "Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift"
+        },
+        {
+          "label": "Ephemeral run behavior tests",
+          "path": "Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift"
+        },
+        {
+          "label": "CLI command router tests",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat-01",
+          "type": "explain",
+          "title": "Why ephemeral is separate",
+          "text": "A durable Sandbox Spec describes a reusable Sandbox VM: create it, add folders, run commands, stop/start it, and keep its Guest State. An Ephemeral Spec describes a bounded create-run-stop-cleanup-delete workflow. The ADR keeps those separate so normal lifecycle commands stay boring and unsurprising. Ephemeral runs still leave history, but they do that through immutable Ephemeral Run Records, not by leaving completed sandboxes around as reusable Sandbox VMs.",
+          "sources": [
+            "ADR: Separate Ephemeral Specs from durable Sandbox Specs (docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md)",
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+          ]
+        },
+        {
+          "id": "beat-02",
+          "type": "single-choice",
+          "prompt": "Which statement best captures the durable-vs-ephemeral boundary?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "A durable Sandbox Spec is for a reusable Sandbox VM; an Ephemeral Spec is for one bounded create-run-stop-delete workflow.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "An Ephemeral Spec is just a shorter spelling for `sand create`, `sand run`, and `sand delete` on a normal reusable sandbox.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "Ephemeral runs are hidden behavior attached to normal `sand <name> run` commands.",
+              "correct": false
+            }
+          ],
+          "feedback": "Ephemeral is an explicit Control Surface action with its own spec and records. It is not hidden shorthand on normal durable lifecycle commands.",
+          "sources": [
+            "ADR: Separate Ephemeral Specs from durable Sandbox Specs (docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md)",
+            "Generated CLI reference (docs/cli-reference.md)"
+          ]
+        },
+        {
+          "id": "beat-03",
+          "type": "explain",
+          "title": "The two ephemeral commands",
+          "text": "`sand ephemeral init <path>` writes a starter Ephemeral Spec YAML file, or prints it with `--stdout`. It does not create a Sandbox VM, touch Host Metadata, or create an Ephemeral Run Record. Execution is separate: `sand ephemeral --from <ephemeral-spec.yaml>` reads the reviewed spec and starts the bounded run. The command can also accept a workload override after `--`, but the run remains one explicit ephemeral operation.",
+          "sources": [
+            "Generated CLI reference (docs/cli-reference.md)",
+            "CLI command router tests (Tests/SandCoreTests/CLICommandRouterTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-04",
+          "type": "explain",
+          "title": "What an Ephemeral Spec describes",
+          "text": "At a user-model level, an Ephemeral Spec is a recipe for one bounded run. It can include the Sandbox VM template details, Allowed Folders, optional Before Provision Hooks, the Foreground Workload, and optional After Stop Hooks. The Foreground Workload is the command whose process lifetime controls when cleanup begins. Hooks run on the Host Mac; the Foreground Workload runs inside the Sandbox Guest through the normal workload path.",
+          "sources": [
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)",
+            "Ephemeral run coordinator (Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift)"
+          ]
+        },
+        {
+          "id": "beat-05",
+          "type": "explain",
+          "title": "Coordinator phases, first half",
+          "text": "EphemeralRunCoordinator first parses and plans the run, allocates a generated Sandbox Name, and creates an initial run record attempt. Then it runs `beforeProvision` hooks from the Host Mac, relative to the directory containing the Ephemeral Spec. If those hooks succeed, it resolves folders into a generated concrete Sandbox Spec, writes that spec into the run record, creates temporary active Host Metadata, provisions backend resources, and starts the Sandbox VM.",
+          "sources": [
+            "Ephemeral run coordinator (Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift)",
+            "Ephemeral run behavior tests (Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-06",
+          "type": "explain",
+          "title": "Coordinator phases, second half",
+          "text": "After startup, the Foreground Workload runs inside the Sandbox Guest. When that process exits, sand attempts to stop the Sandbox VM. Then it runs `afterStop` hooks on the Host Mac, attempts deletion, removes the temporary active Sandbox Spec on successful cleanup, writes the final result, and prints the run record path. The active sandbox is temporary; the run record is the durable thing left behind.",
+          "sources": [
+            "Ephemeral run coordinator (Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift)",
+            "Ephemeral run behavior tests (Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-07",
+          "type": "prediction",
+          "prompt": "Put these phases in order: afterStop hooks, beforeProvision hooks, delete cleanup, Foreground Workload, provision/start, run record attempt creation, stop attempt.",
+          "answer": "run record attempt creation → beforeProvision hooks → provision/start → Foreground Workload → stop attempt → afterStop hooks → delete cleanup",
+          "explanation": "The run record starts early so the attempt can be inspected. `beforeProvision` runs before folder resolution and backend provisioning. `afterStop` runs only after the Foreground Workload exits and sand has attempted to stop the Sandbox VM.",
+          "sources": [
+            "Ephemeral run coordinator (Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift)",
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+          ]
+        },
+        {
+          "id": "beat-08",
+          "type": "explain",
+          "title": "What the run record is for",
+          "text": "An Ephemeral Run Record is immutable Host Metadata for a run attempt. It preserves the source Ephemeral Spec, source path, generated concrete Sandbox Spec, hook stdout/stderr files, phase events, result summary, failed phase, and manual cleanup guidance when needed. This record answers: what did sand try, what temporary sandbox name did it use, which phase failed, and where are the captured hook outputs?",
+          "sources": [
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)",
+            "Ephemeral run coordinator (Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift)"
+          ]
+        },
+        {
+          "id": "beat-09",
+          "type": "multi-choice",
+          "prompt": "An ephemeral run fails and prints a run record path. Which places are useful to inspect first?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "The printed `Failed phase` in the command output",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "The run record's `result.json` summary",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "Hook stdout/stderr files for a `beforeProvision` or `afterStop` failure",
+              "correct": true
+            },
+            {
+              "id": "d",
+              "text": "The generated Sandbox Spec in the run record when folder resolution or generated config matters",
+              "correct": true
+            },
+            {
+              "id": "e",
+              "text": "A permanent active Sandbox Spec for the completed ephemeral sandbox",
+              "correct": false
+            }
+          ],
+          "feedback": "Successful cleanup removes the temporary active Sandbox Spec. The durable investigation trail is the command output plus the Ephemeral Run Record.",
+          "sources": [
+            "Generated CLI reference (docs/cli-reference.md)",
+            "Ephemeral run behavior tests (Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-10",
+          "type": "explain",
+          "title": "Result precedence, conceptually",
+          "text": "Final status favors cleanup truth over earlier failure. If delete fails, the reported failed phase is delete, because a temporary sandbox may still need manual cleanup. If afterStop, stop, and workload each have outcomes, later cleanup-phase failures can dominate earlier workload failures. A beforeProvision failure aborts before provisioning. Provision/start failures skip afterStop but still try to clean up partial resources. The point is not every branch; it is knowing which phase owns the final report.",
+          "sources": [
+            "Ephemeral run coordinator (Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift)",
+            "Ephemeral run behavior tests (Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift)",
+            "Generated CLI reference (docs/cli-reference.md)"
+          ]
+        },
+        {
+          "id": "beat-11",
+          "type": "practice",
+          "instruction": "Create a one-page triage map for an Ephemeral Sandbox Run. Include the ordered phase list, the command that only generates a template, the command that executes a run, and the first artifact to inspect for each failure phase.",
+          "copyText": "Ephemeral triage map\n\nCommands:\n- Template only: sand ephemeral init ephemeral-spec.yaml\n- Execute bounded run: sand ephemeral --from ephemeral-spec.yaml\n\nPhase order:\n1. Create run record attempt\n2. beforeProvision hooks on Host Mac\n3. Generate concrete Sandbox Spec\n4. Create temporary active Host Metadata\n5. Provision/start Sandbox VM\n6. Foreground Workload in Sandbox Guest\n7. Stop attempt\n8. afterStop hooks on Host Mac\n9. Delete cleanup\n10. Write final result\n\nIf a phase fails, inspect:\n- beforeProvision: hook stdout/stderr in run record\n- provision/start: command output, result summary, generated spec\n- workload: final failed phase and workload exit code\n- stop/afterStop: result summary and hook output if applicable\n- delete: manual cleanup guidance and generated sandbox name",
+          "signsOfSuccess": "Your map keeps `init` separate from execution, orders the phases correctly, names Host Mac hooks versus Sandbox Guest workload, and uses the Ephemeral Run Record as the main investigation artifact.",
+          "hints": [
+            "Do not describe ephemeral as normal `run` shorthand.",
+            "The Foreground Workload is not an after-start hook.",
+            "A cleanup failure can be more important than an earlier workload failure because it may leave resources behind."
+          ],
+          "sources": [
+            "Generated CLI reference (docs/cli-reference.md)",
+            "Ephemeral run coordinator (Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift)",
+            "Ephemeral run behavior tests (Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-12",
+          "type": "checkpoint",
+          "recap": "Ephemeral runs are explicit bounded workflows, not hidden lifecycle shortcuts. `sand ephemeral init` only writes a starter spec; `sand ephemeral --from` performs the create-run-stop-hook-delete operation. EphemeralRunCoordinator leaves an Ephemeral Run Record so completed or failed runs can be inspected after cleanup.",
+          "readyPrompt": "Can you explain why durable Sandbox Specs and Ephemeral Specs are separate, then point to the phase and run-record artifact you would inspect after an ephemeral failure?",
+          "sources": [
+            "ADR: Separate Ephemeral Specs from durable Sandbox Specs (docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md)",
+            "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+          ]
+        }
+      ],
+      "referenceNeeds": [
+        "Add glossary entries or cross-links for Ephemeral Spec, Ephemeral Sandbox Run, Foreground Workload, Before Provision Hook, After Stop Hook, and Ephemeral Run Record.",
+        "Add cheat-sheet contrast: `sand ephemeral init` generates only; `sand ephemeral --from` executes a bounded run.",
+        "Add practice-bank item for ordering EphemeralRunCoordinator phases and choosing run-record artifacts for failures.",
+        "Add a conceptual note that cleanup/delete failures can take precedence over earlier workload failures."
+      ]
+    },
+    {
+      "id": "lesson-07",
+      "title": "Debug from symptoms to tests",
+      "objective": "Use the test suite and repo map to diagnose behavior without guessing.",
+      "summary": "This lesson turns a failure report into a small diagnostic path: classify the symptom, choose the representative test, inspect the owning source area, reproduce narrowly, then record evidence. It emphasizes targeted `swift test` during diagnosis, full `make check` before completion, and tests as guardrails rather than obstacles.",
+      "sources": [
+        {
+          "label": "Developer Guide: Testing strategy and working rules",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "Onboarding Guide: repo map and verification flow",
+          "path": "docs/onboarding.md"
+        },
+        {
+          "label": "Makefile: local gates",
+          "path": "Makefile"
+        },
+        {
+          "label": "CLI command routing tests",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        },
+        {
+          "label": "Backend error translation tests",
+          "path": "Tests/SandCoreTests/BackendErrorTranslationTests.swift"
+        },
+        {
+          "label": "Architecture boundary tests",
+          "path": "Tests/SandCoreTests/ArchitectureBoundaryTests.swift"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat-01",
+          "type": "explain",
+          "title": "Debugging starts with classification",
+          "text": "A symptom is not yet a diagnosis. First name the behavior area: CLI shape, Sandbox Spec, Allowed Folder policy, Working Directory Mapping, lifecycle orchestration, Ephemeral Sandbox Run, Doctor Check, Sandbox Backend error language, or architecture boundary. Then choose the representative test before opening random files. The loop is: symptom → owning test → owning source area → narrow reproduction → evidence. This keeps debugging aligned with behavior intent instead of hunches.",
+          "sources": [
+            "Onboarding Guide: working loop for agents (docs/onboarding.md)",
+            "Developer Guide: testing strategy (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-02",
+          "type": "explain",
+          "title": "The developer guide gives the test map",
+          "text": "Use the Testing strategy table as the first routing aid. CLI symptoms start in `CLICommandRouterTests`; spec/YAML symptoms in `SandboxSpecTests`; folder symptoms in `FolderPolicyTests`; current-directory symptoms in `WorkingDirectoryMapperTests`; normal Sandbox VM operations in `LifecycleCoordinatorTests`; Ephemeral Sandbox Runs in `EphemeralRunCoordinatorTests`; doctor failures in `DoctorChecksTests` or `AppleContainerCLIBackendDoctorTests`; backend wording in `BackendErrorTranslationTests`; architecture leakage in `ArchitectureBoundaryTests`; Pi and credential boundary evidence in `PiWorkloadCredentialBoundaryValidationTests`.",
+          "sources": [
+            "Developer Guide: Testing strategy table (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-03",
+          "type": "multi-choice",
+          "prompt": "A user reports: `sand mybox run pi --model gpt-5 -- literal` no longer passes all arguments through unchanged. What should you inspect first?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "`Tests/SandCoreTests/CLICommandRouterTests.swift`, especially the opaque Workload Command/Pi routing behavior.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "`Sources/SandCore/CLI/CLICommandRouter.swift`, because command shape parsing owns the argument boundary.",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "`docs/cli-reference.md`, then manually adjust the generated command reference until it matches the desired output.",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "Apple container backend tests, because Pi is implemented as a backend-specific command.",
+              "correct": false
+            }
+          ],
+          "feedback": "Pi is a normal Workload Command. The first guardrail is the CLI routing test that proves workload arguments pass through opaquely and are not special-cased.",
+          "sources": [
+            "CLICommandRouterTests: opaque Workload Command behavior (Tests/SandCoreTests/CLICommandRouterTests.swift)",
+            "Developer Guide: Pi workload boundary (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-04",
+          "type": "explain",
+          "title": "Run narrow tests before the full gate",
+          "text": "During diagnosis, prefer the smallest command that exercises the suspected behavior, for example `swift test --filter FolderPolicyTests` or `swift test --filter BackendErrorTranslationTests`. A targeted test gives faster feedback and makes the failing contract easier to read. After the fix or diagnosis is complete, run `make check`. In this repo, `make check` runs `swift test` and then the Documentation Freshness Gate. Do not blindly run every command before forming a hypothesis.",
+          "sources": [
+            "Developer Guide: targeted tests then make check (docs/developer-guide.md)",
+            "Makefile: check target (Makefile)"
+          ]
+        },
+        {
+          "id": "beat-05",
+          "type": "prediction",
+          "prompt": "A targeted test fails at an assertion named `testEphemeralInitWritesStarterSpecThatParsesAndDoesNotCallApplication`. Before reading implementation, what behavior intent does that test name already tell you?",
+          "answer": "`sand ephemeral init` should write a starter Ephemeral Spec, the spec should parse, and the command should not call the application/lifecycle/backend execution path.",
+          "explanation": "Read the test name, setup, assertions, and helper fakes as an executable behavior note. The failure line matters, but the surrounding test explains the boundary being protected.",
+          "sources": [
+            "CLICommandRouterTests: ephemeral init boundary (Tests/SandCoreTests/CLICommandRouterTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-06",
+          "type": "single-choice",
+          "prompt": "A run failure prints raw adapter language such as `container start mybox` instead of a Sandbox VM message. Which first test target best matches the symptom?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "`swift test --filter BackendErrorTranslationTests`",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "`swift test --filter SandboxSpecTests`",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "`swift test --filter WorkingDirectoryMapperTests`",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "`make docs-check`",
+              "correct": false
+            }
+          ],
+          "feedback": "Backend error translation tests check that raw adapter failures become actionable Sandbox VM language and do not leak implementation details.",
+          "sources": [
+            "BackendErrorTranslationTests (Tests/SandCoreTests/BackendErrorTranslationTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-07",
+          "type": "explain",
+          "title": "Boundary tests are guardrails",
+          "text": "Two test areas protect architecture, not just outputs. `BackendErrorTranslationTests` keeps backend failures in user-facing Sandbox VM language. `ArchitectureBoundaryTests` checks that fake backends stay out of product sources and backend-specific implementation wording stays inside the adapter. When these fail, do not patch presentation text at the edge to hide the problem. Trace where the wrong dependency or wording entered, then fix that boundary.",
+          "sources": [
+            "Backend error translation tests (Tests/SandCoreTests/BackendErrorTranslationTests.swift)",
+            "Architecture boundary tests (Tests/SandCoreTests/ArchitectureBoundaryTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-08",
+          "type": "multi-choice",
+          "prompt": "Which debugging moves preserve the test suite as a source of truth?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Read the failing test as behavior intent before changing production code.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Delete an assertion if it blocks the change and the app seems to work manually.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "Change expected output only after confirming the product contract really changed.",
+              "correct": true
+            },
+            {
+              "id": "d",
+              "text": "Skip `make check` because one targeted test passed.",
+              "correct": false
+            },
+            {
+              "id": "e",
+              "text": "Record the exact verification commands that passed and any limits of the evidence.",
+              "correct": true
+            }
+          ],
+          "feedback": "Do not weaken tests to make changes pass. A changed test should reflect a confirmed changed contract, not a shortcut around a failure.",
+          "sources": [
+            "Developer Guide: working rules and Local Definition of Done (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-09",
+          "type": "practice",
+          "instruction": "For each failure report, write the first targeted test command and the first source area to inspect. Keep it to one line per report.",
+          "copyText": "1. `sand folders add demo ~/A rw --as /workspace` accepts a second folder with the same Guest Path.\n2. Running from a nested Allowed Folder starts in `/workspace` instead of the mapped nested Guest Path.\n3. `sand ephemeral --from spec.yaml` records the wrong result when the workload fails and cleanup also fails.\n4. `sand doctor` says the default Sandbox Image is ready even when the backend fixture reports it missing.\n5. Product source now contains raw `container` wording outside `Sources/SandCore/Backend/AppleContainerCLIBackend.swift`.",
+          "signsOfSuccess": "- Folder report maps to `swift test --filter FolderPolicyTests` and `Sources/SandCore/FolderPolicy/FolderPolicy.swift`.\n- Working-directory report maps to `swift test --filter WorkingDirectoryMapperTests` and `Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift`.\n- Ephemeral result report maps to `swift test --filter EphemeralRunCoordinatorTests` and `Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift`.\n- Doctor image report maps to `swift test --filter DoctorChecksTests` or `swift test --filter AppleContainerCLIBackendDoctorTests` and the Doctor/Backend source boundary.\n- Raw backend wording report maps to `swift test --filter ArchitectureBoundaryTests` and the source file that introduced the leaked term.",
+          "hints": [
+            "Use the concern names from the developer guide table.",
+            "Pick the smallest representative test first; save `make check` for the final gate.",
+            "Do not start by editing generated docs or weakening expected assertions."
+          ],
+          "sources": [
+            "Developer Guide: Testing strategy table (docs/developer-guide.md)",
+            "Onboarding Guide: repo map (docs/onboarding.md)"
+          ]
+        },
+        {
+          "id": "beat-10",
+          "type": "checkpoint",
+          "recap": "A good sand debugging path is narrow first, complete last: classify the symptom, use the developer guide test map, run a targeted `swift test --filter ...`, inspect the matching source area, read failures as behavior intent, respect backend and architecture boundary tests, then finish with `make check` and honest evidence.",
+          "readyPrompt": "Ready to use this diagnostic map before making a small test-first change?",
+          "sources": [
+            "Developer Guide: Local Definition of Done (docs/developer-guide.md)"
+          ]
+        }
+      ],
+      "referenceNeeds": [
+        "Add a cheat-sheet section mapping symptoms to first test files, source areas, and targeted `swift test --filter ...` commands.",
+        "Add practice-bank items that present failure reports and ask for first test command, first source area, and final verification evidence.",
+        "Include a reminder that `make check` is the final local gate and that tests should not be weakened to force a pass."
+      ]
+    },
+    {
+      "id": "lesson-08",
+      "title": "Make a small change test-first",
+      "objective": "Practice a safe code change workflow using a tiny command-surface or policy example.",
+      "summary": "This lesson turns the debugging map from lesson 07 into a small-change workflow. You will start with the desired behavior, choose the owning test file, make the smallest code change, and verify with targeted tests before the full gate.",
+      "sources": [
+        {
+          "label": "Developer guide: testing strategy and command-change workflow",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "CLI command router",
+          "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+        },
+        {
+          "label": "Application boundary and request structs",
+          "path": "Sources/SandCore/CLI/SandboxApplication.swift"
+        },
+        {
+          "label": "CLI command router tests",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        },
+        {
+          "label": "Folder policy tests",
+          "path": "Tests/SandCoreTests/FolderPolicyTests.swift"
+        },
+        {
+          "label": "Working directory mapper tests",
+          "path": "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat-01",
+          "type": "explain",
+          "title": "Start with the behavior, not the edit",
+          "text": "A safe change starts as a sentence: what should a user see, what should be accepted, or what should be rejected? Then pick the owning test file. Command shapes belong in `CLICommandRouterTests.swift`. Folder and working-directory rules belong in their domain tests. Lifecycle orchestration belongs in `LifecycleCoordinatorTests.swift`. Only after the red test describes the desired behavior do you open source files.",
+          "sources": [
+            "Testing strategy (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-02",
+          "type": "single-choice",
+          "prompt": "A tiny change says: adding an Allowed Folder with a new access-mode alias should normalize to the existing canonical mode. Which test file should own the first red test?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "`Tests/SandCoreTests/CLICommandRouterTests.swift`, because all command arguments pass through the router.",
+              "correct": false
+            },
+            {
+              "id": "b",
+              "text": "`Tests/SandCoreTests/FolderPolicyTests.swift`, because access-mode normalization is a folder policy rule.",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "`docs/cli-reference.md`, because users will eventually see the accepted mode there.",
+              "correct": false
+            }
+          ],
+          "feedback": "Start where the behavior lives. Docs may need refresh later, but the rule should be specified first in the policy test.",
+          "sources": [
+            "Folder policy tests (Tests/SandCoreTests/FolderPolicyTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-03",
+          "type": "explain",
+          "title": "Use router tests for command shapes",
+          "text": "`CLICommandRouterTests.swift` checks the public command surface: help, version, every v1 command shape, unsupported commands, and calls made across the application boundary. The `RecordingSandboxApplication` helper records requests without running lifecycle code. If a shape is outside v1, write a rejection test that proves the router fails before reading files or calling the application.",
+          "sources": [
+            "CLI command router tests (Tests/SandCoreTests/CLICommandRouterTests.swift)",
+            "CLI command router (Sources/SandCore/CLI/CLICommandRouter.swift)"
+          ]
+        },
+        {
+          "id": "beat-04",
+          "type": "prediction",
+          "prompt": "A new supported CLI option needs to reach lifecycle code. Predict the boundary files you would expect to touch before the coordinator can use that new value.",
+          "answer": "Add or update a router test in `CLICommandRouterTests.swift`, parse the option in `CLICommandRouter.swift`, carry it through a request struct or method in `Sources/SandCore/CLI/SandboxApplication.swift`, update the test helper's recorded `AppCall`, then use the request in the smallest matching application or lifecycle code.",
+          "explanation": "Command parsing should not leak directly into domain code. The request struct is the typed application boundary between raw CLI arguments and orchestration.",
+          "sources": [
+            "Application boundary (Sources/SandCore/CLI/SandboxApplication.swift)",
+            "Command-change workflow (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-05",
+          "type": "explain",
+          "title": "Use domain tests for behavior rules",
+          "text": "Not every change is a router change. `FolderPolicyTests.swift` owns Access Mode aliases, Guest Path defaults, duplicate Guest Path rejection, and overlapping Host Mac folder rejection. `WorkingDirectoryMapperTests.swift` owns Host Mac current-directory mapping and fallback warnings. These tests let you change rules without pretending a whole CLI command ran.",
+          "sources": [
+            "Folder policy tests (Tests/SandCoreTests/FolderPolicyTests.swift)",
+            "Working directory mapper tests (Tests/SandCoreTests/WorkingDirectoryMapperTests.swift)"
+          ]
+        },
+        {
+          "id": "beat-06",
+          "type": "multi-choice",
+          "prompt": "Which expectations protect Workload Command opacity and v1 boundaries?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "`sand mybox run pi --model gpt-5 -- literal` reaches the application as the same workload argument array.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "The router validates that `pi --model gpt-5` is a known safe Pi command before dispatching.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "An ephemeral workload override after `--` preserves workload flags such as `--from` instead of treating them as sand options.",
+              "correct": true
+            },
+            {
+              "id": "d",
+              "text": "Shortcut shapes like `sand mybox pi` should become special cases because Pi is common.",
+              "correct": false
+            },
+            {
+              "id": "e",
+              "text": "Unsupported v1 surfaces such as omitted ephemeral options should fail before application/backend work starts.",
+              "correct": true
+            }
+          ],
+          "feedback": "Opacity means sand routes workload arguments; it does not understand Pi, pytest, shell flags, or any other workload-specific syntax.",
+          "sources": [
+            "CLI command router tests (Tests/SandCoreTests/CLICommandRouterTests.swift)",
+            "Developer guide boundaries (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-07",
+          "type": "practice",
+          "instruction": "Draft a red-green-refactor checklist for one hypothetical tiny change. Choose either a command-shape change or a policy-rule change. Include the desired behavior sentence, first test file, first source file, targeted test command, full verification command, and one boundary you will not cross.",
+          "copyText": "Tiny change checklist\n\nDesired behavior:\n- \n\nOwning test file:\n- \n\nFirst red test name:\n- \n\nFirst source file to inspect/change:\n- \n\nIf command shape changes, boundary/request file:\n- Sources/SandCore/CLI/SandboxApplication.swift or N/A\n\nBoundary to preserve:\n- Keep Workload Commands opaque / keep unsupported v1 shapes rejected / avoid docs until behavior is clear\n\nTargeted verification:\n- swift test --filter <TestClassOrMethod>\n\nFull verification:\n- make check\n\nEvidence to record:\n- ",
+          "signsOfSuccess": "The checklist names one behavior, one owning test file, one smallest source area, a targeted `swift test --filter ...` command, `make check`, and a concrete boundary such as Workload Command opacity or unsupported v1 rejection.",
+          "hints": [
+            "For command shapes, start with `CLICommandRouterTests.swift` and `CLICommandRouter.swift`.",
+            "For folder rules, start with `FolderPolicyTests.swift` and the folder policy module.",
+            "For data crossing from CLI to lifecycle, look for request structs in `SandboxApplication.swift`.",
+            "Do not begin by editing generated docs; lesson 09 covers documentation impact."
+          ],
+          "sources": [
+            "Command-change workflow (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-08",
+          "type": "explain",
+          "title": "Verify narrow, then wide",
+          "text": "Run the smallest useful test while iterating: `swift test --filter CLICommandRouterTests`, `swift test --filter FolderPolicyTests`, or an individual test method. When the focused behavior is green and the refactor is done, run `make check`. That full gate runs `swift test` and the documentation freshness check, catching cross-module or generated-doc impacts before the change is called done.",
+          "sources": [
+            "Makefile gates (Makefile)",
+            "Local Definition of Done (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-09",
+          "type": "checkpoint",
+          "recap": "Small sand changes are safest when they begin with behavior and an owning test. Use `CLICommandRouterTests.swift` for command shape and boundary calls, domain tests for policy rules, request structs for data crossing into the application layer, and targeted tests before `make check`.",
+          "readyPrompt": "Ready to decide when a behavior change also needs documentation refresh?",
+          "sources": [
+            "Developer guide (docs/developer-guide.md)"
+          ]
+        }
+      ],
+      "referenceNeeds": [
+        "Add a cheat-sheet entry mapping tiny change types to first test files: command shape → CLICommandRouterTests, folder rule → FolderPolicyTests, working directory rule → WorkingDirectoryMapperTests, lifecycle orchestration → LifecycleCoordinatorTests.",
+        "Add practice-bank prompts for drafting red-green-refactor checklists with exact files and commands.",
+        "Include a reminder that Workload Commands remain opaque and unsupported v1 command surfaces should be rejected explicitly."
+      ]
+    },
+    {
+      "id": "lesson-09",
+      "title": "Know when documentation changes",
+      "objective": "Apply the Documentation Impact rule and refresh docs only when needed.",
+      "summary": "Documentation updates are a consequence of public-facing change, not a reflex after every code edit. This lesson teaches the Documentation Impact rule, the generated/managed documentation boundaries, the freshness manifests, and the local Definition of Done for finishing a change honestly.",
+      "sources": [
+        {
+          "label": "Developer guide",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "Onboarding guide",
+          "path": "docs/onboarding.md"
+        },
+        {
+          "label": "Documentation input manifest",
+          "path": "docs/docs-input-manifest.txt"
+        },
+        {
+          "label": "Generated docs manifest",
+          "path": "docs/generated-docs-manifest.txt"
+        },
+        {
+          "label": "Docs refresh workflow",
+          "path": "docs/prompts/refresh-docs.md"
+        },
+        {
+          "label": "Docs freshness scripts",
+          "path": "scripts/docs-check.sh"
+        },
+        {
+          "label": "CLI reference generator",
+          "path": "scripts/generate-cli-reference.sh"
+        },
+        {
+          "label": "Makefile gates",
+          "path": "Makefile"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat-01",
+          "type": "explain",
+          "title": "Docs are a consequence, not the starting point",
+          "text": "After lesson 08, the normal path is still behavior first: name the behavior, update tests, change code, run targeted checks. Documentation enters only when the change has Documentation Impact. That means the public contract changed: what users can do, what help says, what examples teach, what domain language means, or how contributors should work. Most implementation-only refactors should leave generated docs untouched.",
+          "sources": [
+            "Developer guide: Documentation as a guardrail (docs/developer-guide.md)",
+            "Onboarding guide: When documentation needs updating (docs/onboarding.md)"
+          ]
+        },
+        {
+          "id": "beat-02",
+          "type": "multi-choice",
+          "prompt": "Which changes have Documentation Impact in this repo?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Changing `sand --help` output for an existing command.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Renaming a private helper inside `FolderPolicy.swift` without behavior changes.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "Changing README quickstart commands or examples.",
+              "correct": true
+            },
+            {
+              "id": "d",
+              "text": "Changing Sandbox VM domain language used in user-facing text.",
+              "correct": true
+            },
+            {
+              "id": "e",
+              "text": "Changing `scripts/docs-check.sh` or the docs manifests.",
+              "correct": true
+            },
+            {
+              "id": "f",
+              "text": "Moving tests around while preserving the same public behavior and help.",
+              "correct": false
+            }
+          ],
+          "feedback": "Docs-impacting changes affect public behavior, help, examples, domain language, onboarding/developer workflow, or the documentation freshness system itself.",
+          "sources": [
+            "Developer guide: Documentation Impact list (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-03",
+          "type": "explain",
+          "title": "Generated docs and managed sections",
+          "text": "Some docs are fully generated or managed. `docs/cli-reference.md` is generated from real `sand` help/version output by `scripts/generate-cli-reference.sh`. `README.md` is section-managed: human prose remains outside markers, while sections between `<!-- docs:managed:start ... -->` and `<!-- docs:managed:end -->` are refreshed by the docs workflow. Preserve those boundaries. Do not hand-edit generated bodies to make a gate pass.",
+          "sources": [
+            "README managed-section metadata (README.md)",
+            "CLI reference generator (scripts/generate-cli-reference.sh)",
+            "Docs refresh workflow: Managed Section conventions (docs/prompts/refresh-docs.md)"
+          ]
+        },
+        {
+          "id": "beat-04",
+          "type": "explain",
+          "title": "The two manifests",
+          "text": "`docs/docs-input-manifest.txt` lists the inputs whose content can make generated/managed docs stale: source files, tests, README managed content, scripts, and domain docs. `docs/generated-docs-manifest.txt` lists the registered generated/managed Markdown documents that must carry the current docs input hash. Together they define what the Documentation Freshness Gate checks.",
+          "sources": [
+            "Documentation input manifest (docs/docs-input-manifest.txt)",
+            "Generated docs manifest (docs/generated-docs-manifest.txt)"
+          ]
+        },
+        {
+          "id": "beat-05",
+          "type": "explain",
+          "title": "Hashing is evidence, not decoration",
+          "text": "`scripts/docs-input-hash.sh docs/docs-input-manifest.txt` computes one deterministic hash from the manifest and listed inputs. `make docs-check` runs `scripts/docs-check.sh`, recomputes that hash, and checks each registered doc for matching `docs-input-hash` metadata. If it fails, the fix is to refresh the affected docs against current inputs, not to paste a new hash into stale content.",
+          "sources": [
+            "docs-input-hash script (scripts/docs-input-hash.sh)",
+            "docs-check script (scripts/docs-check.sh)",
+            "Makefile docs-check target (Makefile)"
+          ]
+        },
+        {
+          "id": "beat-06",
+          "type": "single-choice",
+          "prompt": "You changed help text in `CLICommandRouter.swift`. Which verification path fits best?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Run targeted CLI tests, regenerate CLI reference with `scripts/generate-cli-reference.sh`, then run `make docs-check` and `make check`.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Only run `swift test`; help text is not behavior.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "Edit `docs/cli-reference.md` by hand until the text looks right.",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "Paste the latest docs input hash into every generated doc without changing content.",
+              "correct": false
+            }
+          ],
+          "feedback": "Help output is public command-surface behavior. Regenerate the CLI reference from actual help output and verify through the freshness gate.",
+          "sources": [
+            "Developer guide: Adding or changing a command (docs/developer-guide.md)",
+            "generate-cli-reference script (scripts/generate-cli-reference.sh)"
+          ]
+        },
+        {
+          "id": "beat-07",
+          "type": "prediction",
+          "prompt": "A change extracts duplicate code from `LifecycleCoordinator.swift` into a private helper. Tests pass. No command behavior, help text, examples, domain language, onboarding workflow, docs scripts, or manifests changed. Should you refresh generated docs?",
+          "answer": "No. Run the relevant tests and the normal completion gate, but do not refresh generated/managed docs for an implementation-only refactor.",
+          "explanation": "The Documentation Impact rule prevents docs churn. `make check` still includes `make docs-check`; if the manifest-listed inputs changed, the gate may require a refresh, but the decision should be based on actual Documentation Impact, not on a desire to silence the gate with fake hash edits.",
+          "sources": [
+            "Developer guide: Do not refresh docs for implementation-only refactors (docs/developer-guide.md)"
+          ]
+        },
+        {
+          "id": "beat-08",
+          "type": "practice",
+          "instruction": "Classify each scenario as `docs-impacting` or `not docs-impacting`, then choose the next verification path.",
+          "copyText": "1. Add a new supported flag to `sand create` and update help output.\n2. Fix an overlap-detection bug in `FolderPolicy.swift`; user-visible rejection behavior changes.\n3. Rename a test helper with no behavior change.\n4. Update `docs/docs-input-manifest.txt` to include a new public behavior source.\n5. Change the README quickstart command sequence.\n6. Refactor `BackendErrorTranslation.swift` internals while preserving identical user-facing messages.",
+          "signsOfSuccess": "Your answers separate public-contract changes from internal-only changes, name `scripts/generate-cli-reference.sh` for help-output changes, include `make docs-check`/`make check` when docs are refreshed, and never solve staleness by editing only hash metadata.",
+          "hints": [
+            "Ask: would a user, contributor, or generated reference need different information after this change?",
+            "CLI help changes need the CLI reference generator.",
+            "README managed sections must be refreshed through the docs workflow, not rewritten wholesale.",
+            "The final local gate is `make check`, which runs tests and the docs freshness gate."
+          ],
+          "sources": [
+            "Developer guide: Local Definition of Done (docs/developer-guide.md)",
+            "Onboarding guide: Local verification flow (docs/onboarding.md)"
+          ]
+        },
+        {
+          "id": "beat-09",
+          "type": "checkpoint",
+          "recap": "Documentation Impact means the public contract, examples, language, contributor workflow, or docs tooling changed. Use generated/managed boundaries: regenerate CLI reference from help output, preserve README managed sections, let manifests and `make docs-check` prove freshness, and never fake a hash update. A local change is done when tests pass, `make check` passes, docs impact is handled, product language follows `issues/sand/CONTEXT.md`, and evidence is recorded.",
+          "readyPrompt": "Ready for the capstone lesson: handling one realistic maintainer scenario from symptom to verified final note?",
+          "sources": [
+            "Developer guide: Local Definition of Done (docs/developer-guide.md)"
+          ]
+        }
+      ],
+      "referenceNeeds": [
+        "Cheat sheet: Documentation Impact decision checklist with examples of docs-impacting vs internal-only changes.",
+        "Cheat sheet: Docs command sequence for help changes: targeted tests, `scripts/generate-cli-reference.sh`, `make docs-check`, `make check`.",
+        "Cheat sheet: Role of `docs/docs-input-manifest.txt` vs `docs/generated-docs-manifest.txt`.",
+        "Practice bank: More classification scenarios that ask for the correct docs/verification path."
+      ]
+    },
+    {
+      "id": "lesson-10",
+      "title": "Integrated maintainer scenario",
+      "objective": "Combine user model, repo map, tracing, testing, debugging, and docs decisions on one realistic issue.",
+      "summary": "This capstone walks one small issue from user symptom to verified maintainer note. You will translate the report into Sandbox VM language, simulate the behavior path, choose the owning tests and modules, describe the smallest safe change, decide Documentation Impact, and record evidence without overclaiming.",
+      "sources": [
+        {
+          "label": "Canonical domain language",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "Onboarding working loop and repo map",
+          "path": "docs/onboarding.md"
+        },
+        {
+          "label": "Developer guide testing strategy and Definition of Done",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "Generated CLI reference",
+          "path": "docs/cli-reference.md"
+        },
+        {
+          "label": "Working directory mapper source",
+          "path": "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+        },
+        {
+          "label": "Working directory mapper tests",
+          "path": "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+        },
+        {
+          "label": "Lifecycle coordinator run and shell flow",
+          "path": "Sources/SandCore/Lifecycle/LifecycleCoordinator.swift"
+        },
+        {
+          "label": "Lifecycle coordinator tests",
+          "path": "Tests/SandCoreTests/LifecycleCoordinatorTests.swift"
+        },
+        {
+          "label": "Local verification gates",
+          "path": "Makefile"
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat-01",
+          "type": "explain",
+          "title": "The maintainer loop",
+          "text": "A small sand issue should move through one loop: read the symptom in product language, reproduce or simulate the path, choose the owning tests and modules, make or describe the smallest behavior change, run targeted checks, run the full gate, decide Documentation Impact, then write a final note with evidence and limits. The loop keeps you from guessing and keeps user-facing language aligned with the Sandbox VM model.",
+          "sources": [
+            "docs/onboarding.md",
+            "docs/developer-guide.md",
+            "issues/sand/CONTEXT.md"
+          ]
+        },
+        {
+          "id": "beat-02",
+          "type": "single-choice",
+          "prompt": "A user says: \"I added my project to demo, then ran pwd from a subfolder, but sand dropped me in /workspace and warned that my current directory is not allowed.\" Which product-language reading is best?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "The Working Directory Mapping did not map a Host Mac current directory inside an Allowed Folder to the matching Guest Path.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "The backend container ignored a bind mount and needs a backend-specific workaround in CLI help.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "Pi needs a special command path because this only affects Pi workloads.",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "The user should manually cd after every Sandbox Session because automatic mapping is unsupported.",
+              "correct": false
+            }
+          ],
+          "feedback": "The report is about Allowed Folders, Guest Paths, and Working Directory Mapping. Keep backend details and Pi-specific explanations out until evidence points there.",
+          "sources": [
+            "issues/sand/CONTEXT.md",
+            "docs/developer-guide.md"
+          ]
+        },
+        {
+          "id": "beat-03",
+          "type": "explain",
+          "title": "Scenario card",
+          "text": "Use this simulated capstone issue: after `sand folders add demo ~/Projects/sand rw --as /workspace/sand`, the user runs `sand demo run pwd` from `~/Projects/sand/Sources`. They expected the Workload Command to start in `/workspace/sand/Sources`, but it starts in `/workspace` with the fallback warning. Treat it as a small behavior bug unless reproduction shows the report is stale or incomplete.",
+          "sources": [
+            "README.md",
+            "docs/cli-reference.md",
+            "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+          ]
+        },
+        {
+          "id": "beat-04",
+          "type": "prediction",
+          "prompt": "Before opening source, predict the correct behavior for Host Mac cwd `/Users/onur/Projects/sand/Sources` when the Sandbox Spec has an Allowed Folder with resolved host path `/Users/onur/Projects/sand` and Guest Path `/workspace/sand`.",
+          "answer": "The mapped Guest Path should be `/workspace/sand/Sources`, with no warning.",
+          "explanation": "The current directory is nested inside the Allowed Folder. Working Directory Mapping should preserve the suffix after the allowed host path and append it to the folder's Guest Path. The fallback `/workspace` warning is only correct when the Host Mac current directory is outside all Allowed Folders.",
+          "sources": [
+            "issues/sand/CONTEXT.md",
+            "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+          ]
+        },
+        {
+          "id": "beat-05",
+          "type": "multi-choice",
+          "prompt": "Which files are the best first inspection set for this issue?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "`Tests/SandCoreTests/WorkingDirectoryMapperTests.swift`",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "`Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift`",
+              "correct": true
+            },
+            {
+              "id": "c",
+              "text": "`Tests/SandCoreTests/LifecycleCoordinatorTests.swift` for run/shell wiring evidence",
+              "correct": true
+            },
+            {
+              "id": "d",
+              "text": "`Sources/SandCore/Lifecycle/LifecycleCoordinator.swift` if mapping is correct but not used",
+              "correct": true
+            },
+            {
+              "id": "e",
+              "text": "`Sources/SandCore/Backend/AppleContainerCLIBackend.swift` first, because all path bugs must be backend bugs",
+              "correct": false
+            },
+            {
+              "id": "f",
+              "text": "`docs/cli-reference.md` first, then rewrite the generated reference by hand",
+              "correct": false
+            }
+          ],
+          "feedback": "Start with the owning behavior tests and narrow source module. Pull in lifecycle tests/source to verify run and shell pass the mapped path to the backend. Avoid backend and generated docs until the evidence requires them.",
+          "sources": [
+            "docs/developer-guide.md",
+            "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift",
+            "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift",
+            "Tests/SandCoreTests/LifecycleCoordinatorTests.swift",
+            "Sources/SandCore/Lifecycle/LifecycleCoordinator.swift"
+          ]
+        },
+        {
+          "id": "beat-06",
+          "type": "explain",
+          "title": "Smallest safe change",
+          "text": "For this scenario, the smallest safe change is in the mapping behavior or its lifecycle wiring. A good plan adds or adjusts a focused test that fails for the reported path, then changes only the mapper or the code that supplies current directory and spec data. Do not inspect Workload Command arguments, add Pi-specific handling, or weaken fallback tests. The Workload Command stays opaque.",
+          "sources": [
+            "docs/developer-guide.md",
+            "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift",
+            "Sources/SandCore/Lifecycle/LifecycleCoordinator.swift"
+          ]
+        },
+        {
+          "id": "beat-07",
+          "type": "practice",
+          "instruction": "Complete this capstone triage card for the scenario. Keep each field short and evidence-based. If a command has not been run, write `not run` rather than implying success.",
+          "copyText": "Capstone triage card\n\nUser symptom:\nExpected Sandbox VM behavior:\nObserved or simulated behavior path:\nFirst reproduction command or test:\nOwning tests:\nOwning source modules:\nMinimal behavior change to make or describe:\nTargeted verification:\nFull verification:\nDocumentation Impact decision:\nFinal maintainer note:\nLimitations / not verified:",
+          "signsOfSuccess": "The card names Allowed Folder, Guest Path, Working Directory Mapping, Workload Command, and Sandbox VM correctly; chooses WorkingDirectoryMapper and lifecycle wiring before backend code; includes targeted and full verification commands; and separates evidence from assumptions.",
+          "hints": [
+            "A good targeted command is `swift test --filter WorkingDirectoryMapperTests`.",
+            "Use `swift test --filter LifecycleCoordinatorTests` if the mapper passes but run/shell wiring is suspect.",
+            "The full local gate is `make check`.",
+            "No Documentation Impact if the fix only restores documented behavior and does not change public CLI help, examples, domain language, or docs tooling."
+          ],
+          "sources": [
+            "docs/developer-guide.md",
+            "docs/onboarding.md",
+            "Makefile"
+          ]
+        },
+        {
+          "id": "beat-08",
+          "type": "single-choice",
+          "prompt": "Suppose the fix only changes `WorkingDirectoryMapper.swift` so existing documented behavior works as promised. No CLI help, examples, domain language, or docs tooling changed. What is the Documentation Impact decision?",
+          "choices": [
+            {
+              "id": "a",
+              "text": "No Documentation Impact; run the normal verification gate and do not refresh generated docs.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Always regenerate every doc after any implementation change.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "Hand-edit `docs/cli-reference.md` to mention the bug fix.",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "Update docs hashes manually so `make docs-check` passes faster.",
+              "correct": false
+            }
+          ],
+          "feedback": "Implementation-only fixes usually do not need docs refresh. Documentation Impact appears when public behavior, help, examples, domain language, onboarding/developer workflow, or docs tooling changes.",
+          "sources": [
+            "docs/developer-guide.md",
+            "docs/onboarding.md"
+          ]
+        },
+        {
+          "id": "beat-09",
+          "type": "practice",
+          "instruction": "Write the final maintainer note for the triage card. It should be concise, source-backed, and honest about evidence. Do not mention revision history, lesson instructions, or internal process chatter.",
+          "copyText": "Maintainer note template\n\nFixed/assessed: <one sentence in Sandbox VM language>.\nChanged or proposed change: <smallest source/test change>.\nEvidence:\n- <targeted command>: <passed/failed/not run>\n- make check: <passed/failed/not run>\nDocumentation Impact: <none / yes, with refresh path>.\nLimitations: <anything not verified, such as live backend smoke path>.",
+          "signsOfSuccess": "The note states what changed or what was found, lists real commands and outcomes, includes the Documentation Impact decision, and avoids claims like `fully fixed` unless the evidence supports them.",
+          "hints": [
+            "Use `assessed` instead of `fixed` if you only wrote a plan and did not edit code.",
+            "If live `sand demo run pwd` was not executed, say so under limitations.",
+            "Keep product terms: Sandbox VM, Host Mac current directory, Allowed Folder, Guest Path, Workload Command."
+          ],
+          "sources": [
+            "docs/developer-guide.md",
+            "issues/sand/CONTEXT.md"
+          ]
+        },
+        {
+          "id": "beat-10",
+          "type": "checkpoint",
+          "recap": "You can now handle a small sand issue end-to-end: translate the symptom into product language, simulate the behavior path, choose tests and source modules, keep the change minimal, verify with targeted and full gates, classify Documentation Impact, and write a final maintainer note with evidence and limitations.",
+          "readyPrompt": "Open the practice bank and complete one more capstone triage card without looking at the answer first.",
+          "sources": [
+            "docs/onboarding.md",
+            "docs/developer-guide.md",
+            "Makefile"
+          ]
+        }
+      ],
+      "referenceNeeds": [
+        "Add the capstone triage card template to the practice bank.",
+        "Add a cheat-sheet row for symptom → tests → source → verification → docs impact.",
+        "Include Working Directory Mapping, Allowed Folder, Guest Path, Workload Command, and Documentation Impact in the glossary.",
+        "List local verification commands in resources: `swift test --filter <TestName>`, `swift test`, `make docs-check`, and `make check`."
+      ]
+    }
+  ]
+}

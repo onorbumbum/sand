@@ -1,0 +1,219 @@
+{
+  "id": "lesson-08",
+  "title": "Make a small change test-first",
+  "objective": "Practice a safe code change workflow using a tiny command-surface or policy example.",
+  "summary": "This lesson turns the debugging map from lesson 07 into a small-change workflow. You will start with the desired behavior, choose the owning test file, make the smallest code change, and verify with targeted tests before the full gate.",
+  "sources": [
+    {
+      "label": "Developer guide: testing strategy and command-change workflow",
+      "path": "docs/developer-guide.md"
+    },
+    {
+      "label": "CLI command router",
+      "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+    },
+    {
+      "label": "Application boundary and request structs",
+      "path": "Sources/SandCore/CLI/SandboxApplication.swift"
+    },
+    {
+      "label": "CLI command router tests",
+      "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+    },
+    {
+      "label": "Folder policy tests",
+      "path": "Tests/SandCoreTests/FolderPolicyTests.swift"
+    },
+    {
+      "label": "Working directory mapper tests",
+      "path": "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+    }
+  ],
+  "beats": [
+    {
+      "id": "beat-01",
+      "type": "explain",
+      "title": "Start with the behavior, not the edit",
+      "text": "A safe change starts as a sentence: what should a user see, what should be accepted, or what should be rejected? Then pick the owning test file. Command shapes belong in `CLICommandRouterTests.swift`. Folder and working-directory rules belong in their domain tests. Lifecycle orchestration belongs in `LifecycleCoordinatorTests.swift`. Only after the red test describes the desired behavior do you open source files.",
+      "sources": [
+        {
+          "label": "Testing strategy",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-02",
+      "type": "single-choice",
+      "prompt": "A tiny change says: adding an Allowed Folder with a new access-mode alias should normalize to the existing canonical mode. Which test file should own the first red test?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "`Tests/SandCoreTests/CLICommandRouterTests.swift`, because all command arguments pass through the router.",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "`Tests/SandCoreTests/FolderPolicyTests.swift`, because access-mode normalization is a folder policy rule.",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "`docs/cli-reference.md`, because users will eventually see the accepted mode there.",
+          "correct": false
+        }
+      ],
+      "feedback": "Start where the behavior lives. Docs may need refresh later, but the rule should be specified first in the policy test.",
+      "sources": [
+        {
+          "label": "Folder policy tests",
+          "path": "Tests/SandCoreTests/FolderPolicyTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-03",
+      "type": "explain",
+      "title": "Use router tests for command shapes",
+      "text": "`CLICommandRouterTests.swift` checks the public command surface: help, version, every v1 command shape, unsupported commands, and calls made across the application boundary. The `RecordingSandboxApplication` helper records requests without running lifecycle code. If a shape is outside v1, write a rejection test that proves the router fails before reading files or calling the application.",
+      "sources": [
+        {
+          "label": "CLI command router tests",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        },
+        {
+          "label": "CLI command router",
+          "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-04",
+      "type": "prediction",
+      "prompt": "A new supported CLI option needs to reach lifecycle code. Predict the boundary files you would expect to touch before the coordinator can use that new value.",
+      "answer": "Add or update a router test in `CLICommandRouterTests.swift`, parse the option in `CLICommandRouter.swift`, carry it through a request struct or method in `Sources/SandCore/CLI/SandboxApplication.swift`, update the test helper's recorded `AppCall`, then use the request in the smallest matching application or lifecycle code.",
+      "explanation": "Command parsing should not leak directly into domain code. The request struct is the typed application boundary between raw CLI arguments and orchestration.",
+      "sources": [
+        {
+          "label": "Application boundary",
+          "path": "Sources/SandCore/CLI/SandboxApplication.swift"
+        },
+        {
+          "label": "Command-change workflow",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-05",
+      "type": "explain",
+      "title": "Use domain tests for behavior rules",
+      "text": "Not every change is a router change. `FolderPolicyTests.swift` owns Access Mode aliases, Guest Path defaults, duplicate Guest Path rejection, and overlapping Host Mac folder rejection. `WorkingDirectoryMapperTests.swift` owns Host Mac current-directory mapping and fallback warnings. These tests let you change rules without pretending a whole CLI command ran.",
+      "sources": [
+        {
+          "label": "Folder policy tests",
+          "path": "Tests/SandCoreTests/FolderPolicyTests.swift"
+        },
+        {
+          "label": "Working directory mapper tests",
+          "path": "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-06",
+      "type": "multi-choice",
+      "prompt": "Which expectations protect Workload Command opacity and v1 boundaries?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "`sand mybox run pi --model gpt-5 -- literal` reaches the application as the same workload argument array.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "The router validates that `pi --model gpt-5` is a known safe Pi command before dispatching.",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "An ephemeral workload override after `--` preserves workload flags such as `--from` instead of treating them as sand options.",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "Shortcut shapes like `sand mybox pi` should become special cases because Pi is common.",
+          "correct": false
+        },
+        {
+          "id": "e",
+          "text": "Unsupported v1 surfaces such as omitted ephemeral options should fail before application/backend work starts.",
+          "correct": true
+        }
+      ],
+      "feedback": "Opacity means sand routes workload arguments; it does not understand Pi, pytest, shell flags, or any other workload-specific syntax.",
+      "sources": [
+        {
+          "label": "CLI command router tests",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        },
+        {
+          "label": "Developer guide boundaries",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-07",
+      "type": "practice",
+      "instruction": "Draft a red-green-refactor checklist for one hypothetical tiny change. Choose either a command-shape change or a policy-rule change. Include the desired behavior sentence, first test file, first source file, targeted test command, full verification command, and one boundary you will not cross.",
+      "copyText": "Tiny change checklist\n\nDesired behavior:\n- \n\nOwning test file:\n- \n\nFirst red test name:\n- \n\nFirst source file to inspect/change:\n- \n\nIf command shape changes, boundary/request file:\n- Sources/SandCore/CLI/SandboxApplication.swift or N/A\n\nBoundary to preserve:\n- Keep Workload Commands opaque / keep unsupported v1 shapes rejected / avoid docs until behavior is clear\n\nTargeted verification:\n- swift test --filter <TestClassOrMethod>\n\nFull verification:\n- make check\n\nEvidence to record:\n- ",
+      "signsOfSuccess": "The checklist names one behavior, one owning test file, one smallest source area, a targeted `swift test --filter ...` command, `make check`, and a concrete boundary such as Workload Command opacity or unsupported v1 rejection.",
+      "hints": [
+        "For command shapes, start with `CLICommandRouterTests.swift` and `CLICommandRouter.swift`.",
+        "For folder rules, start with `FolderPolicyTests.swift` and the folder policy module.",
+        "For data crossing from CLI to lifecycle, look for request structs in `SandboxApplication.swift`.",
+        "Do not begin by editing generated docs; lesson 09 covers documentation impact."
+      ],
+      "sources": [
+        {
+          "label": "Command-change workflow",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-08",
+      "type": "explain",
+      "title": "Verify narrow, then wide",
+      "text": "Run the smallest useful test while iterating: `swift test --filter CLICommandRouterTests`, `swift test --filter FolderPolicyTests`, or an individual test method. When the focused behavior is green and the refactor is done, run `make check`. That full gate runs `swift test` and the documentation freshness check, catching cross-module or generated-doc impacts before the change is called done.",
+      "sources": [
+        {
+          "label": "Makefile gates",
+          "path": "Makefile"
+        },
+        {
+          "label": "Local Definition of Done",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-09",
+      "type": "checkpoint",
+      "recap": "Small sand changes are safest when they begin with behavior and an owning test. Use `CLICommandRouterTests.swift` for command shape and boundary calls, domain tests for policy rules, request structs for data crossing into the application layer, and targeted tests before `make check`.",
+      "readyPrompt": "Ready to decide when a behavior change also needs documentation refresh?",
+      "sources": [
+        {
+          "label": "Developer guide",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    }
+  ],
+  "referenceNeeds": [
+    "Add a cheat-sheet entry mapping tiny change types to first test files: command shape → CLICommandRouterTests, folder rule → FolderPolicyTests, working directory rule → WorkingDirectoryMapperTests, lifecycle orchestration → LifecycleCoordinatorTests.",
+    "Add practice-bank prompts for drafting red-green-refactor checklists with exact files and commands.",
+    "Include a reminder that Workload Commands remain opaque and unsupported v1 command surfaces should be rejected explicitly."
+  ]
+}

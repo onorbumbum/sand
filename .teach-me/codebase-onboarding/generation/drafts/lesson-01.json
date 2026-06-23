@@ -1,0 +1,185 @@
+{
+  "id": "lesson-01",
+  "title": "Run the app like a user",
+  "objective": "Use the main sand command loop from doctor through delete without touching internals.",
+  "summary": "This lesson walks the normal user path for sand: verify the host, create a Sandbox VM, attach only the folders it should see, run commands, inspect state, and clean up. You will treat Pi like any other workload and build a dry-run checklist that makes safe use repeatable.",
+  "sources": [
+    {
+      "label": "README quickstart and prerequisites",
+      "path": "README.md"
+    },
+    {
+      "label": "Generated CLI reference",
+      "path": "docs/cli-reference.md"
+    },
+    {
+      "label": "Canonical product language",
+      "path": "issues/sand/CONTEXT.md"
+    }
+  ],
+  "beats": [
+    {
+      "id": "beat-01",
+      "type": "explain",
+      "title": "What sand is",
+      "text": "sand is a Swift CLI that creates named Sandbox VMs on an Apple silicon Host Mac. Each Sandbox VM is an isolated Linux environment with its own Guest State, shell, tools, and login state. It can only see Host Mac folders that you explicitly add as Allowed Folders. That lets powerful developer tools run in a dedicated place instead of directly beside your home directory, credentials, dotfiles, and everyday shell state.",
+      "sources": [
+        "README.md",
+        "issues/sand/CONTEXT.md"
+      ]
+    },
+    {
+      "id": "beat-02",
+      "type": "explain",
+      "title": "Before running commands",
+      "text": "The README expects a prepared Host Mac: Apple silicon, a compatible Swift toolchain, the Apple container CLI on PATH, the container backend service running or startable, and the developer-ready image available locally. The app-level check is `sand doctor`. Run it before creating a Sandbox VM; success means the host, backend readiness, default image, and `~/.sand` writability checks are passing.",
+      "sources": [
+        "README.md",
+        "docs/cli-reference.md"
+      ]
+    },
+    {
+      "id": "beat-03",
+      "type": "single-choice",
+      "prompt": "What should you do first on a fresh machine before creating `demo`?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Run `sand doctor` and fix reported prerequisite failures first.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Run `sand demo shell` so sand can create the VM automatically.",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Mount your whole home directory read-write to avoid later folder work.",
+          "correct": false
+        }
+      ],
+      "feedback": "Doctor comes first because it verifies host support, backend readiness, default image availability, and metadata writability before the user workflow depends on them.",
+      "sources": [
+        "README.md",
+        "docs/cli-reference.md"
+      ]
+    },
+    {
+      "id": "beat-04",
+      "type": "explain",
+      "title": "The durable Sandbox VM loop",
+      "text": "The main loop is: `sand doctor`; `sand create demo`; inspect with `sand list`, `sand demo status`, and `sand demo spec`; add Allowed Folders; run commands with `sand demo run ...`; open `sand demo shell`; stop and start; read logs; delete. Commands name the Sandbox VM explicitly, so you always know which environment you are operating.",
+      "sources": [
+        "README.md",
+        "docs/cli-reference.md"
+      ]
+    },
+    {
+      "id": "beat-05",
+      "type": "explain",
+      "title": "Allowed Folders: write only where needed",
+      "text": "Use read-write for project folders the workload may edit: `sand folders add demo \"$HOME/Projects/my-project\" rw --as /workspace`. Use read-only for references it should inspect but not change: `sand folders add demo \"$HOME/Reference\" ro --as /reference`. Then run `sand folders list demo` and confirm each Host Mac folder appears at the intended Guest Path with the intended Access Mode.",
+      "sources": [
+        "README.md",
+        "docs/cli-reference.md",
+        "issues/sand/CONTEXT.md"
+      ]
+    },
+    {
+      "id": "beat-06",
+      "type": "multi-choice",
+      "prompt": "Choose the safe Allowed Folder setup for a coding-agent session that may edit one project but should only read supporting notes.",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Project folder as `rw` at `/workspace`.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Reference notes as `ro` at `/reference`.",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Entire home directory as `rw` because it is convenient.",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "No folder list check after adding folders.",
+          "correct": false
+        }
+      ],
+      "feedback": "Give the Sandbox VM only the folders it needs. Writable project access and read-only reference access match the README examples and keep intent visible.",
+      "sources": [
+        "README.md"
+      ]
+    },
+    {
+      "id": "beat-07",
+      "type": "explain",
+      "title": "Run workloads, including Pi",
+      "text": "A Workload Command is just a command and arguments executed inside the Sandbox VM. `sand demo run pwd` should print a Guest Path such as `/workspace` when your Host Mac current directory is inside a matching Allowed Folder. `sand demo run bash -lc 'echo hello-from-sand > sand-smoke.txt && ls -la'` should create the file through the read-write folder. Pi uses the same shape: `sand demo run pi` or `sand demo run pi <args>`.",
+      "sources": [
+        "README.md",
+        "docs/cli-reference.md",
+        "issues/sand/CONTEXT.md"
+      ]
+    },
+    {
+      "id": "beat-08",
+      "type": "prediction",
+      "prompt": "You run `cd \"$HOME/Projects/my-project\"`, then `sand demo run pwd`, after adding that Host Mac folder as `rw --as /workspace`. What should success look like?",
+      "answer": "The command should run inside the Sandbox VM and print a Guest Path under `/workspace`, not the Host Mac path under `$HOME/Projects`.",
+      "explanation": "The current directory is mapped from the Host Mac folder to its Guest Path. That shows the workload started in the sandbox view of the project.",
+      "sources": [
+        "README.md",
+        "issues/sand/CONTEXT.md"
+      ]
+    },
+    {
+      "id": "beat-09",
+      "type": "explain",
+      "title": "Success signals for the full quickstart",
+      "text": "After `create`, `demo` exists. `list`, `status`, and `spec` show the VM and YAML. Folder commands show `/workspace` as read-write and `/reference` as read-only. `run` prints expected output; `shell` opens an interactive Sandbox Session. A file written to `/state/sandbox` survives `stop` then `start`. `logs` prints recent logs. `ephemeral init` writes a YAML template; `ephemeral --from` completes and prints a run record path. `delete --force` removes `demo`.",
+      "sources": [
+        "README.md",
+        "docs/cli-reference.md"
+      ]
+    },
+    {
+      "id": "beat-10",
+      "type": "practice",
+      "instruction": "Build your personal dry-run checklist for using sand safely on a project. Copy the template, replace paths with real folders, and add one expected success signal after each command before running anything destructive.",
+      "copyText": "# sand safe-use dry-run checklist\n\n- [ ] `sand doctor` → all prerequisite checks pass.\n- [ ] `sand create demo` → Sandbox VM is created.\n- [ ] `sand list` → `demo` appears.\n- [ ] `sand demo status` → status is understandable.\n- [ ] `sand demo spec` → spec uses expected image/resources and no surprise folders.\n- [ ] `sand folders add demo \"$HOME/Projects/my-project\" rw --as /workspace` → project is writable only where intended.\n- [ ] `sand folders add demo \"$HOME/Reference\" ro --as /reference` → references are read-only.\n- [ ] `sand folders list demo` → mappings and Access Modes are correct.\n- [ ] `cd \"$HOME/Projects/my-project\" && sand demo run pwd` → starts under `/workspace`.\n- [ ] `sand demo run pi` → Pi is treated as an ordinary Workload Command.\n- [ ] `sand demo shell` → opens an interactive Sandbox Session.\n- [ ] Persistence check under `/state/sandbox` survives `sand demo stop` and `sand demo start`.\n- [ ] `sand demo logs` → logs are available for inspection.\n- [ ] `sand ephemeral init ephemeral-spec.yaml` → starter spec is written only after choosing a safe directory.\n- [ ] `sand ephemeral --from ephemeral-spec.yaml` → bounded run completes and prints a run record path.\n- [ ] `sand delete demo --force` → only after confirming `demo` can be removed.",
+      "signsOfSuccess": "Your checklist has real host paths, explicit read-write/read-only intent, one expected observation for every command, and a deliberate delete confirmation step.",
+      "hints": [
+        "Use `demo` for learning; use a clearer name for real work.",
+        "Prefer the smallest read-write folder that still lets the workload do its job.",
+        "Keep read-only references separate from writable project files."
+      ],
+      "sources": [
+        "README.md",
+        "docs/cli-reference.md"
+      ]
+    },
+    {
+      "id": "beat-11",
+      "type": "checkpoint",
+      "recap": "You can now rehearse the user workflow without touching internals: doctor, create, inspect, add folders, run commands, use Pi as a normal workload, open a shell, stop/start, check logs, try an explicit ephemeral run, and delete. The key safety move is making folder access intentional before any powerful tool runs.",
+      "readyPrompt": "Ready for the next lesson when you can explain what you would mount read-write, what you would mount read-only, and what success should look like after each command.",
+      "sources": [
+        "README.md",
+        "docs/cli-reference.md",
+        "issues/sand/CONTEXT.md"
+      ]
+    }
+  ],
+  "referenceNeeds": [
+    "cheat-sheet: durable quickstart command loop with one-line success signals",
+    "cheat-sheet: Allowed Folder examples for read-write project work and read-only references",
+    "practice-bank: dry-run checklist exercise with blanks for project path, reference path, Guest Paths, and delete condition"
+  ]
+}

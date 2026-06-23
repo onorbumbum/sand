@@ -1,0 +1,263 @@
+{
+  "id": "lesson-07",
+  "title": "Debug from symptoms to tests",
+  "objective": "Use the test suite and repo map to diagnose behavior without guessing.",
+  "summary": "This lesson turns a failure report into a small diagnostic path: classify the symptom, choose the representative test, inspect the owning source area, reproduce narrowly, then record evidence. It emphasizes targeted `swift test` during diagnosis, full `make check` before completion, and tests as guardrails rather than obstacles.",
+  "sources": [
+    {
+      "label": "Developer Guide: Testing strategy and working rules",
+      "path": "docs/developer-guide.md"
+    },
+    {
+      "label": "Onboarding Guide: repo map and verification flow",
+      "path": "docs/onboarding.md"
+    },
+    {
+      "label": "Makefile: local gates",
+      "path": "Makefile"
+    },
+    {
+      "label": "CLI command routing tests",
+      "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+    },
+    {
+      "label": "Backend error translation tests",
+      "path": "Tests/SandCoreTests/BackendErrorTranslationTests.swift"
+    },
+    {
+      "label": "Architecture boundary tests",
+      "path": "Tests/SandCoreTests/ArchitectureBoundaryTests.swift"
+    }
+  ],
+  "beats": [
+    {
+      "id": "beat-01",
+      "type": "explain",
+      "title": "Debugging starts with classification",
+      "text": "A symptom is not yet a diagnosis. First name the behavior area: CLI shape, Sandbox Spec, Allowed Folder policy, Working Directory Mapping, lifecycle orchestration, Ephemeral Sandbox Run, Doctor Check, Sandbox Backend error language, or architecture boundary. Then choose the representative test before opening random files. The loop is: symptom → owning test → owning source area → narrow reproduction → evidence. This keeps debugging aligned with behavior intent instead of hunches.",
+      "sources": [
+        {
+          "label": "Onboarding Guide: working loop for agents",
+          "path": "docs/onboarding.md"
+        },
+        {
+          "label": "Developer Guide: testing strategy",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-02",
+      "type": "explain",
+      "title": "The developer guide gives the test map",
+      "text": "Use the Testing strategy table as the first routing aid. CLI symptoms start in `CLICommandRouterTests`; spec/YAML symptoms in `SandboxSpecTests`; folder symptoms in `FolderPolicyTests`; current-directory symptoms in `WorkingDirectoryMapperTests`; normal Sandbox VM operations in `LifecycleCoordinatorTests`; Ephemeral Sandbox Runs in `EphemeralRunCoordinatorTests`; doctor failures in `DoctorChecksTests` or `AppleContainerCLIBackendDoctorTests`; backend wording in `BackendErrorTranslationTests`; architecture leakage in `ArchitectureBoundaryTests`; Pi and credential boundary evidence in `PiWorkloadCredentialBoundaryValidationTests`.",
+      "sources": [
+        {
+          "label": "Developer Guide: Testing strategy table",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-03",
+      "type": "multi-choice",
+      "prompt": "A user reports: `sand mybox run pi --model gpt-5 -- literal` no longer passes all arguments through unchanged. What should you inspect first?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "`Tests/SandCoreTests/CLICommandRouterTests.swift`, especially the opaque Workload Command/Pi routing behavior.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "`Sources/SandCore/CLI/CLICommandRouter.swift`, because command shape parsing owns the argument boundary.",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "`docs/cli-reference.md`, then manually adjust the generated command reference until it matches the desired output.",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Apple container backend tests, because Pi is implemented as a backend-specific command.",
+          "correct": false
+        }
+      ],
+      "feedback": "Pi is a normal Workload Command. The first guardrail is the CLI routing test that proves workload arguments pass through opaquely and are not special-cased.",
+      "sources": [
+        {
+          "label": "CLICommandRouterTests: opaque Workload Command behavior",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        },
+        {
+          "label": "Developer Guide: Pi workload boundary",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-04",
+      "type": "explain",
+      "title": "Run narrow tests before the full gate",
+      "text": "During diagnosis, prefer the smallest command that exercises the suspected behavior, for example `swift test --filter FolderPolicyTests` or `swift test --filter BackendErrorTranslationTests`. A targeted test gives faster feedback and makes the failing contract easier to read. After the fix or diagnosis is complete, run `make check`. In this repo, `make check` runs `swift test` and then the Documentation Freshness Gate. Do not blindly run every command before forming a hypothesis.",
+      "sources": [
+        {
+          "label": "Developer Guide: targeted tests then make check",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "Makefile: check target",
+          "path": "Makefile"
+        }
+      ]
+    },
+    {
+      "id": "beat-05",
+      "type": "prediction",
+      "prompt": "A targeted test fails at an assertion named `testEphemeralInitWritesStarterSpecThatParsesAndDoesNotCallApplication`. Before reading implementation, what behavior intent does that test name already tell you?",
+      "answer": "`sand ephemeral init` should write a starter Ephemeral Spec, the spec should parse, and the command should not call the application/lifecycle/backend execution path.",
+      "explanation": "Read the test name, setup, assertions, and helper fakes as an executable behavior note. The failure line matters, but the surrounding test explains the boundary being protected.",
+      "sources": [
+        {
+          "label": "CLICommandRouterTests: ephemeral init boundary",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-06",
+      "type": "single-choice",
+      "prompt": "A run failure prints raw adapter language such as `container start mybox` instead of a Sandbox VM message. Which first test target best matches the symptom?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "`swift test --filter BackendErrorTranslationTests`",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "`swift test --filter SandboxSpecTests`",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "`swift test --filter WorkingDirectoryMapperTests`",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "`make docs-check`",
+          "correct": false
+        }
+      ],
+      "feedback": "Backend error translation tests check that raw adapter failures become actionable Sandbox VM language and do not leak implementation details.",
+      "sources": [
+        {
+          "label": "BackendErrorTranslationTests",
+          "path": "Tests/SandCoreTests/BackendErrorTranslationTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-07",
+      "type": "explain",
+      "title": "Boundary tests are guardrails",
+      "text": "Two test areas protect architecture, not just outputs. `BackendErrorTranslationTests` keeps backend failures in user-facing Sandbox VM language. `ArchitectureBoundaryTests` checks that fake backends stay out of product sources and backend-specific implementation wording stays inside the adapter. When these fail, do not patch presentation text at the edge to hide the problem. Trace where the wrong dependency or wording entered, then fix that boundary.",
+      "sources": [
+        {
+          "label": "Backend error translation tests",
+          "path": "Tests/SandCoreTests/BackendErrorTranslationTests.swift"
+        },
+        {
+          "label": "Architecture boundary tests",
+          "path": "Tests/SandCoreTests/ArchitectureBoundaryTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-08",
+      "type": "multi-choice",
+      "prompt": "Which debugging moves preserve the test suite as a source of truth?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Read the failing test as behavior intent before changing production code.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Delete an assertion if it blocks the change and the app seems to work manually.",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Change expected output only after confirming the product contract really changed.",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "Skip `make check` because one targeted test passed.",
+          "correct": false
+        },
+        {
+          "id": "e",
+          "text": "Record the exact verification commands that passed and any limits of the evidence.",
+          "correct": true
+        }
+      ],
+      "feedback": "Do not weaken tests to make changes pass. A changed test should reflect a confirmed changed contract, not a shortcut around a failure.",
+      "sources": [
+        {
+          "label": "Developer Guide: working rules and Local Definition of Done",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-09",
+      "type": "practice",
+      "instruction": "For each failure report, write the first targeted test command and the first source area to inspect. Keep it to one line per report.",
+      "copyText": "1. `sand folders add demo ~/A rw --as /workspace` accepts a second folder with the same Guest Path.\n2. Running from a nested Allowed Folder starts in `/workspace` instead of the mapped nested Guest Path.\n3. `sand ephemeral --from spec.yaml` records the wrong result when the workload fails and cleanup also fails.\n4. `sand doctor` says the default Sandbox Image is ready even when the backend fixture reports it missing.\n5. Product source now contains raw `container` wording outside `Sources/SandCore/Backend/AppleContainerCLIBackend.swift`.",
+      "signsOfSuccess": [
+        "Folder report maps to `swift test --filter FolderPolicyTests` and `Sources/SandCore/FolderPolicy/FolderPolicy.swift`.",
+        "Working-directory report maps to `swift test --filter WorkingDirectoryMapperTests` and `Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift`.",
+        "Ephemeral result report maps to `swift test --filter EphemeralRunCoordinatorTests` and `Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift`.",
+        "Doctor image report maps to `swift test --filter DoctorChecksTests` or `swift test --filter AppleContainerCLIBackendDoctorTests` and the Doctor/Backend source boundary.",
+        "Raw backend wording report maps to `swift test --filter ArchitectureBoundaryTests` and the source file that introduced the leaked term."
+      ],
+      "hints": [
+        "Use the concern names from the developer guide table.",
+        "Pick the smallest representative test first; save `make check` for the final gate.",
+        "Do not start by editing generated docs or weakening expected assertions."
+      ],
+      "sources": [
+        {
+          "label": "Developer Guide: Testing strategy table",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "Onboarding Guide: repo map",
+          "path": "docs/onboarding.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-10",
+      "type": "checkpoint",
+      "recap": "A good sand debugging path is narrow first, complete last: classify the symptom, use the developer guide test map, run a targeted `swift test --filter ...`, inspect the matching source area, read failures as behavior intent, respect backend and architecture boundary tests, then finish with `make check` and honest evidence.",
+      "readyPrompt": "Ready to use this diagnostic map before making a small test-first change?",
+      "sources": [
+        {
+          "label": "Developer Guide: Local Definition of Done",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    }
+  ],
+  "referenceNeeds": [
+    "Add a cheat-sheet section mapping symptoms to first test files, source areas, and targeted `swift test --filter ...` commands.",
+    "Add practice-bank items that present failure reports and ask for first test command, first source area, and final verification evidence.",
+    "Include a reminder that `make check` is the final local gate and that tests should not be weakened to force a pass."
+  ]
+}

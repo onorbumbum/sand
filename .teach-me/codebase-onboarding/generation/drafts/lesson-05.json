@@ -1,0 +1,214 @@
+{
+  "id": "lesson-05",
+  "title": "Understand specs, folders, and working directories",
+  "objective": "Explain how sand decides what a Sandbox VM can see and where commands start.",
+  "summary": "A Sandbox Spec is the durable YAML contract for a reusable Sandbox VM. FolderPolicy controls which Host Mac folders become Allowed Folders, how Access Modes are normalized, and which conflicting mappings are rejected. WorkingDirectoryMapper then uses those accepted mappings to decide where shell and run commands start inside the Sandbox Guest.",
+  "sources": [
+    {
+      "label": "Domain language and relationships",
+      "path": "issues/sand/CONTEXT.md"
+    },
+    {
+      "label": "SandboxSpec model and YAML rendering/parsing",
+      "path": "Sources/SandCore/Spec/SandboxSpec.swift"
+    },
+    {
+      "label": "FolderPolicy rules",
+      "path": "Sources/SandCore/FolderPolicy/FolderPolicy.swift"
+    },
+    {
+      "label": "WorkingDirectoryMapper behavior",
+      "path": "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+    },
+    {
+      "label": "SandboxSpec behavior tests",
+      "path": "Tests/SandCoreTests/SandboxSpecTests.swift"
+    },
+    {
+      "label": "FolderPolicy behavior tests",
+      "path": "Tests/SandCoreTests/FolderPolicyTests.swift"
+    },
+    {
+      "label": "WorkingDirectoryMapper behavior tests",
+      "path": "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+    },
+    {
+      "label": "Folders command surface",
+      "path": "docs/cli-reference.md"
+    }
+  ],
+  "beats": [
+    {
+      "id": "beat-01",
+      "type": "explain",
+      "title": "The spec is the durable contract",
+      "text": "A Sandbox Spec is the source of truth for a reusable Sandbox VM. In v1, its YAML surface includes `schemaVersion`, `name`, `image`, `resources` with `cpus` and `memory`, and `allowedFolders`. Each Allowed Folder records the user-facing `hostPath`, resolved real host path, `guestPath`, and canonical `accessMode`. The spec deliberately excludes future or ephemeral concerns such as inbound networking, lifecycle hooks, workload fields, and run records.",
+      "sources": [
+        "Sources/SandCore/Spec/SandboxSpec.swift",
+        "Tests/SandCoreTests/SandboxSpecTests.swift",
+        "issues/sand/CONTEXT.md"
+      ]
+    },
+    {
+      "id": "beat-02",
+      "type": "explain",
+      "title": "FolderPolicy turns folder commands into spec changes",
+      "text": "`sand folders add <name> <host-path> <rw|ro> [--as <guest-path>]` is a spec mutation. FolderPolicy resolves the host path for comparisons, preserves the display path for humans, parses the Access Mode, chooses a Guest Path, and returns an updated SandboxSpec. Adding the same resolved host folder updates the existing entry instead of appending a duplicate. Removing a folder resolves the supplied host path and deletes any matching mapping.",
+      "sources": [
+        "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+        "docs/cli-reference.md",
+        "Tests/SandCoreTests/FolderPolicyTests.swift"
+      ]
+    },
+    {
+      "id": "beat-03",
+      "type": "single-choice",
+      "prompt": "A user runs `sand folders add demo ~/Projects/sand rw` without `--as`. The display host path is `~/Projects/sand`. What Guest Path does FolderPolicy derive by default?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "`/workspace`",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "`/workspace/sand`",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "`~/Projects/sand`",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "`/Users/onur/Projects/sand`",
+          "correct": false
+        }
+      ],
+      "feedback": "Default Guest Paths are `/workspace/` plus the last path component of the display host path. Here the folder name is `sand`.",
+      "sources": [
+        "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+        "Tests/SandCoreTests/FolderPolicyTests.swift"
+      ]
+    },
+    {
+      "id": "beat-04",
+      "type": "explain",
+      "title": "Aliases at the command edge, canonical terms in the spec",
+      "text": "Folder commands accept short aliases and full terms: `rw` and `read-write` both mean read-write; `ro` and `read-only` both mean read-only. The stored Sandbox Spec uses the canonical raw values `read-write` and `read-only`. That keeps the command line convenient while keeping saved specs stable and domain-language-friendly.",
+      "sources": [
+        "Sources/SandCore/Spec/SandboxSpec.swift",
+        "Tests/SandCoreTests/FolderPolicyTests.swift",
+        "issues/sand/CONTEXT.md"
+      ]
+    },
+    {
+      "id": "beat-05",
+      "type": "multi-choice",
+      "prompt": "Start with one Allowed Folder: resolved host path `/Users/onur/Projects`, Guest Path `/workspace/Projects`, Access Mode `read-write`. Which later adds are rejected?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Add `/Users/onur/Projects/sand` as `/workspace/sand`.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Add `/Users/onur/Downloads` as `/workspace/Projects`.",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Add `/Users/onur/Downloads` as `/workspace/downloads`.",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Add `/Users/onur/Projects` again with Access Mode `read-only`.",
+          "correct": false
+        }
+      ],
+      "feedback": "Overlapping host folders are rejected, so a nested Projects path is not allowed. A different host folder cannot reuse an existing Guest Path. A non-overlapping host folder with a unique Guest Path is accepted. Re-adding the same resolved host folder updates the existing mapping.",
+      "sources": [
+        "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+        "Tests/SandCoreTests/FolderPolicyTests.swift",
+        "issues/sand/CONTEXT.md"
+      ]
+    },
+    {
+      "id": "beat-06",
+      "type": "explain",
+      "title": "Why duplicate and overlap rules exist",
+      "text": "FolderPolicy rejects two different host folders with the same Guest Path and rejects overlapping host folders such as `/Users/onur/Projects` plus `/Users/onur/Projects/sand`. Both checks use resolved real paths, so symlinks do not bypass the rule. These rejections keep access rules and Working Directory Mapping unambiguous: one guest location should not secretly mean two host folders, and one host directory tree should not have competing access modes.",
+      "sources": [
+        "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+        "Tests/SandCoreTests/FolderPolicyTests.swift",
+        "issues/sand/CONTEXT.md"
+      ]
+    },
+    {
+      "id": "beat-07",
+      "type": "prediction",
+      "prompt": "A spec has one Allowed Folder: resolved host path `/Users/onur/Projects/sand`, Guest Path `/workspace/sand`. The Host Mac current directory is `/Users/onur/Projects/sand/Sources/SandCore`. Where will a Sandbox Session start?",
+      "answer": "`/workspace/sand/Sources/SandCore`, with no warning.",
+      "explanation": "WorkingDirectoryMapper resolves the current directory, finds that it is inside the allowed host folder, keeps the suffix `/Sources/SandCore`, and appends that suffix to the Allowed Folder's Guest Path.",
+      "sources": [
+        "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift",
+        "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+      ]
+    },
+    {
+      "id": "beat-08",
+      "type": "prediction",
+      "prompt": "The same spec allows only `/Users/onur/Projects/sand` at `/workspace/sand`. The Host Mac current directory is `/Users/onur/Downloads`. Where does sand start the command, and what warning should the learner expect?",
+      "answer": "It starts in `/workspace` and warns: `Current directory is not inside an Allowed Folder; starting in /workspace.`",
+      "explanation": "If the Host Mac current directory is not equal to or nested under any Allowed Folder's resolved host path, WorkingDirectoryMapper uses its fallback Guest Path. The default fallback in code is `/workspace`.",
+      "sources": [
+        "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift",
+        "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+      ]
+    },
+    {
+      "id": "beat-09",
+      "type": "practice",
+      "instruction": "For each proposed mapping, mark it accepted, rejected, or update. Then write the resulting Guest Path for a command launched from the listed Host Mac current directory.\n\nStarting spec: no folders.\n1. Add `/Users/onur/Projects/sand` with `rw`, no `--as`. CWD: `/Users/onur/Projects/sand/Tests`.\n2. Add `/Users/onur/Projects/sand` again with `ro --as /code`. CWD: `/Users/onur/Projects/sand/Tests`.\n3. Add `/Users/onur/Projects` with `rw --as /workspace/projects`.\n4. Add `/Users/onur/Downloads` with `ro --as /code`.\n5. Launch from `/Users/onur/Desktop`.",
+      "copyText": "1. Decision: ___; command starts at: ___\n2. Decision: ___; command starts at: ___\n3. Decision: ___; reason: ___\n4. Decision: ___; reason: ___\n5. command starts at: ___; warning: ___",
+      "signsOfSuccess": [
+        "Recognizes that the first add is accepted and defaults to `/workspace/sand`.",
+        "Recognizes that adding the same resolved host path updates the existing mapping to `/code` and read-only.",
+        "Rejects the overlapping `/Users/onur/Projects` host folder.",
+        "Rejects duplicate Guest Path `/code` for a different host folder.",
+        "Uses `/workspace` plus the fallback warning when the CWD is outside Allowed Folders."
+      ],
+      "hints": [
+        "Compare resolved host paths, not only the spelling the user typed.",
+        "Same resolved host folder means update; different host folder with same Guest Path means reject.",
+        "Working directory mapping uses the current accepted spec, not the rejected proposal."
+      ],
+      "sources": [
+        "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+        "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift",
+        "Tests/SandCoreTests/FolderPolicyTests.swift",
+        "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+      ]
+    },
+    {
+      "id": "beat-10",
+      "type": "checkpoint",
+      "recap": "SandboxSpec stores the durable VM contract. FolderPolicy is the gatekeeper for Allowed Folder changes: aliases normalize to canonical Access Modes, default Guest Paths come from the host folder name, same host folders update, duplicate Guest Paths and overlapping host folders are rejected. WorkingDirectoryMapper maps a Host Mac CWD into the matching Guest Path, or falls back to `/workspace` with a warning.",
+      "readyPrompt": "Ready for the next lesson when you can explain why each practice example is accepted, rejected, or mapped without reading the implementation.",
+      "sources": [
+        "issues/sand/CONTEXT.md",
+        "Sources/SandCore/Spec/SandboxSpec.swift",
+        "Sources/SandCore/FolderPolicy/FolderPolicy.swift",
+        "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+      ]
+    }
+  ],
+  "referenceNeeds": [
+    "glossary: define Sandbox Spec, Allowed Folder, Access Mode, Guest Path, Working Directory Mapping, Host Mac, Sandbox Guest, and Host Metadata",
+    "cheat-sheet: add folder-policy decision rules, Access Mode alias table, default Guest Path rule, and working-directory fallback rule",
+    "practice-bank: include accepted/rejected folder mapping scenarios and CWD-to-Guest-Path prediction drills"
+  ]
+}

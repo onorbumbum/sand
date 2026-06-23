@@ -1,0 +1,302 @@
+{
+  "id": "lesson-04",
+  "title": "Trace one durable command",
+  "objective": "Follow a normal command from CLI arguments to application request to lifecycle coordination to backend boundary.",
+  "summary": "Trace one durable `sand` command by following responsibility boundaries, not every line of code. The main path is `sand demo run pwd`: entry point composition, router dispatch, request structs, lifecycle orchestration, metadata lookup, working-directory policy, backend delegation, and process exit code.",
+  "sources": [
+    {
+      "label": "main.swift composition root",
+      "path": "Sources/sand/main.swift"
+    },
+    {
+      "label": "CLI command router",
+      "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+    },
+    {
+      "label": "SandboxApplication and request/result types",
+      "path": "Sources/SandCore/CLI/SandboxApplication.swift"
+    },
+    {
+      "label": "LifecycleCoordinator orchestration",
+      "path": "Sources/SandCore/Lifecycle/LifecycleCoordinator.swift"
+    },
+    {
+      "label": "SandboxBackend adapter port",
+      "path": "Sources/SandCore/Backend/SandboxBackend.swift"
+    },
+    {
+      "label": "Host metadata store",
+      "path": "Sources/SandCore/Metadata/HostMetadataStore.swift"
+    },
+    {
+      "label": "Working directory policy",
+      "path": "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+    },
+    {
+      "label": "CLI routing tests",
+      "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+    },
+    {
+      "label": "Lifecycle orchestration tests",
+      "path": "Tests/SandCoreTests/LifecycleCoordinatorTests.swift"
+    },
+    {
+      "label": "Developer guide architecture map",
+      "path": "docs/developer-guide.md"
+    }
+  ],
+  "beats": [
+    {
+      "id": "beat-01",
+      "type": "explain",
+      "title": "Trace landmarks, not every branch",
+      "text": "A durable command is a normal command for a named Sandbox VM, such as `sand demo run pwd` or `sand create demo`. Trace it as a handoff chain: executable entry point builds objects, router parses arguments, application boundary receives a typed request, lifecycle code coordinates metadata and policies, then the backend port performs VM work. Stay on one command path. Do not read every `switch` case or backend process detail yet.",
+      "sources": [
+        {
+          "label": "Developer guide architecture map",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "CLI command router",
+          "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-02",
+      "type": "explain",
+      "title": "The composition root",
+      "text": "`Sources/sand/main.swift` wires the real app together. It creates `FileHostMetadataStore`, `AppleContainerCLIBackend`, `LifecycleCoordinator`, and `CLICommandRouter`. That file is intentionally small: it chooses concrete production implementations, calls `router.dispatch(arguments:)`, then exits with `result.processExitCode`. If dispatch throws, `main.swift` prints `sand: ...` to stderr and exits `1`.",
+      "sources": [
+        {
+          "label": "main.swift composition root",
+          "path": "Sources/sand/main.swift"
+        },
+        {
+          "label": "SandboxApplication and request/result types",
+          "path": "Sources/SandCore/CLI/SandboxApplication.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-03",
+      "type": "single-choice",
+      "prompt": "For `sand demo run pwd`, which object first receives the parsed command-line arguments after `main.swift` drops the executable name?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "`CLICommandRouter`",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "`AppleContainerCLIBackend`",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "`FileHostMetadataStore`",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "`WorkingDirectoryMapper`",
+          "correct": false
+        }
+      ],
+      "feedback": "`main.swift` constructs the router and calls `router.dispatch(arguments:)`. Backend, metadata, and mapping are reached later through lifecycle orchestration.",
+      "sources": [
+        {
+          "label": "main.swift composition root",
+          "path": "Sources/sand/main.swift"
+        },
+        {
+          "label": "CLI command router",
+          "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-04",
+      "type": "explain",
+      "title": "Router dispatch pattern",
+      "text": "`CLICommandRouter.dispatch` reads the first argument. Top-level commands like `create` get their own dispatch helpers. Unknown top-level words are treated as sandbox names and routed through `dispatchSandboxFirst`. For `sand demo run pwd`, `demo` becomes `SandboxName`, `run` becomes the action, and `pwd` becomes an opaque `WorkloadCommand`. The router then calls `application.run(RunRequest(...))`.",
+      "sources": [
+        {
+          "label": "CLI command router",
+          "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+        },
+        {
+          "label": "Workload command type",
+          "path": "Sources/SandCore/Domain/WorkloadCommand.swift"
+        },
+        {
+          "label": "CLI routing tests",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-05",
+      "type": "multi-choice",
+      "prompt": "Which responsibilities belong to `CLICommandRouter` on this path?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Recognize the sandbox-first shape `<name> run <command> [args...]`.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Construct `RunRequest` with a `SandboxName` and opaque `WorkloadCommand`.",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Start the Sandbox VM if it is stopped.",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Translate host current directory to a Guest Path.",
+          "correct": false
+        },
+        {
+          "id": "e",
+          "text": "Build low-level backend process arguments.",
+          "correct": false
+        }
+      ],
+      "feedback": "The router owns command shape and typed requests. Auto-start, working-directory mapping, and backend execution happen after the application boundary.",
+      "sources": [
+        {
+          "label": "CLI command router",
+          "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+        },
+        {
+          "label": "CLI routing tests",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-06",
+      "type": "explain",
+      "title": "Application boundary",
+      "text": "`SandboxApplication` is the seam between command parsing and application behavior. It declares methods like `create`, `run`, `status`, `addFolder`, and `ephemeral`, plus request structs such as `CreateRequest`, `RunRequest`, and `NamedSandboxRequest`. The router depends on this protocol, not directly on `LifecycleCoordinator`. Tests use recording applications to prove routing without provisioning a real Sandbox VM.",
+      "sources": [
+        {
+          "label": "SandboxApplication and request/result types",
+          "path": "Sources/SandCore/CLI/SandboxApplication.swift"
+        },
+        {
+          "label": "CLI routing tests",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-07",
+      "type": "explain",
+      "title": "LifecycleCoordinator orchestrates run",
+      "text": "For `run`, `LifecycleCoordinator` reads the Sandbox Spec from Host Metadata, asks `WorkingDirectoryMapper` to map the Host Mac current directory into a Guest Path, emits a warning if it falls back to `/workspace`, checks backend status, starts the Sandbox VM if stopped, then delegates to `backend.run(BackendRunRequest(...))`. It coordinates; it does not become the backend adapter.",
+      "sources": [
+        {
+          "label": "LifecycleCoordinator orchestration",
+          "path": "Sources/SandCore/Lifecycle/LifecycleCoordinator.swift"
+        },
+        {
+          "label": "Working directory policy",
+          "path": "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+        },
+        {
+          "label": "Lifecycle orchestration tests",
+          "path": "Tests/SandCoreTests/LifecycleCoordinatorTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-08",
+      "type": "prediction",
+      "prompt": "Predict the high-level calls for `sand demo run pwd` when metadata contains `demo` and the backend reports it is stopped. Ignore low-level process execution.",
+      "answer": "Router creates `RunRequest`; `LifecycleCoordinator.run` reads the spec, maps the working directory, asks backend for status, calls backend start, then calls backend run with `pwd` and the chosen Guest Path.",
+      "explanation": "The lifecycle test `testRunAutoStartsStoppedSandboxAndDelegatesOpaqueCommandToBackend` shows the expected backend calls: status, start, run. The command arguments stay opaque all the way to the backend request.",
+      "sources": [
+        {
+          "label": "Lifecycle orchestration tests",
+          "path": "Tests/SandCoreTests/LifecycleCoordinatorTests.swift"
+        },
+        {
+          "label": "SandboxBackend adapter port",
+          "path": "Sources/SandCore/Backend/SandboxBackend.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-09",
+      "type": "explain",
+      "title": "Backend port and exit result",
+      "text": "`SandboxBackend` is the narrow adapter port: readiness, provision, apply, start, stop, run, shell, status, logs, and delete. `LifecycleCoordinator` calls this interface rather than embedding backend command construction. `backend.run` and `backend.shell` return `CommandResult`, so workload exit status can flow back up. `CommandResult.success` maps to process exit `0`; `.failure(exitCode: n)` maps to `n` in `main.swift`.",
+      "sources": [
+        {
+          "label": "SandboxBackend adapter port",
+          "path": "Sources/SandCore/Backend/SandboxBackend.swift"
+        },
+        {
+          "label": "SandboxApplication and request/result types",
+          "path": "Sources/SandCore/CLI/SandboxApplication.swift"
+        },
+        {
+          "label": "main.swift composition root",
+          "path": "Sources/sand/main.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-10",
+      "type": "practice",
+      "instruction": "Annotate one durable command path. Pick either `sand demo run pwd` or `sand create demo`. Write a numbered trace with file path, object/function, and responsibility for each handoff. Keep it to 8-12 lines; stop at the `SandboxBackend` boundary and the final `CommandResult` exit mapping.",
+      "copyText": "Command: sand demo run pwd\n1. Sources/sand/main.swift — constructs FileHostMetadataStore, AppleContainerCLIBackend, LifecycleCoordinator, CLICommandRouter.\n2. Sources/SandCore/CLI/CLICommandRouter.swift — ...\n3. Sources/SandCore/CLI/SandboxApplication.swift — ...\n4. Sources/SandCore/Lifecycle/LifecycleCoordinator.swift — ...\n5. Sources/SandCore/Metadata/HostMetadataStore.swift — ...\n6. Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift — ...\n7. Sources/SandCore/Backend/SandboxBackend.swift — ...\n8. Sources/SandCore/CLI/SandboxApplication.swift + Sources/sand/main.swift — CommandResult becomes process exit code.",
+      "signsOfSuccess": "Your trace names the router, request struct, application boundary, lifecycle coordinator, metadata read or write, one relevant policy, backend port, and exit-code conversion. It does not explain every command branch or backend process internals.",
+      "hints": [
+        "For `run`, follow `dispatchSandboxFirst` to `application.run(RunRequest(...))`.",
+        "For `create`, follow `dispatchCreate` to `CreateRequest`, then metadata `createSpec` and backend `provision`.",
+        "Use lifecycle tests as examples of expected backend calls."
+      ],
+      "sources": [
+        {
+          "label": "main.swift composition root",
+          "path": "Sources/sand/main.swift"
+        },
+        {
+          "label": "CLI command router",
+          "path": "Sources/SandCore/CLI/CLICommandRouter.swift"
+        },
+        {
+          "label": "LifecycleCoordinator orchestration",
+          "path": "Sources/SandCore/Lifecycle/LifecycleCoordinator.swift"
+        },
+        {
+          "label": "Lifecycle orchestration tests",
+          "path": "Tests/SandCoreTests/LifecycleCoordinatorTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-11",
+      "type": "checkpoint",
+      "recap": "A durable command flows through a small set of seams: `main.swift` composes concrete objects, `CLICommandRouter` parses command shape, `SandboxApplication` carries typed requests, `LifecycleCoordinator` coordinates metadata, policies, and runtime state, and `SandboxBackend` is the narrow adapter port. The command's `CommandResult` returns to `main.swift`, where it becomes the process exit code.",
+      "readyPrompt": "Ready to study the policies inside the flow: Sandbox Specs, Allowed Folders, Access Modes, Guest Paths, and Working Directory Mapping?",
+      "sources": [
+        {
+          "label": "Developer guide architecture map",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    }
+  ],
+  "referenceNeeds": [
+    "Add a cheat-sheet trace diagram for `sand demo run pwd`: main.swift → CLICommandRouter.dispatch → dispatchSandboxFirst → RunRequest → LifecycleCoordinator.run → HostMetadataStore.readSpec/currentHostDirectory → WorkingDirectoryMapper.map → SandboxBackend.status/start/run → CommandResult.processExitCode.",
+    "Add a practice-bank prompt asking learners to annotate `sand create demo`, including `CreateRequest`, metadata `createSpec`, backend `provision`, rollback on provision error, and exit-code mapping."
+  ]
+}

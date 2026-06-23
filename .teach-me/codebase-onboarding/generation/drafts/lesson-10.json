@@ -1,0 +1,250 @@
+{
+  "id": "lesson-10",
+  "title": "Integrated maintainer scenario",
+  "objective": "Combine user model, repo map, tracing, testing, debugging, and docs decisions on one realistic issue.",
+  "summary": "This capstone walks one small issue from user symptom to verified maintainer note. You will translate the report into Sandbox VM language, simulate the behavior path, choose the owning tests and modules, describe the smallest safe change, decide Documentation Impact, and record evidence without overclaiming.",
+  "sources": [
+    {
+      "label": "Canonical domain language",
+      "path": "issues/sand/CONTEXT.md"
+    },
+    {
+      "label": "Onboarding working loop and repo map",
+      "path": "docs/onboarding.md"
+    },
+    {
+      "label": "Developer guide testing strategy and Definition of Done",
+      "path": "docs/developer-guide.md"
+    },
+    {
+      "label": "Generated CLI reference",
+      "path": "docs/cli-reference.md"
+    },
+    {
+      "label": "Working directory mapper source",
+      "path": "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+    },
+    {
+      "label": "Working directory mapper tests",
+      "path": "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+    },
+    {
+      "label": "Lifecycle coordinator run and shell flow",
+      "path": "Sources/SandCore/Lifecycle/LifecycleCoordinator.swift"
+    },
+    {
+      "label": "Lifecycle coordinator tests",
+      "path": "Tests/SandCoreTests/LifecycleCoordinatorTests.swift"
+    },
+    {
+      "label": "Local verification gates",
+      "path": "Makefile"
+    }
+  ],
+  "beats": [
+    {
+      "id": "beat-01",
+      "type": "explain",
+      "title": "The maintainer loop",
+      "text": "A small sand issue should move through one loop: read the symptom in product language, reproduce or simulate the path, choose the owning tests and modules, make or describe the smallest behavior change, run targeted checks, run the full gate, decide Documentation Impact, then write a final note with evidence and limits. The loop keeps you from guessing and keeps user-facing language aligned with the Sandbox VM model.",
+      "sources": [
+        "docs/onboarding.md",
+        "docs/developer-guide.md",
+        "issues/sand/CONTEXT.md"
+      ]
+    },
+    {
+      "id": "beat-02",
+      "type": "single-choice",
+      "prompt": "A user says: \"I added my project to demo, then ran pwd from a subfolder, but sand dropped me in /workspace and warned that my current directory is not allowed.\" Which product-language reading is best?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "The Working Directory Mapping did not map a Host Mac current directory inside an Allowed Folder to the matching Guest Path.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "The backend container ignored a bind mount and needs a backend-specific workaround in CLI help.",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Pi needs a special command path because this only affects Pi workloads.",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "The user should manually cd after every Sandbox Session because automatic mapping is unsupported.",
+          "correct": false
+        }
+      ],
+      "feedback": "The report is about Allowed Folders, Guest Paths, and Working Directory Mapping. Keep backend details and Pi-specific explanations out until evidence points there.",
+      "sources": [
+        "issues/sand/CONTEXT.md",
+        "docs/developer-guide.md"
+      ]
+    },
+    {
+      "id": "beat-03",
+      "type": "explain",
+      "title": "Scenario card",
+      "text": "Use this simulated capstone issue: after `sand folders add demo ~/Projects/sand rw --as /workspace/sand`, the user runs `sand demo run pwd` from `~/Projects/sand/Sources`. They expected the Workload Command to start in `/workspace/sand/Sources`, but it starts in `/workspace` with the fallback warning. Treat it as a small behavior bug unless reproduction shows the report is stale or incomplete.",
+      "sources": [
+        "README.md",
+        "docs/cli-reference.md",
+        "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift"
+      ]
+    },
+    {
+      "id": "beat-04",
+      "type": "prediction",
+      "prompt": "Before opening source, predict the correct behavior for Host Mac cwd `/Users/onur/Projects/sand/Sources` when the Sandbox Spec has an Allowed Folder with resolved host path `/Users/onur/Projects/sand` and Guest Path `/workspace/sand`.",
+      "answer": "The mapped Guest Path should be `/workspace/sand/Sources`, with no warning.",
+      "explanation": "The current directory is nested inside the Allowed Folder. Working Directory Mapping should preserve the suffix after the allowed host path and append it to the folder's Guest Path. The fallback `/workspace` warning is only correct when the Host Mac current directory is outside all Allowed Folders.",
+      "sources": [
+        "issues/sand/CONTEXT.md",
+        "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift"
+      ]
+    },
+    {
+      "id": "beat-05",
+      "type": "multi-choice",
+      "prompt": "Which files are the best first inspection set for this issue?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "`Tests/SandCoreTests/WorkingDirectoryMapperTests.swift`",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "`Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift`",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "`Tests/SandCoreTests/LifecycleCoordinatorTests.swift` for run/shell wiring evidence",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "`Sources/SandCore/Lifecycle/LifecycleCoordinator.swift` if mapping is correct but not used",
+          "correct": true
+        },
+        {
+          "id": "e",
+          "text": "`Sources/SandCore/Backend/AppleContainerCLIBackend.swift` first, because all path bugs must be backend bugs",
+          "correct": false
+        },
+        {
+          "id": "f",
+          "text": "`docs/cli-reference.md` first, then rewrite the generated reference by hand",
+          "correct": false
+        }
+      ],
+      "feedback": "Start with the owning behavior tests and narrow source module. Pull in lifecycle tests/source to verify run and shell pass the mapped path to the backend. Avoid backend and generated docs until the evidence requires them.",
+      "sources": [
+        "docs/developer-guide.md",
+        "Tests/SandCoreTests/WorkingDirectoryMapperTests.swift",
+        "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift",
+        "Tests/SandCoreTests/LifecycleCoordinatorTests.swift",
+        "Sources/SandCore/Lifecycle/LifecycleCoordinator.swift"
+      ]
+    },
+    {
+      "id": "beat-06",
+      "type": "explain",
+      "title": "Smallest safe change",
+      "text": "For this scenario, the smallest safe change is in the mapping behavior or its lifecycle wiring. A good plan adds or adjusts a focused test that fails for the reported path, then changes only the mapper or the code that supplies current directory and spec data. Do not inspect Workload Command arguments, add Pi-specific handling, or weaken fallback tests. The Workload Command stays opaque.",
+      "sources": [
+        "docs/developer-guide.md",
+        "Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift",
+        "Sources/SandCore/Lifecycle/LifecycleCoordinator.swift"
+      ]
+    },
+    {
+      "id": "beat-07",
+      "type": "practice",
+      "instruction": "Complete this capstone triage card for the scenario. Keep each field short and evidence-based. If a command has not been run, write `not run` rather than implying success.",
+      "copyText": "Capstone triage card\n\nUser symptom:\nExpected Sandbox VM behavior:\nObserved or simulated behavior path:\nFirst reproduction command or test:\nOwning tests:\nOwning source modules:\nMinimal behavior change to make or describe:\nTargeted verification:\nFull verification:\nDocumentation Impact decision:\nFinal maintainer note:\nLimitations / not verified:",
+      "signsOfSuccess": "The card names Allowed Folder, Guest Path, Working Directory Mapping, Workload Command, and Sandbox VM correctly; chooses WorkingDirectoryMapper and lifecycle wiring before backend code; includes targeted and full verification commands; and separates evidence from assumptions.",
+      "hints": [
+        "A good targeted command is `swift test --filter WorkingDirectoryMapperTests`.",
+        "Use `swift test --filter LifecycleCoordinatorTests` if the mapper passes but run/shell wiring is suspect.",
+        "The full local gate is `make check`.",
+        "No Documentation Impact if the fix only restores documented behavior and does not change public CLI help, examples, domain language, or docs tooling."
+      ],
+      "sources": [
+        "docs/developer-guide.md",
+        "docs/onboarding.md",
+        "Makefile"
+      ]
+    },
+    {
+      "id": "beat-08",
+      "type": "single-choice",
+      "prompt": "Suppose the fix only changes `WorkingDirectoryMapper.swift` so existing documented behavior works as promised. No CLI help, examples, domain language, or docs tooling changed. What is the Documentation Impact decision?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "No Documentation Impact; run the normal verification gate and do not refresh generated docs.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Always regenerate every doc after any implementation change.",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Hand-edit `docs/cli-reference.md` to mention the bug fix.",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Update docs hashes manually so `make docs-check` passes faster.",
+          "correct": false
+        }
+      ],
+      "feedback": "Implementation-only fixes usually do not need docs refresh. Documentation Impact appears when public behavior, help, examples, domain language, onboarding/developer workflow, or docs tooling changes.",
+      "sources": [
+        "docs/developer-guide.md",
+        "docs/onboarding.md"
+      ]
+    },
+    {
+      "id": "beat-09",
+      "type": "practice",
+      "instruction": "Write the final maintainer note for the triage card. It should be concise, source-backed, and honest about evidence. Do not mention revision history, lesson instructions, or internal process chatter.",
+      "copyText": "Maintainer note template\n\nFixed/assessed: <one sentence in Sandbox VM language>.\nChanged or proposed change: <smallest source/test change>.\nEvidence:\n- <targeted command>: <passed/failed/not run>\n- make check: <passed/failed/not run>\nDocumentation Impact: <none / yes, with refresh path>.\nLimitations: <anything not verified, such as live backend smoke path>.",
+      "signsOfSuccess": "The note states what changed or what was found, lists real commands and outcomes, includes the Documentation Impact decision, and avoids claims like `fully fixed` unless the evidence supports them.",
+      "hints": [
+        "Use `assessed` instead of `fixed` if you only wrote a plan and did not edit code.",
+        "If live `sand demo run pwd` was not executed, say so under limitations.",
+        "Keep product terms: Sandbox VM, Host Mac current directory, Allowed Folder, Guest Path, Workload Command."
+      ],
+      "sources": [
+        "docs/developer-guide.md",
+        "issues/sand/CONTEXT.md"
+      ]
+    },
+    {
+      "id": "beat-10",
+      "type": "checkpoint",
+      "recap": "You can now handle a small sand issue end-to-end: translate the symptom into product language, simulate the behavior path, choose tests and source modules, keep the change minimal, verify with targeted and full gates, classify Documentation Impact, and write a final maintainer note with evidence and limitations.",
+      "readyPrompt": "Open the practice bank and complete one more capstone triage card without looking at the answer first.",
+      "sources": [
+        "docs/onboarding.md",
+        "docs/developer-guide.md",
+        "Makefile"
+      ]
+    }
+  ],
+  "referenceNeeds": [
+    "Add the capstone triage card template to the practice bank.",
+    "Add a cheat-sheet row for symptom → tests → source → verification → docs impact.",
+    "Include Working Directory Mapping, Allowed Folder, Guest Path, Workload Command, and Documentation Impact in the glossary.",
+    "List local verification commands in resources: `swift test --filter <TestName>`, `swift test`, `make docs-check`, and `make check`."
+  ]
+}

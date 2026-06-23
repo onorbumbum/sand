@@ -1,0 +1,265 @@
+{
+  "id": "lesson-02",
+  "title": "Draw the Sandbox VM mental model",
+  "objective": "Explain the product model using sand's canonical language.",
+  "summary": "This lesson turns the command workflow into a compact architecture picture. You will name the Host Mac, Sandbox VM, Sandbox Guest, Allowed Folders, Guest Paths, Guest State, Runtime Instance, Sandbox Sessions, and Workload Commands, then explain how the boundary protects the Host Mac.",
+  "sources": [
+    {
+      "label": "Sandbox VM domain context",
+      "path": "issues/sand/CONTEXT.md"
+    },
+    {
+      "label": "README product model and OAuth handoff",
+      "path": "README.md"
+    },
+    {
+      "label": "Generated CLI reference",
+      "path": "docs/cli-reference.md"
+    }
+  ],
+  "beats": [
+    {
+      "id": "beat-01",
+      "type": "explain",
+      "title": "The picture to keep in your head",
+      "text": "A Sandbox VM is a named, isolated Linux environment on the Host Mac. Inside it is the Sandbox Guest, where commands run and tools can have broad control without having broad control over macOS. The Host Mac stays outside the boundary. The only host files the Sandbox Guest can see are Allowed Folders you explicitly add, each appearing at a Guest Path with a read-only or read-write Access Mode.",
+      "sources": [
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "README product model",
+          "path": "README.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-02",
+      "type": "explain",
+      "title": "Minimal sketch",
+      "text": "The boundary model is easiest to see as a nested map. The Host Mac owns the managed Sandbox VM. The Sandbox VM contains the Sandbox Guest. Host files cross the boundary only through Allowed Folders, each defined by a host path, a guest path, and an access mode. Guest State persists with the Sandbox VM identity; the Runtime Instance is the disposable running process around it.",
+      "diagram": {
+        "syntax": "mermaid",
+        "code": "flowchart TB\n  host[Host Mac]\n  vm[Sandbox VM]\n  guest[Sandbox Guest]\n  allowed[Allowed Folder]\n  hostPath[Host Path on Mac]\n  guestPath[Guest Path in Linux]\n  access[Access Mode]\n  state[Guest State persists]\n  runtime[Runtime Instance is disposable]\n\n  host --> vm\n  vm --> guest\n  hostPath -->|mounts through| allowed\n  allowed -->|appears as| guestPath\n  access -->|controls read/write| allowed\n  guest --> state\n  guest --> runtime",
+        "caption": "Use the arrows to track what crosses the host/guest boundary and what stays inside the sandbox."
+      },
+      "sources": [
+        "Sandbox VM domain context (issues/sand/CONTEXT.md)"
+      ]
+    },
+    {
+      "id": "beat-03",
+      "type": "multi-choice",
+      "prompt": "Which labels belong on the mental-model sketch?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Host Mac outside the sandbox boundary",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Sandbox Guest inside the Sandbox VM",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Allowed Folder arrow with Access Mode and Guest Path",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "Pi-only launch channel that bypasses normal commands",
+          "correct": false
+        },
+        {
+          "id": "e",
+          "text": "Inbound port publishing as a normal v1 feature",
+          "correct": false
+        }
+      ],
+      "feedback": "Pi uses the ordinary Workload Command path, and inbound port publishing is outside v1. The core sketch is Host Mac, Sandbox VM, Sandbox Guest, Allowed Folders, Guest Paths, Access Modes, Guest State, Runtime Instance, Sandbox Session, and Workload Command.",
+      "sources": [
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-04",
+      "type": "explain",
+      "title": "Allowed Folders are the file boundary",
+      "text": "An Allowed Folder is a Host Mac folder mounted into the Sandbox VM on purpose. The Access Mode says what the Sandbox Guest can do: read-write for project work, read-only for references. The Guest Path is the Linux path where that folder appears, such as /workspace or /reference. This model is the safety story: sand does not give the Sandbox Guest your whole Mac; it gives it named, intentional windows into selected folders.",
+      "sources": [
+        {
+          "label": "README quickstart",
+          "path": "README.md"
+        },
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-05",
+      "type": "prediction",
+      "prompt": "A Sandbox VM has a read-write Allowed Folder from ~/Projects/app to /workspace and a read-only Allowed Folder from ~/Reference to /reference. A tool running in the Sandbox Guest tries to edit /reference/notes.md and create /workspace/todo.txt. What should your user-model expectation be?",
+      "answer": "Creating or editing /workspace/todo.txt is allowed by the read-write Access Mode. Editing /reference/notes.md should not be allowed because that Allowed Folder is read-only.",
+      "explanation": "The Host Mac folder is not just exposed; it is exposed with an Access Mode. The same Sandbox Guest can have different rights for different Allowed Folders.",
+      "sources": [
+        {
+          "label": "README quickstart",
+          "path": "README.md"
+        },
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-06",
+      "type": "explain",
+      "title": "Persistent Guest State, disposable Runtime Instance",
+      "text": "Separate identity from process. The Sandbox VM is the named environment you manage. Guest State is the persistent Linux-side state: installed tools, shell config, package caches, and sandbox-local app config such as Pi identity. A Runtime Instance is the disposable running backend process built from the Sandbox VM config, Guest State, and Allowed Folders. Stop/start can replace the running instance without meaning the Sandbox VM lost its guest state.",
+      "sources": [
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "README persistence expectation",
+          "path": "README.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-07",
+      "type": "single-choice",
+      "prompt": "You run `sand demo stop`, then `sand demo start`. Which statement best matches the model?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "The Sandbox VM identity and Guest State can remain, while the Runtime Instance is stopped and later started again.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Stopping always deletes Guest State and Host Metadata.",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "A stopped Sandbox VM keeps editing all Host Mac folders, even those not added as Allowed Folders.",
+          "correct": false
+        }
+      ],
+      "feedback": "Delete is the destructive flow. Stop/start is about the running instance; Guest State persists for the same Sandbox VM unless the VM is deleted.",
+      "sources": [
+        {
+          "label": "README quickstart",
+          "path": "README.md"
+        },
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-08",
+      "type": "explain",
+      "title": "Sessions and workloads stay generic",
+      "text": "A Sandbox Session is an interactive shell connection into the Sandbox VM as the Sandbox User. A Workload Command is any command and arguments run inside that session path after lifecycle and working-directory mapping are handled. sand treats the workload as opaque: `pi`, `pwd`, `bash -lc ...`, and other tools all use the same user model. sand should not need to understand the workload tool's own flags.",
+      "sources": [
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "README command surface",
+          "path": "README.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-09",
+      "type": "single-choice",
+      "prompt": "A CLI login inside the Sandbox Guest opens a Host Mac browser callback to `http://localhost:1455/...`, but the browser page fails. What is the correct v1 mental model?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "The Sandbox Guest can make outbound network requests, but its localhost is not the Host Mac browser's localhost; copy the callback URL and send it back with a second `sand demo run curl ...` command while login waits.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "sand automatically publishes inbound guest ports to the Host Mac in v1, so the failure means the Sandbox VM is broken.",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "The fix is to mount the Host Mac's credential folder into the Sandbox Guest by default.",
+          "correct": false
+        }
+      ],
+      "feedback": "v1 networking is outbound-only from the Sandbox VM. Browser callback logins use a two-terminal handoff; resulting tokens live in Guest State, not the Host Mac credential store.",
+      "sources": [
+        {
+          "label": "README OAuth handoff",
+          "path": "README.md"
+        },
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-10",
+      "type": "practice",
+      "instruction": "Draw and label a small architecture sketch for this scenario: `sand create demo`; add `~/Projects/app` as read-write at `/workspace`; add `~/Reference` as read-only at `/reference`; run `sand demo run pi`; stop and start the Sandbox VM. Then write three sentences explaining why this protects the Host Mac.",
+      "copyText": "Sketch labels to include:\n- Host Mac\n- Sandbox VM: demo\n- Sandbox Guest\n- Allowed Folder: ~/Projects/app -> /workspace, read-write\n- Allowed Folder: ~/Reference -> /reference, read-only\n- Guest State\n- Runtime Instance\n- Sandbox Session\n- Workload Command: pi\n\nThree-sentence explanation:\n1. The workload runs inside the Sandbox Guest, not directly in the Host Mac shell.\n2. The Sandbox Guest can see only the Allowed Folders, each with its Access Mode and Guest Path.\n3. Guest State can persist across stop/start, while the Runtime Instance remains disposable.",
+      "signsOfSuccess": "Your sketch shows the Host Mac/Sandbox Guest boundary, labels both Allowed Folders with Access Modes and Guest Paths, places Pi on the generic Workload Command path, and distinguishes Guest State from Runtime Instance.",
+      "hints": [
+        "Do not draw Pi as a special sand subsystem.",
+        "Put read-only/read-write on the folder arrows, not on the whole Sandbox VM.",
+        "Stop/start affects the Runtime Instance; delete is the destructive operation."
+      ],
+      "sources": [
+        {
+          "label": "README quickstart",
+          "path": "README.md"
+        },
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-11",
+      "type": "checkpoint",
+      "recap": "The product model is a boundary model. Work runs in a Sandbox Guest inside a named Sandbox VM. Host Mac files enter only through Allowed Folders, with Guest Paths and Access Modes. Guest State persists for the Sandbox VM, while the Runtime Instance can be disposable. Workload Commands, including Pi, stay opaque and generic; networking is outbound-only in v1, so browser login callbacks use handoff rather than inbound publishing.",
+      "readyPrompt": "Can you redraw the model without notes and explain what the Sandbox Guest can and cannot touch on the Host Mac?",
+      "sources": [
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "README",
+          "path": "README.md"
+        }
+      ]
+    }
+  ],
+  "referenceNeeds": [
+    "Add a glossary cluster for Host Mac, Sandbox VM, Sandbox Guest, Allowed Folder, Access Mode, Guest Path, Guest State, Runtime Instance, Sandbox Session, and Workload Command.",
+    "Add a cheat-sheet diagram note: Host Mac outside, Sandbox Guest inside, Allowed Folder arrows labeled with Guest Path and Access Mode.",
+    "Add a short OAuth handoff reminder: outbound-only networking; copy browser callback URL into a second sand run curl command while login waits."
+  ]
+}

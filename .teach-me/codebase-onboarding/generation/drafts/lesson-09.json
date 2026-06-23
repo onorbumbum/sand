@@ -1,0 +1,250 @@
+{
+  "id": "lesson-09",
+  "title": "Know when documentation changes",
+  "objective": "Apply the Documentation Impact rule and refresh docs only when needed.",
+  "summary": "Documentation updates are a consequence of public-facing change, not a reflex after every code edit. This lesson teaches the Documentation Impact rule, the generated/managed documentation boundaries, the freshness manifests, and the local Definition of Done for finishing a change honestly.",
+  "sources": [
+    {
+      "label": "Developer guide",
+      "path": "docs/developer-guide.md"
+    },
+    {
+      "label": "Onboarding guide",
+      "path": "docs/onboarding.md"
+    },
+    {
+      "label": "Documentation input manifest",
+      "path": "docs/docs-input-manifest.txt"
+    },
+    {
+      "label": "Generated docs manifest",
+      "path": "docs/generated-docs-manifest.txt"
+    },
+    {
+      "label": "Docs refresh workflow",
+      "path": "docs/prompts/refresh-docs.md"
+    },
+    {
+      "label": "Docs freshness scripts",
+      "path": "scripts/docs-check.sh"
+    },
+    {
+      "label": "CLI reference generator",
+      "path": "scripts/generate-cli-reference.sh"
+    },
+    {
+      "label": "Makefile gates",
+      "path": "Makefile"
+    }
+  ],
+  "beats": [
+    {
+      "id": "beat-01",
+      "type": "explain",
+      "title": "Docs are a consequence, not the starting point",
+      "text": "After lesson 08, the normal path is still behavior first: name the behavior, update tests, change code, run targeted checks. Documentation enters only when the change has Documentation Impact. That means the public contract changed: what users can do, what help says, what examples teach, what domain language means, or how contributors should work. Most implementation-only refactors should leave generated docs untouched.",
+      "sources": [
+        {
+          "label": "Developer guide: Documentation as a guardrail",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "Onboarding guide: When documentation needs updating",
+          "path": "docs/onboarding.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-02",
+      "type": "multi-choice",
+      "prompt": "Which changes have Documentation Impact in this repo?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Changing `sand --help` output for an existing command.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Renaming a private helper inside `FolderPolicy.swift` without behavior changes.",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Changing README quickstart commands or examples.",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "Changing Sandbox VM domain language used in user-facing text.",
+          "correct": true
+        },
+        {
+          "id": "e",
+          "text": "Changing `scripts/docs-check.sh` or the docs manifests.",
+          "correct": true
+        },
+        {
+          "id": "f",
+          "text": "Moving tests around while preserving the same public behavior and help.",
+          "correct": false
+        }
+      ],
+      "feedback": "Docs-impacting changes affect public behavior, help, examples, domain language, onboarding/developer workflow, or the documentation freshness system itself.",
+      "sources": [
+        {
+          "label": "Developer guide: Documentation Impact list",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-03",
+      "type": "explain",
+      "title": "Generated docs and managed sections",
+      "text": "Some docs are fully generated or managed. `docs/cli-reference.md` is generated from real `sand` help/version output by `scripts/generate-cli-reference.sh`. `README.md` is section-managed: human prose remains outside markers, while sections between `<!-- docs:managed:start ... -->` and `<!-- docs:managed:end -->` are refreshed by the docs workflow. Preserve those boundaries. Do not hand-edit generated bodies to make a gate pass.",
+      "sources": [
+        {
+          "label": "README managed-section metadata",
+          "path": "README.md"
+        },
+        {
+          "label": "CLI reference generator",
+          "path": "scripts/generate-cli-reference.sh"
+        },
+        {
+          "label": "Docs refresh workflow: Managed Section conventions",
+          "path": "docs/prompts/refresh-docs.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-04",
+      "type": "explain",
+      "title": "The two manifests",
+      "text": "`docs/docs-input-manifest.txt` lists the inputs whose content can make generated/managed docs stale: source files, tests, README managed content, scripts, and domain docs. `docs/generated-docs-manifest.txt` lists the registered generated/managed Markdown documents that must carry the current docs input hash. Together they define what the Documentation Freshness Gate checks.",
+      "sources": [
+        {
+          "label": "Documentation input manifest",
+          "path": "docs/docs-input-manifest.txt"
+        },
+        {
+          "label": "Generated docs manifest",
+          "path": "docs/generated-docs-manifest.txt"
+        }
+      ]
+    },
+    {
+      "id": "beat-05",
+      "type": "explain",
+      "title": "Hashing is evidence, not decoration",
+      "text": "`scripts/docs-input-hash.sh docs/docs-input-manifest.txt` computes one deterministic hash from the manifest and listed inputs. `make docs-check` runs `scripts/docs-check.sh`, recomputes that hash, and checks each registered doc for matching `docs-input-hash` metadata. If it fails, the fix is to refresh the affected docs against current inputs, not to paste a new hash into stale content.",
+      "sources": [
+        {
+          "label": "docs-input-hash script",
+          "path": "scripts/docs-input-hash.sh"
+        },
+        {
+          "label": "docs-check script",
+          "path": "scripts/docs-check.sh"
+        },
+        {
+          "label": "Makefile docs-check target",
+          "path": "Makefile"
+        }
+      ]
+    },
+    {
+      "id": "beat-06",
+      "type": "single-choice",
+      "prompt": "You changed help text in `CLICommandRouter.swift`. Which verification path fits best?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Run targeted CLI tests, regenerate CLI reference with `scripts/generate-cli-reference.sh`, then run `make docs-check` and `make check`.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Only run `swift test`; help text is not behavior.",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Edit `docs/cli-reference.md` by hand until the text looks right.",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Paste the latest docs input hash into every generated doc without changing content.",
+          "correct": false
+        }
+      ],
+      "feedback": "Help output is public command-surface behavior. Regenerate the CLI reference from actual help output and verify through the freshness gate.",
+      "sources": [
+        {
+          "label": "Developer guide: Adding or changing a command",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "generate-cli-reference script",
+          "path": "scripts/generate-cli-reference.sh"
+        }
+      ]
+    },
+    {
+      "id": "beat-07",
+      "type": "prediction",
+      "prompt": "A change extracts duplicate code from `LifecycleCoordinator.swift` into a private helper. Tests pass. No command behavior, help text, examples, domain language, onboarding workflow, docs scripts, or manifests changed. Should you refresh generated docs?",
+      "answer": "No. Run the relevant tests and the normal completion gate, but do not refresh generated/managed docs for an implementation-only refactor.",
+      "explanation": "The Documentation Impact rule prevents docs churn. `make check` still includes `make docs-check`; if the manifest-listed inputs changed, the gate may require a refresh, but the decision should be based on actual Documentation Impact, not on a desire to silence the gate with fake hash edits.",
+      "sources": [
+        {
+          "label": "Developer guide: Do not refresh docs for implementation-only refactors",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-08",
+      "type": "practice",
+      "instruction": "Classify each scenario as `docs-impacting` or `not docs-impacting`, then choose the next verification path.",
+      "copyText": "1. Add a new supported flag to `sand create` and update help output.\n2. Fix an overlap-detection bug in `FolderPolicy.swift`; user-visible rejection behavior changes.\n3. Rename a test helper with no behavior change.\n4. Update `docs/docs-input-manifest.txt` to include a new public behavior source.\n5. Change the README quickstart command sequence.\n6. Refactor `BackendErrorTranslation.swift` internals while preserving identical user-facing messages.",
+      "signsOfSuccess": "Your answers separate public-contract changes from internal-only changes, name `scripts/generate-cli-reference.sh` for help-output changes, include `make docs-check`/`make check` when docs are refreshed, and never solve staleness by editing only hash metadata.",
+      "hints": [
+        "Ask: would a user, contributor, or generated reference need different information after this change?",
+        "CLI help changes need the CLI reference generator.",
+        "README managed sections must be refreshed through the docs workflow, not rewritten wholesale.",
+        "The final local gate is `make check`, which runs tests and the docs freshness gate."
+      ],
+      "sources": [
+        {
+          "label": "Developer guide: Local Definition of Done",
+          "path": "docs/developer-guide.md"
+        },
+        {
+          "label": "Onboarding guide: Local verification flow",
+          "path": "docs/onboarding.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-09",
+      "type": "checkpoint",
+      "recap": "Documentation Impact means the public contract, examples, language, contributor workflow, or docs tooling changed. Use generated/managed boundaries: regenerate CLI reference from help output, preserve README managed sections, let manifests and `make docs-check` prove freshness, and never fake a hash update. A local change is done when tests pass, `make check` passes, docs impact is handled, product language follows `issues/sand/CONTEXT.md`, and evidence is recorded.",
+      "readyPrompt": "Ready for the capstone lesson: handling one realistic maintainer scenario from symptom to verified final note?",
+      "sources": [
+        {
+          "label": "Developer guide: Local Definition of Done",
+          "path": "docs/developer-guide.md"
+        }
+      ]
+    }
+  ],
+  "referenceNeeds": [
+    "Cheat sheet: Documentation Impact decision checklist with examples of docs-impacting vs internal-only changes.",
+    "Cheat sheet: Docs command sequence for help changes: targeted tests, `scripts/generate-cli-reference.sh`, `make docs-check`, `make check`.",
+    "Cheat sheet: Role of `docs/docs-input-manifest.txt` vs `docs/generated-docs-manifest.txt`.",
+    "Practice bank: More classification scenarios that ask for the correct docs/verification path."
+  ]
+}

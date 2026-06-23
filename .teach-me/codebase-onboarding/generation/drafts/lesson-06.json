@@ -1,0 +1,291 @@
+{
+  "id": "lesson-06",
+  "title": "Understand Ephemeral Sandbox Runs",
+  "objective": "Explain why ephemeral runs are separate and trace their bounded lifecycle.",
+  "summary": "This lesson separates durable Sandbox VMs from bounded Ephemeral Sandbox Runs. You will trace the explicit `sand ephemeral --from` lifecycle from Ephemeral Spec through hooks, Foreground Workload, cleanup, and Ephemeral Run Record, then practice identifying the phase to inspect when a run fails.",
+  "sources": [
+    {
+      "label": "ADR: Separate Ephemeral Specs from durable Sandbox Specs",
+      "path": "docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md"
+    },
+    {
+      "label": "Sandbox VM domain context",
+      "path": "issues/sand/CONTEXT.md"
+    },
+    {
+      "label": "Generated CLI reference",
+      "path": "docs/cli-reference.md"
+    },
+    {
+      "label": "Ephemeral run coordinator",
+      "path": "Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift"
+    },
+    {
+      "label": "Ephemeral run behavior tests",
+      "path": "Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift"
+    },
+    {
+      "label": "CLI command router tests",
+      "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+    }
+  ],
+  "beats": [
+    {
+      "id": "beat-01",
+      "type": "explain",
+      "title": "Why ephemeral is separate",
+      "text": "A durable Sandbox Spec describes a reusable Sandbox VM: create it, add folders, run commands, stop/start it, and keep its Guest State. An Ephemeral Spec describes a bounded create-run-stop-cleanup-delete workflow. The ADR keeps those separate so normal lifecycle commands stay boring and unsurprising. Ephemeral runs still leave history, but they do that through immutable Ephemeral Run Records, not by leaving completed sandboxes around as reusable Sandbox VMs.",
+      "sources": [
+        {
+          "label": "ADR: Separate Ephemeral Specs from durable Sandbox Specs",
+          "path": "docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md"
+        },
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-02",
+      "type": "single-choice",
+      "prompt": "Which statement best captures the durable-vs-ephemeral boundary?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "A durable Sandbox Spec is for a reusable Sandbox VM; an Ephemeral Spec is for one bounded create-run-stop-delete workflow.",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "An Ephemeral Spec is just a shorter spelling for `sand create`, `sand run`, and `sand delete` on a normal reusable sandbox.",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Ephemeral runs are hidden behavior attached to normal `sand <name> run` commands.",
+          "correct": false
+        }
+      ],
+      "feedback": "Ephemeral is an explicit Control Surface action with its own spec and records. It is not hidden shorthand on normal durable lifecycle commands.",
+      "sources": [
+        {
+          "label": "ADR: Separate Ephemeral Specs from durable Sandbox Specs",
+          "path": "docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md"
+        },
+        {
+          "label": "Generated CLI reference",
+          "path": "docs/cli-reference.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-03",
+      "type": "explain",
+      "title": "The two ephemeral commands",
+      "text": "`sand ephemeral init <path>` writes a starter Ephemeral Spec YAML file, or prints it with `--stdout`. It does not create a Sandbox VM, touch Host Metadata, or create an Ephemeral Run Record. Execution is separate: `sand ephemeral --from <ephemeral-spec.yaml>` reads the reviewed spec and starts the bounded run. The command can also accept a workload override after `--`, but the run remains one explicit ephemeral operation.",
+      "sources": [
+        {
+          "label": "Generated CLI reference",
+          "path": "docs/cli-reference.md"
+        },
+        {
+          "label": "CLI command router tests",
+          "path": "Tests/SandCoreTests/CLICommandRouterTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-04",
+      "type": "explain",
+      "title": "What an Ephemeral Spec describes",
+      "text": "At a user-model level, an Ephemeral Spec is a recipe for one bounded run. It can include the Sandbox VM template details, Allowed Folders, optional Before Provision Hooks, the Foreground Workload, and optional After Stop Hooks. The Foreground Workload is the command whose process lifetime controls when cleanup begins. Hooks run on the Host Mac; the Foreground Workload runs inside the Sandbox Guest through the normal workload path.",
+      "sources": [
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "Ephemeral run coordinator",
+          "path": "Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-05",
+      "type": "explain",
+      "title": "Coordinator phases, first half",
+      "text": "EphemeralRunCoordinator first parses and plans the run, allocates a generated Sandbox Name, and creates an initial run record attempt. Then it runs `beforeProvision` hooks from the Host Mac, relative to the directory containing the Ephemeral Spec. If those hooks succeed, it resolves folders into a generated concrete Sandbox Spec, writes that spec into the run record, creates temporary active Host Metadata, provisions backend resources, and starts the Sandbox VM.",
+      "sources": [
+        {
+          "label": "Ephemeral run coordinator",
+          "path": "Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift"
+        },
+        {
+          "label": "Ephemeral run behavior tests",
+          "path": "Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-06",
+      "type": "explain",
+      "title": "Coordinator phases, second half",
+      "text": "After startup, the Foreground Workload runs inside the Sandbox Guest. When that process exits, sand attempts to stop the Sandbox VM. Then it runs `afterStop` hooks on the Host Mac, attempts deletion, removes the temporary active Sandbox Spec on successful cleanup, writes the final result, and prints the run record path. The active sandbox is temporary; the run record is the durable thing left behind.",
+      "sources": [
+        {
+          "label": "Ephemeral run coordinator",
+          "path": "Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift"
+        },
+        {
+          "label": "Ephemeral run behavior tests",
+          "path": "Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-07",
+      "type": "prediction",
+      "prompt": "Put these phases in order: afterStop hooks, beforeProvision hooks, delete cleanup, Foreground Workload, provision/start, run record attempt creation, stop attempt.",
+      "answer": "run record attempt creation → beforeProvision hooks → provision/start → Foreground Workload → stop attempt → afterStop hooks → delete cleanup",
+      "explanation": "The run record starts early so the attempt can be inspected. `beforeProvision` runs before folder resolution and backend provisioning. `afterStop` runs only after the Foreground Workload exits and sand has attempted to stop the Sandbox VM.",
+      "sources": [
+        {
+          "label": "Ephemeral run coordinator",
+          "path": "Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift"
+        },
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-08",
+      "type": "explain",
+      "title": "What the run record is for",
+      "text": "An Ephemeral Run Record is immutable Host Metadata for a run attempt. It preserves the source Ephemeral Spec, source path, generated concrete Sandbox Spec, hook stdout/stderr files, phase events, result summary, failed phase, and manual cleanup guidance when needed. This record answers: what did sand try, what temporary sandbox name did it use, which phase failed, and where are the captured hook outputs?",
+      "sources": [
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        },
+        {
+          "label": "Ephemeral run coordinator",
+          "path": "Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-09",
+      "type": "multi-choice",
+      "prompt": "An ephemeral run fails and prints a run record path. Which places are useful to inspect first?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "The printed `Failed phase` in the command output",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "The run record's `result.json` summary",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "Hook stdout/stderr files for a `beforeProvision` or `afterStop` failure",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "The generated Sandbox Spec in the run record when folder resolution or generated config matters",
+          "correct": true
+        },
+        {
+          "id": "e",
+          "text": "A permanent active Sandbox Spec for the completed ephemeral sandbox",
+          "correct": false
+        }
+      ],
+      "feedback": "Successful cleanup removes the temporary active Sandbox Spec. The durable investigation trail is the command output plus the Ephemeral Run Record.",
+      "sources": [
+        {
+          "label": "Generated CLI reference",
+          "path": "docs/cli-reference.md"
+        },
+        {
+          "label": "Ephemeral run behavior tests",
+          "path": "Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-10",
+      "type": "explain",
+      "title": "Result precedence, conceptually",
+      "text": "Final status favors cleanup truth over earlier failure. If delete fails, the reported failed phase is delete, because a temporary sandbox may still need manual cleanup. If afterStop, stop, and workload each have outcomes, later cleanup-phase failures can dominate earlier workload failures. A beforeProvision failure aborts before provisioning. Provision/start failures skip afterStop but still try to clean up partial resources. The point is not every branch; it is knowing which phase owns the final report.",
+      "sources": [
+        {
+          "label": "Ephemeral run coordinator",
+          "path": "Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift"
+        },
+        {
+          "label": "Ephemeral run behavior tests",
+          "path": "Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift"
+        },
+        {
+          "label": "Generated CLI reference",
+          "path": "docs/cli-reference.md"
+        }
+      ]
+    },
+    {
+      "id": "beat-11",
+      "type": "practice",
+      "instruction": "Create a one-page triage map for an Ephemeral Sandbox Run. Include the ordered phase list, the command that only generates a template, the command that executes a run, and the first artifact to inspect for each failure phase.",
+      "copyText": "Ephemeral triage map\n\nCommands:\n- Template only: sand ephemeral init ephemeral-spec.yaml\n- Execute bounded run: sand ephemeral --from ephemeral-spec.yaml\n\nPhase order:\n1. Create run record attempt\n2. beforeProvision hooks on Host Mac\n3. Generate concrete Sandbox Spec\n4. Create temporary active Host Metadata\n5. Provision/start Sandbox VM\n6. Foreground Workload in Sandbox Guest\n7. Stop attempt\n8. afterStop hooks on Host Mac\n9. Delete cleanup\n10. Write final result\n\nIf a phase fails, inspect:\n- beforeProvision: hook stdout/stderr in run record\n- provision/start: command output, result summary, generated spec\n- workload: final failed phase and workload exit code\n- stop/afterStop: result summary and hook output if applicable\n- delete: manual cleanup guidance and generated sandbox name",
+      "signsOfSuccess": "Your map keeps `init` separate from execution, orders the phases correctly, names Host Mac hooks versus Sandbox Guest workload, and uses the Ephemeral Run Record as the main investigation artifact.",
+      "hints": [
+        "Do not describe ephemeral as normal `run` shorthand.",
+        "The Foreground Workload is not an after-start hook.",
+        "A cleanup failure can be more important than an earlier workload failure because it may leave resources behind."
+      ],
+      "sources": [
+        {
+          "label": "Generated CLI reference",
+          "path": "docs/cli-reference.md"
+        },
+        {
+          "label": "Ephemeral run coordinator",
+          "path": "Sources/SandCore/Ephemeral/EphemeralRunCoordinator.swift"
+        },
+        {
+          "label": "Ephemeral run behavior tests",
+          "path": "Tests/SandCoreTests/EphemeralRunCoordinatorTests.swift"
+        }
+      ]
+    },
+    {
+      "id": "beat-12",
+      "type": "checkpoint",
+      "recap": "Ephemeral runs are explicit bounded workflows, not hidden lifecycle shortcuts. `sand ephemeral init` only writes a starter spec; `sand ephemeral --from` performs the create-run-stop-hook-delete operation. EphemeralRunCoordinator leaves an Ephemeral Run Record so completed or failed runs can be inspected after cleanup.",
+      "readyPrompt": "Can you explain why durable Sandbox Specs and Ephemeral Specs are separate, then point to the phase and run-record artifact you would inspect after an ephemeral failure?",
+      "sources": [
+        {
+          "label": "ADR: Separate Ephemeral Specs from durable Sandbox Specs",
+          "path": "docs/adr/0001-separate-ephemeral-spec-from-sandbox-spec.md"
+        },
+        {
+          "label": "Sandbox VM domain context",
+          "path": "issues/sand/CONTEXT.md"
+        }
+      ]
+    }
+  ],
+  "referenceNeeds": [
+    "Add glossary entries or cross-links for Ephemeral Spec, Ephemeral Sandbox Run, Foreground Workload, Before Provision Hook, After Stop Hook, and Ephemeral Run Record.",
+    "Add cheat-sheet contrast: `sand ephemeral init` generates only; `sand ephemeral --from` executes a bounded run.",
+    "Add practice-bank item for ordering EphemeralRunCoordinator phases and choosing run-record artifacts for failures.",
+    "Add a conceptual note that cleanup/delete failures can take precedence over earlier workload failures."
+  ]
+}
