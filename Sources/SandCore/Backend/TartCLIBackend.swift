@@ -56,6 +56,9 @@ public struct TartCLIBackend: SandboxBackend {
         if let diskSize = spec.diskSize {
             setArguments += ["--disk-size", String(diskSize.gigabytes)]
         }
+        if let displayResolution = spec.displayResolution {
+            setArguments += ["--display", displayResolution.description]
+        }
         _ = try runRequired(setArguments)
         reportProgressLine("Booting macOS Sandbox VM for first-time setup...")
         try startVM(spec)
@@ -77,6 +80,9 @@ public struct TartCLIBackend: SandboxBackend {
         var setArguments = ["set", spec.name.rawValue, "--cpu", String(spec.resourceProfile.cpus), "--memory", String(spec.resourceProfile.memory.megabytes)]
         if let diskSize = spec.diskSize {
             setArguments += ["--disk-size", String(diskSize.gigabytes)]
+        }
+        if let displayResolution = spec.displayResolution {
+            setArguments += ["--display", displayResolution.description]
         }
         _ = try runRequired(setArguments)
     }
@@ -121,8 +127,17 @@ public struct TartCLIBackend: SandboxBackend {
         let wasRunning = try status(spec.name) == .running
         if wasRunning {
             try stop(spec.name)
+        }
+        try applyMutableConfiguration(spec)
+        if wasRunning {
             try start(spec)
         }
+    }
+
+    private func applyMutableConfiguration(_ spec: SandboxSpec) throws {
+        guard let displayResolution = spec.displayResolution else { return }
+        try ensureInstalled()
+        _ = try runRequired(["set", spec.name.rawValue, "--display", displayResolution.description])
     }
 
     public func start(_ spec: SandboxSpec) throws {

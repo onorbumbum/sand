@@ -44,7 +44,7 @@ Plan macOS Sandbox VMs as a handful, not dozens: Apple's macOS guest license all
 ## `sand --version`
 
 ```text
-sand 0.2.4-dev
+sand 0.2.5-dev
 ```
 
 ## `sand --help`
@@ -84,13 +84,14 @@ Verifies host support, backend readiness, default image availability, and ~/.san
 ## `sand create`
 
 ```text
-Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--from-ipsw <latest|path|url>] [--cpus <count>] [--memory <size>] [--disk <size>]
+Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--from-ipsw <latest|path|url>] [--cpus <count>] [--memory <size>] [--disk <size>] [--display <WIDTHxHEIGHT[px|pt]>]
 
 Creates a Sandbox VM from generated defaults, an authored Linux spec, a backend image, or a stopped local macOS sandbox.
 
 Options:
   --os <linux|macos>                Choose the guest OS; linux is the default, macos uses the Tart backend.
   --disk <size>                     macOS-only create-time Disk Size, defaulting to about 100GB.
+  --display <WIDTHxHEIGHT[px|pt]>   macOS-only display resolution. Unsuffixed values are pixels, e.g. 1920x1080.
   --from <image-or-local-sandbox>   Clone a backend image or stopped local macOS sandbox.
   --from-ipsw <latest|path|url>     Build a self-made macOS base via the macOS Install Flow.
 

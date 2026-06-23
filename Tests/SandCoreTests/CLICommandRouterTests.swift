@@ -19,7 +19,7 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertTrue(output[0].contains("doctor"))
         XCTAssertTrue(output[0].contains("signing <action>"))
         XCTAssertTrue(output[0].contains("run <name>"))
-        XCTAssertEqual(output[1], "sand 0.2.4-dev")
+        XCTAssertEqual(output[1], "sand 0.2.5-dev")
         XCTAssertEqual(app.calls, [])
     }
 
@@ -68,15 +68,16 @@ final class CLICommandRouterTests: XCTestCase {
         """
         let cases: [(arguments: [String], expected: AppCall)] = [
             (["doctor"], .doctor),
-            (["create", "mybox"], .create("mybox", nil, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil, nil)),
-            (["create", "mybox", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil, nil)),
-            (["create", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil, nil)),
-            (["create", "mybox", "--cpus", "6", "--memory", "12GB", "--image", "custom:latest"], .create("mybox", nil, "custom:latest", "linux", 6, 12288, nil, nil, nil)),
-            (["create", "mybox", "--os", "macos", "--from", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"], .create("mybox", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", "macos", 4, 16384, nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", nil)),
-            (["create", "mybox", "--os", "macos", "--memory", "8GB", "--disk", "150GB", "--from", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"], .create("mybox", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", "macos", 4, 8192, "150GB", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", nil)),
-            (["create", "mybox", "--from", "cleanbox"], .create("mybox", nil, "cleanbox", "linux", 4, 8192, nil, "cleanbox", nil)),
-            (["create", "mybox", "--from-ipsw", "latest"], .create("mybox", nil, "ipsw:latest", "macos", 4, 16384, nil, nil, "latest")),
-            (["create", "mybox", "--os", "macos", "--from-ipsw", "/images/macos.ipsw"], .create("mybox", nil, "ipsw:/images/macos.ipsw", "macos", 4, 16384, nil, nil, "/images/macos.ipsw")),
+            (["create", "mybox"], .create("mybox", nil, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil, nil, nil)),
+            (["create", "mybox", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil, nil, nil)),
+            (["create", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil, nil, nil)),
+            (["create", "mybox", "--cpus", "6", "--memory", "12GB", "--image", "custom:latest"], .create("mybox", nil, "custom:latest", "linux", 6, 12288, nil, nil, nil, nil)),
+            (["create", "mybox", "--os", "macos", "--from", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"], .create("mybox", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", "macos", 4, 16384, nil, nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", nil)),
+            (["create", "mybox", "--os", "macos", "--memory", "8GB", "--disk", "150GB", "--from", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"], .create("mybox", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", "macos", 4, 8192, "150GB", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", nil)),
+            (["create", "mybox", "--from", "cleanbox"], .create("mybox", nil, "cleanbox", "linux", 4, 8192, nil, nil, "cleanbox", nil)),
+            (["create", "mybox", "--from-ipsw", "latest"], .create("mybox", nil, "ipsw:latest", "macos", 4, 16384, nil, nil, nil, "latest")),
+            (["create", "mybox", "--os", "macos", "--from-ipsw", "/images/macos.ipsw"], .create("mybox", nil, "ipsw:/images/macos.ipsw", "macos", 4, 16384, nil, nil, nil, "/images/macos.ipsw")),
+            (["create", "mybox", "--os", "macos", "--display", "1920x1080", "--from", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"], .create("mybox", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", "macos", 4, 16384, nil, "1920x1080px", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", nil)),
             (["bootstrap", "mybox"], .bootstrap("mybox")),
             (["list"], .list),
             (["apply", "mybox"], .apply("mybox")),
@@ -288,7 +289,7 @@ private final class RecordingSandboxApplication: SandboxApplication {
 
     func doctor() throws -> CommandResult { calls.append(.doctor); return .success }
     func create(_ request: CreateRequest) throws -> CommandResult {
-        calls.append(.create(request.sandboxName.rawValue, request.authoredSpecText, request.image.reference, request.guestOS.rawValue, request.resourceProfile.cpus, request.resourceProfile.memory.megabytes, request.diskSize?.description, request.sourceReference, request.ipswSource)); return .success
+        calls.append(.create(request.sandboxName.rawValue, request.authoredSpecText, request.image.reference, request.guestOS.rawValue, request.resourceProfile.cpus, request.resourceProfile.memory.megabytes, request.diskSize?.description, request.displayResolution?.description, request.sourceReference, request.ipswSource)); return .success
     }
     func bootstrap(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.bootstrap(request.sandboxName.rawValue)); return .success }
     func list() throws -> CommandResult { calls.append(.list); return .success }
@@ -312,7 +313,7 @@ private final class RecordingSandboxApplication: SandboxApplication {
 
 private enum AppCall: Equatable {
     case doctor
-    case create(String, String?, String, String, Int, Int, String?, String?, String?)
+    case create(String, String?, String, String, Int, Int, String?, String?, String?, String?)
     case bootstrap(String)
     case list
     case apply(String)

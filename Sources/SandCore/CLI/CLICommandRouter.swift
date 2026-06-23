@@ -2,7 +2,7 @@ import Foundation
 
 /// Parses and dispatches CLI commands to the application layer.
 public struct CLICommandRouter {
-    public static let productVersion = "0.2.4-dev"
+    public static let productVersion = "0.2.5-dev"
 
     private let application: any SandboxApplication
     private let readTextFile: (String) throws -> String
@@ -120,6 +120,7 @@ public struct CLICommandRouter {
         var cpus: Int?
         var memory: MemorySize?
         var diskSize: DiskSize?
+        var displayResolution: DisplayResolution?
         var authoredSpecText: String?
         var sourceReference: String?
         var fromValue: String?
@@ -154,6 +155,10 @@ public struct CLICommandRouter {
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--disk") }
                 diskSize = try DiskSize.parse(arguments[index])
+            case "--display":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--display") }
+                displayResolution = try DisplayResolution.parse(arguments[index])
             case "--image":
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--image") }
@@ -196,7 +201,7 @@ public struct CLICommandRouter {
         guard let name else { throw CLICommandError.missingSandboxName }
         let defaults = ResourceProfile.default(for: guestOS)
         let resourceProfile = ResourceProfile(cpus: cpus ?? defaults.cpus, memory: memory ?? defaults.memory)
-        return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, guestOS: guestOS, resourceProfile: resourceProfile, diskSize: diskSize, sourceReference: sourceReference, ipswSource: ipswValue))
+        return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, guestOS: guestOS, resourceProfile: resourceProfile, diskSize: diskSize, displayResolution: displayResolution, sourceReference: sourceReference, ipswSource: ipswValue))
     }
 
     // Parses and dispatches the `delete` command with its options.
@@ -400,13 +405,14 @@ private enum CLIHelp {
     """
 
     static let create = """
-    Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--from-ipsw <latest|path|url>] [--cpus <count>] [--memory <size>] [--disk <size>]
+    Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--from-ipsw <latest|path|url>] [--cpus <count>] [--memory <size>] [--disk <size>] [--display <WIDTHxHEIGHT[px|pt]>]
 
     Creates a Sandbox VM from generated defaults, an authored Linux spec, a backend image, or a stopped local macOS sandbox.
 
     Options:
       --os <linux|macos>                Choose the guest OS; linux is the default, macos uses the Tart backend.
       --disk <size>                     macOS-only create-time Disk Size, defaulting to about 100GB.
+      --display <WIDTHxHEIGHT[px|pt]>   macOS-only display resolution. Unsuffixed values are pixels, e.g. 1920x1080.
       --from <image-or-local-sandbox>   Clone a backend image or stopped local macOS sandbox.
       --from-ipsw <latest|path|url>     Build a self-made macOS base via the macOS Install Flow.
 

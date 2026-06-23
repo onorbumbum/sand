@@ -44,6 +44,10 @@ _Avoid_: Resource manager, dynamic tuning
 The fixed size of a macOS Sandbox VM's disk image, chosen at create-time (fresh install or clone) and defaulting to ~100GB. Grow-only: a Clone's disk must be greater than or equal to its source because APFS cannot reliably shrink the system container. Not applicable to Linux, whose containers grow on demand against the host filesystem. Not resizable in place after create.
 _Avoid_: Linux disk quota, in-place shrink, post-create resize via apply
 
+**Display Resolution**:
+The optional macOS Sandbox VM display size passed to Tart as `tart set --display`, e.g. `1920x1080px`. Defaults stay backend/image-defined, currently 1024x1024 for Tart images unless the user sets `display:` in the spec or passes `sand create --display`.
+_Avoid_: Treating 1024x1024 as a Virtualization.framework limit, Linux display config
+
 **Base Image**:
 The image used to create a Sandbox VM's runtime environment. For Linux, a prebuilt OCI image (Ubuntu LTS default) run via Apple `container`. For macOS, either a prebuilt OCI image pulled via Tart from a registry (e.g. `ghcr.io/cirruslabs/macos-sequoia-xcode`) or a fresh install from an Apple IPSW (`tart create --from-ipsw`). In both backends the model is identical: pull an OCI image and run it.
 _Avoid_: Distro, OS choice

@@ -13,6 +13,7 @@ public struct SandboxSpec: Equatable, Sendable {
     public var guestOS: GuestOS
     public var resourceProfile: ResourceProfile
     public var diskSize: DiskSize?
+    public var displayResolution: DisplayResolution?
     public var bootstrapState: BootstrapState
     public var sharedFolders: [SharedFolder]
 
@@ -23,6 +24,7 @@ public struct SandboxSpec: Equatable, Sendable {
         guestOS: GuestOS = .linux,
         resourceProfile: ResourceProfile? = nil,
         diskSize: DiskSize? = nil,
+        displayResolution: DisplayResolution? = nil,
         bootstrapState: BootstrapState = .ready,
         sharedFolders: [SharedFolder] = []
     ) {
@@ -32,13 +34,14 @@ public struct SandboxSpec: Equatable, Sendable {
         self.guestOS = guestOS
         self.resourceProfile = resourceProfile ?? ResourceProfile.default(for: guestOS)
         self.diskSize = diskSize ?? DiskSize.default(for: guestOS)
+        self.displayResolution = displayResolution
         self.bootstrapState = bootstrapState
         self.sharedFolders = sharedFolders
     }
 
     /// Creates a spec with default settings.
-    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile? = nil, diskSize: DiskSize? = nil, bootstrapState: BootstrapState = .ready) -> SandboxSpec {
-        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile ?? ResourceProfile.default(for: guestOS), diskSize: diskSize, bootstrapState: bootstrapState, sharedFolders: [])
+    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile? = nil, diskSize: DiskSize? = nil, displayResolution: DisplayResolution? = nil, bootstrapState: BootstrapState = .ready) -> SandboxSpec {
+        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile ?? ResourceProfile.default(for: guestOS), diskSize: diskSize, displayResolution: displayResolution, bootstrapState: bootstrapState, sharedFolders: [])
     }
 
     public func validateV1() throws {
@@ -47,6 +50,9 @@ public struct SandboxSpec: Equatable, Sendable {
         }
         if guestOS == .linux, diskSize != nil {
             throw SandboxSpecError.diskUnsupportedForGuestOS(guestOS)
+        }
+        if guestOS == .linux, displayResolution != nil {
+            throw SandboxSpecError.displayUnsupportedForGuestOS(guestOS)
         }
     }
 
@@ -90,6 +96,9 @@ public struct SandboxSpec: Equatable, Sendable {
         if let diskSize {
             lines.append("disk: \(diskSize.description)")
         }
+        if let displayResolution {
+            lines.append("display: \(displayResolution.description)")
+        }
         lines.append("resources:")
         lines.append("  cpus: \(resourceProfile.cpus)")
         lines.append("  memory: \(resourceProfile.memory.description)")
@@ -117,6 +126,7 @@ public struct SandboxSpec: Equatable, Sendable {
         var cpus: Int?
         var memory: MemorySize?
         var diskSize: DiskSize?
+        var displayResolution: DisplayResolution?
         var bootstrapState: BootstrapState = .ready
         var sharedFolders: [SharedFolder] = []
         var inResources = false
@@ -177,6 +187,7 @@ public struct SandboxSpec: Equatable, Sendable {
             case "os": guestOS = try GuestOS.parse(value)
             case "bootstrap": bootstrapState = try BootstrapState.parse(value)
             case "disk": diskSize = try DiskSize.parse(value)
+            case "display": displayResolution = try DisplayResolution.parse(value)
             case "resources":
                 guard value.isEmpty else { throw SandboxSpecError.malformedLine(rawLine) }
                 inResources = true
@@ -203,6 +214,7 @@ public struct SandboxSpec: Equatable, Sendable {
             guestOS: guestOS ?? .linux,
             resourceProfile: ResourceProfile(cpus: try required(cpus, "resources.cpus"), memory: try required(memory, "resources.memory")),
             diskSize: diskSize,
+            displayResolution: displayResolution,
             bootstrapState: bootstrapState,
             sharedFolders: sharedFolders
         )
@@ -261,6 +273,7 @@ public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
     case guestOSImmutable
     case resourceProfileImmutable(field: String)
     case diskUnsupportedForGuestOS(GuestOS)
+    case displayUnsupportedForGuestOS(GuestOS)
     case diskSizeImmutable
     case localCloneRequiresMacOS
     case cloneDiskTooSmall(source: DiskSize, requested: DiskSize)
@@ -275,6 +288,7 @@ public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
         case .guestOSImmutable: return "guest OS cannot be edited after creation"
         case .resourceProfileImmutable(let field): return "resource profile field cannot be edited after creation: \(field)"
         case .diskUnsupportedForGuestOS(let guestOS): return "disk size is only supported for macOS sandboxes, not \(guestOS.rawValue)"
+        case .displayUnsupportedForGuestOS(let guestOS): return "display resolution is only supported for macOS sandboxes, not \(guestOS.rawValue)"
         case .diskSizeImmutable: return "disk size cannot be edited after creation"
         case .localCloneRequiresMacOS: return "local sandbox clone is only supported for macOS sandboxes"
         case .cloneDiskTooSmall(let source, let requested): return "clone disk size \(requested.description) is smaller than source disk size \(source.description)"
@@ -375,6 +389,51 @@ public struct DiskSize: Equatable, Sendable, CustomStringConvertible {
             return DiskSize(gigabytes: value)
         }
         throw SandboxSpecError.malformedLine("disk: \(rawValue)")
+    }
+}
+
+/// A display resolution value.
+public struct DisplayResolution: Equatable, Sendable, CustomStringConvertible {
+    public enum Unit: String, Equatable, Sendable {
+        case pixels = "px"
+        case points = "pt"
+    }
+
+    public var width: Int
+    public var height: Int
+    public var unit: Unit
+
+    public init(width: Int, height: Int, unit: Unit = .pixels) {
+        self.width = width
+        self.height = height
+        self.unit = unit
+    }
+
+    public var description: String {
+        "\(width)x\(height)\(unit.rawValue)"
+    }
+
+    public static func parse(_ rawValue: String) throws -> DisplayResolution {
+        let lower = rawValue.lowercased()
+        let unit: Unit
+        let dimensions: String
+        if lower.hasSuffix(Unit.pixels.rawValue) {
+            unit = .pixels
+            dimensions = String(lower.dropLast(2))
+        } else if lower.hasSuffix(Unit.points.rawValue) {
+            unit = .points
+            dimensions = String(lower.dropLast(2))
+        } else {
+            unit = .pixels
+            dimensions = lower
+        }
+        let parts = dimensions.split(separator: "x", omittingEmptySubsequences: false)
+        guard parts.count == 2,
+              let width = Int(parts[0]), width > 0,
+              let height = Int(parts[1]), height > 0 else {
+            throw SandboxSpecError.malformedLine("display: \(rawValue)")
+        }
+        return DisplayResolution(width: width, height: height, unit: unit)
     }
 }
 

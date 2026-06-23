@@ -31,6 +31,48 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertTrue(keyStore.logs["macbox:clone"]?.contains("cloned") == true)
     }
 
+    func testProvisionSetsConfiguredDisplayResolution() throws {
+        let name = try SandboxName("macbox")
+        let runner = ScriptedTartRunner(results: [
+            ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
+            ["clone", "ghcr.io/example/macos:latest", "macbox"]: .success(.init(stdout: "cloned\n", stderr: "", exitCode: 0)),
+            ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64", "--display", "1920x1080px"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
+            ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: RecordingTartVMStarter(), keyStore: StaticTartKeyStore(), sleeper: { _ in }, maxIPAttempts: 1)
+
+        try backend.provision(SandboxSpec(name: name, image: SandboxImage(reference: "ghcr.io/example/macos:latest"), guestOS: .macOS, displayResolution: DisplayResolution(width: 1920, height: 1080, unit: .pixels)))
+
+        XCTAssertEqual(runner.calls.prefix(3), [
+            ["--version"],
+            ["clone", "ghcr.io/example/macos:latest", "macbox"],
+            ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64", "--display", "1920x1080px"]
+        ])
+    }
+
+    func testApplyUpdatesConfiguredDisplayResolutionForStoppedMacOSVM() throws {
+        let name = try SandboxName("macbox")
+        let runner = ScriptedTartRunner(results: [
+            ["list", "--format", "json"]: .success(.init(stdout: """
+            [{"Name":"macbox","State":"stopped","Running":false}]
+            """, stderr: "", exitCode: 0)),
+            ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
+            ["set", "macbox", "--display", "1920x1080px"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: RecordingTartVMStarter(), keyStore: StaticTartKeyStore(), sleeper: { _ in }, maxIPAttempts: 1)
+        let spec = SandboxSpec(name: name, image: SandboxImage(reference: "ghcr.io/example/macos:latest"), guestOS: .macOS, displayResolution: DisplayResolution(width: 1920, height: 1080, unit: .pixels))
+
+        try backend.apply(spec)
+
+        XCTAssertEqual(runner.calls, [
+            ["list", "--format", "json"],
+            ["--version"],
+            ["set", "macbox", "--display", "1920x1080px"]
+        ])
+    }
+
     func testProvisionReportsTartCloneProgress() throws {
         let name = try SandboxName("macbox")
         let runner = ScriptedTartRunner(results: [

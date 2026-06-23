@@ -56,6 +56,30 @@ final class SandboxSpecTests: XCTestCase {
         XCTAssertTrue(spec.renderedYAML().contains("disk: 150GB"))
     }
 
+    func testMacOSSpecParsesAndRendersDisplayResolution() throws {
+        let yaml = """
+        schemaVersion: 1
+        name: macbox
+        image: ghcr.io/example/macos:latest
+        os: macos
+        display: 1920x1080px
+        resources:
+          cpus: 4
+          memory: 16GB
+        sharedFolders:
+          []
+        """
+
+        let spec = try SandboxSpec.parseYAML(yaml)
+
+        XCTAssertEqual(spec.displayResolution, DisplayResolution(width: 1920, height: 1080, unit: .pixels))
+        XCTAssertTrue(spec.renderedYAML().contains("display: 1920x1080px"))
+    }
+
+    func testUnqualifiedDisplayResolutionDefaultsToPixels() throws {
+        XCTAssertEqual(try DisplayResolution.parse("1920x1080"), DisplayResolution(width: 1920, height: 1080, unit: .pixels))
+    }
+
     func testLinuxSpecRejectsMacOSOnlyDiskSize() throws {
         let yaml = """
         schemaVersion: 1
@@ -154,6 +178,25 @@ final class SandboxSpecTests: XCTestCase {
         ])
     }
 
+    func testLinuxSpecRejectsMacOSOnlyDisplayResolution() throws {
+        let yaml = """
+        schemaVersion: 1
+        name: linuxbox
+        image: sand/developer-ready:ubuntu-lts
+        os: linux
+        display: 1920x1080px
+        resources:
+          cpus: 4
+          memory: 8GB
+        sharedFolders:
+          []
+        """
+
+        XCTAssertThrowsError(try SandboxSpec.parseYAML(yaml)) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .displayUnsupportedForGuestOS(.linux))
+        }
+    }
+
     func testUnsupportedV1FieldsSuchAsInboundNetworkingAreRejected() throws {
         let yaml = """
         schemaVersion: 1
@@ -181,6 +224,7 @@ final class SandboxSpecTests: XCTestCase {
         let memoryEdited = SandboxSpec(name: original.name, resourceProfile: ResourceProfile(cpus: 4, memory: .init(gigabytes: 16)))
         let macOriginal = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 100))
         let diskEdited = SandboxSpec(name: macOriginal.name, guestOS: .macOS, diskSize: DiskSize(gigabytes: 150))
+        let displayEdited = SandboxSpec(name: macOriginal.name, guestOS: .macOS, diskSize: DiskSize(gigabytes: 100), displayResolution: DisplayResolution(width: 1920, height: 1080, unit: .pixels))
 
         XCTAssertThrowsError(try imageEdited.validateUpdate(from: original)) { error in
             XCTAssertEqual(error as? SandboxSpecError, .imageImmutable)
@@ -197,6 +241,7 @@ final class SandboxSpecTests: XCTestCase {
         XCTAssertThrowsError(try diskEdited.validateUpdate(from: macOriginal)) { error in
             XCTAssertEqual(error as? SandboxSpecError, .diskSizeImmutable)
         }
+        XCTAssertNoThrow(try displayEdited.validateUpdate(from: macOriginal))
     }
 
     func testLocalMacOSCloneRejectsSmallerDiskThanSource() throws {

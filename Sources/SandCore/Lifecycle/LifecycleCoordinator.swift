@@ -90,7 +90,7 @@ public struct LifecycleCoordinator: SandboxApplication {
                     throw SandboxCreateError.localCloneSourceNotStopped(clone.sourceSpec.name.rawValue)
                 }
             } else {
-                spec = SandboxSpec.generated(name: request.sandboxName, image: request.image, guestOS: request.guestOS, resourceProfile: request.resourceProfile, diskSize: request.diskSize)
+                spec = SandboxSpec.generated(name: request.sandboxName, image: request.image, guestOS: request.guestOS, resourceProfile: request.resourceProfile, diskSize: request.diskSize, displayResolution: request.displayResolution)
             }
             try spec.validateV1()
             try metadataStore.createSpec(spec)
@@ -121,6 +121,7 @@ public struct LifecycleCoordinator: SandboxApplication {
                 guestOS: .macOS,
                 resourceProfile: request.resourceProfile,
                 diskSize: request.diskSize,
+                displayResolution: request.displayResolution,
                 bootstrapState: .setupRequired
             )
             try spec.validateV1()
@@ -388,7 +389,8 @@ public struct LifecycleCoordinator: SandboxApplication {
             image: SandboxImage(reference: sourceName.rawValue),
             guestOS: sourceSpec.guestOS,
             resourceProfile: resourceProfile,
-            diskSize: request.diskSize ?? sourceSpec.diskSize
+            diskSize: request.diskSize ?? sourceSpec.diskSize,
+            displayResolution: request.displayResolution ?? sourceSpec.displayResolution
         )
         return LocalCloneRequest(sourceSpec: sourceSpec, spec: spec)
     }

@@ -76,7 +76,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backendResolver: resolver)
 
         XCTAssertEqual(try coordinator.create(CreateRequest(sandboxName: try SandboxName("linuxbox"))), .success)
-        XCTAssertEqual(try coordinator.create(CreateRequest(sandboxName: try SandboxName("macbox"), image: SandboxImage(reference: "ghcr.io/example/macos:latest"), guestOS: .macOS)), .success)
+        XCTAssertEqual(try coordinator.create(CreateRequest(sandboxName: try SandboxName("macbox"), image: SandboxImage(reference: "ghcr.io/example/macos:latest"), guestOS: .macOS, displayResolution: DisplayResolution(width: 1920, height: 1080, unit: .pixels))), .success)
 
         XCTAssertEqual(resolver.requestedGuestOS, [.linux, .macOS])
         XCTAssertEqual(linuxBackend.calls, [.provision("linuxbox")])
@@ -84,6 +84,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         let macSpec = try metadataStore.readSpec(named: try SandboxName("macbox"))
         XCTAssertEqual(macSpec.guestOS, .macOS)
         XCTAssertEqual(macSpec.resourceProfile, ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 16)))
+        XCTAssertEqual(macSpec.displayResolution, DisplayResolution(width: 1920, height: 1080, unit: .pixels))
     }
 
     func testCreateFromIPSWRecordsSetupRequiredSpecAndGuidesUserToGuiThenBootstrap() throws {
@@ -330,7 +331,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         let backend = RecordingSandboxBackend(status: .stopped)
         let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
 
-        let result = try coordinator.create(CreateRequest(sandboxName: try SandboxName("workbox"), diskSize: DiskSize(gigabytes: 200), sourceReference: "cleanbox"))
+        let result = try coordinator.create(CreateRequest(sandboxName: try SandboxName("workbox"), diskSize: DiskSize(gigabytes: 200), displayResolution: DisplayResolution(width: 1920, height: 1080, unit: .pixels), sourceReference: "cleanbox"))
 
         XCTAssertEqual(result, .success)
         let clone = try metadataStore.readSpec(named: try SandboxName("workbox"))
@@ -338,6 +339,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(clone.guestOS, .macOS)
         XCTAssertEqual(clone.resourceProfile, ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 16)))
         XCTAssertEqual(clone.diskSize, DiskSize(gigabytes: 200))
+        XCTAssertEqual(clone.displayResolution, DisplayResolution(width: 1920, height: 1080, unit: .pixels))
         XCTAssertEqual(backend.calls, [.status("cleanbox"), .provision("workbox")])
 
         XCTAssertThrowsError(try coordinator.create(CreateRequest(sandboxName: try SandboxName("tinybox"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 100), sourceReference: "cleanbox"))) { error in
@@ -381,13 +383,14 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(backend.calls, [.status("mybox")])
     }
 
-    func testMacOSStatusIncludesDiskSize() throws {
+    func testMacOSStatusIncludesDiskSizeAndDisplayResolution() throws {
         var output: [String] = []
-        let spec = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 150))
+        let spec = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS, diskSize: DiskSize(gigabytes: 150), displayResolution: DisplayResolution(width: 1920, height: 1080, unit: .pixels))
         let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [spec]), backend: RecordingSandboxBackend(status: .stopped), writeOutput: { output.append($0) })
 
         XCTAssertEqual(try coordinator.status(NamedSandboxRequest(sandboxName: spec.name)), .success)
         XCTAssertTrue(output.contains("disk: 150GB"))
+        XCTAssertTrue(output.contains("display: 1920x1080px"))
     }
 
     func testRunAutoStartsStoppedSandboxAndDelegatesOpaqueCommandToBackend() throws {

@@ -41,6 +41,7 @@ public struct CreateRequest: Equatable {
     public var guestOS: GuestOS
     public var resourceProfile: ResourceProfile
     public var diskSize: DiskSize?
+    public var displayResolution: DisplayResolution?
     public var sourceReference: String?
     public var ipswSource: String?
 
@@ -51,6 +52,7 @@ public struct CreateRequest: Equatable {
         guestOS: GuestOS = .linux,
         resourceProfile: ResourceProfile? = nil,
         diskSize: DiskSize? = nil,
+        displayResolution: DisplayResolution? = nil,
         sourceReference: String? = nil,
         ipswSource: String? = nil
     ) {
@@ -60,6 +62,7 @@ public struct CreateRequest: Equatable {
         self.guestOS = guestOS
         self.resourceProfile = resourceProfile ?? ResourceProfile.default(for: guestOS)
         self.diskSize = diskSize
+        self.displayResolution = displayResolution
         self.sourceReference = sourceReference
         self.ipswSource = ipswSource
     }
