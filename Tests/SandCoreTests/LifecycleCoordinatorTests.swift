@@ -84,6 +84,83 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(macSpec.resourceProfile, ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 16)))
     }
 
+    func testCreateFromIPSWRecordsSetupRequiredSpecAndGuidesUserToGuiThenBootstrap() throws {
+        let linuxBackend = RecordingSandboxBackend(status: .missing)
+        let macBackend = RecordingSandboxBackend(status: .missing)
+        let resolver = RecordingBackendResolver(linuxBackend: linuxBackend, macOSBackend: macBackend)
+        let metadataStore = MemoryMetadataStore()
+        var output: [String] = []
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backendResolver: resolver, writeOutput: { output.append($0) })
+
+        let result = try coordinator.create(CreateRequest(sandboxName: try SandboxName("ipswbox"), image: SandboxImage(reference: "ipsw:latest"), guestOS: .macOS, ipswSource: "latest"))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(macBackend.calls, [.provisionFromIPSW("ipswbox", "latest")])
+        let spec = try metadataStore.readSpec(named: try SandboxName("ipswbox"))
+        XCTAssertEqual(spec.guestOS, .macOS)
+        XCTAssertEqual(spec.bootstrapState, .setupRequired)
+        XCTAssertEqual(spec.image, SandboxImage(reference: "ipsw:latest"))
+        let joined = output.joined(separator: "\n")
+        XCTAssertTrue(joined.contains("sand ipswbox gui"))
+        XCTAssertTrue(joined.contains("sand bootstrap ipswbox"))
+    }
+
+    func testBootstrapTransitionsSetupRequiredMacOSSandboxToReady() throws {
+        let name = try SandboxName("ipswbox")
+        let spec = SandboxSpec(name: name, image: SandboxImage(reference: "ipsw:latest"), guestOS: .macOS, bootstrapState: .setupRequired)
+        let macBackend = RecordingSandboxBackend(status: .running)
+        let resolver = RecordingBackendResolver(linuxBackend: RecordingSandboxBackend(), macOSBackend: macBackend)
+        let store = MemoryMetadataStore(specs: [spec])
+        let coordinator = LifecycleCoordinator(metadataStore: store, backendResolver: resolver, writeOutput: { _ in })
+
+        XCTAssertEqual(try coordinator.bootstrap(NamedSandboxRequest(sandboxName: name)), .success)
+
+        XCTAssertEqual(macBackend.calls, [.bootstrap("ipswbox")])
+        XCTAssertEqual(try store.readSpec(named: name).bootstrapState, .ready)
+    }
+
+    func testBootstrapRejectsAlreadyReadySandboxWithoutCallingBackend() throws {
+        let name = try SandboxName("macbox")
+        let spec = SandboxSpec(name: name, image: SandboxImage(reference: "ghcr.io/example/macos:latest"), guestOS: .macOS)
+        let macBackend = RecordingSandboxBackend(status: .stopped)
+        let resolver = RecordingBackendResolver(linuxBackend: RecordingSandboxBackend(), macOSBackend: macBackend)
+        let store = MemoryMetadataStore(specs: [spec])
+        let coordinator = LifecycleCoordinator(metadataStore: store, backendResolver: resolver)
+
+        XCTAssertThrowsError(try coordinator.bootstrap(NamedSandboxRequest(sandboxName: name))) { error in
+            XCTAssertEqual(error as? SandboxBootstrapError, .alreadyBootstrapped("macbox"))
+        }
+        XCTAssertEqual(macBackend.calls, [])
+    }
+
+    func testBootstrapRejectsLinuxSandbox() throws {
+        let name = try SandboxName("linuxbox")
+        let store = MemoryMetadataStore(specs: [SandboxSpec(name: name)])
+        let resolver = RecordingBackendResolver(linuxBackend: RecordingSandboxBackend(), macOSBackend: RecordingSandboxBackend())
+        let coordinator = LifecycleCoordinator(metadataStore: store, backendResolver: resolver)
+
+        XCTAssertThrowsError(try coordinator.bootstrap(NamedSandboxRequest(sandboxName: name))) { error in
+            XCTAssertEqual(error as? SandboxBootstrapError, .unsupportedGuestOS("linux"))
+        }
+    }
+
+    func testShellAndRunRejectSetupRequiredSandboxBeforeTouchingBackend() throws {
+        let name = try SandboxName("ipswbox")
+        let spec = SandboxSpec(name: name, image: SandboxImage(reference: "ipsw:latest"), guestOS: .macOS, bootstrapState: .setupRequired)
+        let macBackend = RecordingSandboxBackend(status: .stopped)
+        let resolver = RecordingBackendResolver(linuxBackend: RecordingSandboxBackend(), macOSBackend: macBackend)
+        let store = MemoryMetadataStore(specs: [spec])
+        let coordinator = LifecycleCoordinator(metadataStore: store, backendResolver: resolver, writeWarning: { _ in })
+
+        XCTAssertThrowsError(try coordinator.shell(ShellRequest(sandboxName: name))) { error in
+            XCTAssertEqual(error as? SandboxBootstrapError, .setupRequired("ipswbox"))
+        }
+        XCTAssertThrowsError(try coordinator.run(RunRequest(sandboxName: name, command: try WorkloadCommand(arguments: ["echo", "hi"])))) { error in
+            XCTAssertEqual(error as? SandboxBootstrapError, .setupRequired("ipswbox"))
+        }
+        XCTAssertEqual(macBackend.calls, [])
+    }
+
     func testCreateRollsBackHostMetadataWhenBackendProvisioningFails() throws {
         let name = try SandboxName("mybox")
         let metadataStore = MemoryMetadataStore()

@@ -7,6 +7,7 @@ public struct TartCLIBackend: SandboxBackend {
     private let starter: any TartVMStarter
     private let keyStore: any TartSSHKeyStore
     private let screenSharing: any TartScreenSharingOpener
+    private let passwordSSHRunner: any TartPasswordSSHRunner
     private let sleeper: (TimeInterval) -> Void
     private let maxIPAttempts: Int
 
@@ -16,6 +17,7 @@ public struct TartCLIBackend: SandboxBackend {
         starter: any TartVMStarter = ProcessTartVMStarter(),
         keyStore: any TartSSHKeyStore = FileTartSSHKeyStore(),
         screenSharing: any TartScreenSharingOpener = ProcessTartScreenSharingOpener(),
+        passwordSSHRunner: any TartPasswordSSHRunner = ExpectTartPasswordSSHRunner(),
         sleeper: @escaping (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) },
         maxIPAttempts: Int = 60
     ) {
@@ -24,6 +26,7 @@ public struct TartCLIBackend: SandboxBackend {
         self.starter = starter
         self.keyStore = keyStore
         self.screenSharing = screenSharing
+        self.passwordSSHRunner = passwordSSHRunner
         self.sleeper = sleeper
         self.maxIPAttempts = maxIPAttempts
     }
@@ -56,6 +59,53 @@ public struct TartCLIBackend: SandboxBackend {
         try stop(spec.name)
     }
 
+    public func provisionFromIPSW(_ spec: SandboxSpec, ipswSource: String) throws {
+        try ensureInstalled()
+        try keyStore.createKeyPair(for: spec.name)
+        try runRequiredLogged(["create", spec.name.rawValue, "--from-ipsw", ipswSource], sandboxName: spec.name, logKind: "create")
+        var setArguments = ["set", spec.name.rawValue, "--cpu", String(spec.resourceProfile.cpus), "--memory", String(spec.resourceProfile.memory.megabytes)]
+        if let diskSize = spec.diskSize {
+            setArguments += ["--disk-size", String(diskSize.gigabytes)]
+        }
+        _ = try runRequired(setArguments)
+    }
+
+    public func bootstrap(_ spec: SandboxSpec) throws {
+        try ensureInstalled()
+        if try status(spec.name) == .stopped {
+            try startVM(spec)
+        }
+        let ipAddress = try waitForIPAddress(spec.name)
+        try injectPublicKeyOverSSH(sandboxName: spec.name, ipAddress: ipAddress)
+        try waitForSSH(sandboxName: spec.name, ipAddress: ipAddress)
+        try verifyPasswordlessSudo(sandboxName: spec.name, ipAddress: ipAddress)
+        try configureSharedFolderSymlinksOverSSH(for: spec, ipAddress: ipAddress)
+        try stop(spec.name)
+    }
+
+    /// Injects the Sand public key over SSH using one-time password auth.
+    ///
+    /// A vanilla macOS VM installed from IPSW ships no Tart guest agent, so
+    /// `tart exec` hangs indefinitely. Remote Login (SSH) is enabled during
+    /// first-boot, so the key is appended over an interactive password session.
+    private func injectPublicKeyOverSSH(sandboxName: SandboxName, ipAddress: String) throws {
+        let publicKey = try keyStore.publicKey(for: sandboxName).trimmingCharacters(in: .whitespacesAndNewlines)
+        let script = "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF \(shellQuoted(publicKey)) ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' \(shellQuoted(publicKey)) >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"
+        let output = sshKeyAlreadyInjected(sandboxName: sandboxName, ipAddress: ipAddress)
+            ? BackendCommandOutput(stdout: "", stderr: "", exitCode: 0)
+            : try passwordSSHRunner.run(ipAddress: ipAddress, remoteCommand: script)
+        guard output.exitCode == 0 else {
+            throw BackendTranslatedError.commandFailed("Could not inject the Sand SSH key into \(sandboxName.rawValue) over SSH. Confirm Remote Login is on and the admin password is correct, then re-run `sand bootstrap \(sandboxName.rawValue)`.")
+        }
+    }
+
+    private func verifyPasswordlessSudo(sandboxName: SandboxName, ipAddress: String) throws {
+        let output = try sshRunner.run(arguments: sshArguments(sandboxName: sandboxName, ipAddress: ipAddress, remoteCommand: "sudo -n true"))
+        guard output.exitCode == 0 else {
+            throw BackendTranslatedError.commandFailed("Sandbox VM \(sandboxName.rawValue) does not have passwordless sudo yet. Configure it during first-boot setup, then re-run `sand bootstrap \(sandboxName.rawValue)`.")
+        }
+    }
+
     public func apply(_ spec: SandboxSpec) throws {
         let wasRunning = try status(spec.name) == .running
         if wasRunning {
@@ -85,6 +135,10 @@ public struct TartCLIBackend: SandboxBackend {
 
     private func vncRunArguments(for spec: SandboxSpec) -> [String] {
         tartRunArguments(for: spec, graphicsMode: "--vnc")
+    }
+
+    private func builtInVNCRunArguments(for spec: SandboxSpec) -> [String] {
+        tartRunArguments(for: spec, graphicsMode: "--vnc-experimental")
     }
 
     private func tartRunArguments(for spec: SandboxSpec, graphicsMode: String) -> [String] {
@@ -138,6 +192,10 @@ public struct TartCLIBackend: SandboxBackend {
 
     public func gui(_ request: BackendGUIRequest) throws -> CommandResult {
         let logPath = try keyStore.logPath(for: request.spec.name, kind: "gui")
+        if request.spec.bootstrapState == .setupRequired {
+            try starter.start(arguments: builtInVNCRunArguments(for: request.spec), logPath: logPath)
+            return .success
+        }
         try starter.start(arguments: vncRunArguments(for: request.spec), logPath: logPath)
         let ipAddress = try waitForIPAddress(request.spec.name)
         try screenSharing.open(url: "vnc://admin@\(ipAddress)")
@@ -166,8 +224,9 @@ public struct TartCLIBackend: SandboxBackend {
 
     public func logs(_ sandboxName: SandboxName) throws -> SandboxLogs {
         let cloneLog = (try? keyStore.readLog(for: sandboxName, kind: "clone")) ?? ""
+        let createLog = (try? keyStore.readLog(for: sandboxName, kind: "create")) ?? ""
         let startLog = (try? keyStore.readLog(for: sandboxName, kind: "start")) ?? ""
-        let combined = [cloneLog, startLog].filter { !$0.isEmpty }.joined(separator: "\n")
+        let combined = [cloneLog, createLog, startLog].filter { !$0.isEmpty }.joined(separator: "\n")
         return SandboxLogs(text: combined)
     }
 
@@ -230,6 +289,14 @@ public struct TartCLIBackend: SandboxBackend {
     private func configureSharedFolderSymlinks(for spec: SandboxSpec) throws {
         guard !spec.sharedFolders.isEmpty else { return }
         _ = try runRequiredRetried(["exec", spec.name.rawValue, "/bin/zsh", "-lc", sharedFolderSymlinkScript(for: spec.sharedFolders)])
+    }
+
+    private func configureSharedFolderSymlinksOverSSH(for spec: SandboxSpec, ipAddress: String) throws {
+        guard !spec.sharedFolders.isEmpty else { return }
+        let output = try sshRunner.run(arguments: sshArguments(sandboxName: spec.name, ipAddress: ipAddress, remoteCommand: sharedFolderSymlinkScript(for: spec.sharedFolders)))
+        guard output.exitCode == 0 else {
+            throw BackendTranslatedError.commandFailed("Could not configure Shared Folders in macOS Sandbox VM \(spec.name.rawValue). Check passwordless sudo, then re-run `sand bootstrap \(spec.name.rawValue)`.")
+        }
     }
 
     private func signingCredentialsScript(for request: BackendSigningCredentialsRequest) -> String {
@@ -421,6 +488,15 @@ public struct TartCLIBackend: SandboxBackend {
         ]
     }
 
+    private func sshKeyAlreadyInjected(sandboxName: SandboxName, ipAddress: String) -> Bool {
+        do {
+            let output = try sshRunner.run(arguments: sshArguments(sandboxName: sandboxName, ipAddress: ipAddress, remoteCommand: "printf SAND_SSH_READY"))
+            return output.exitCode == 0 && output.stdout.contains("SAND_SSH_READY")
+        } catch {
+            return false
+        }
+    }
+
     private func shellQuoted(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
@@ -464,6 +540,46 @@ public struct ProcessTartVMStarter: TartVMStarter {
 
 public protocol TartScreenSharingOpener {
     func open(url: String) throws
+}
+
+public protocol TartPasswordSSHRunner {
+    func run(ipAddress: String, remoteCommand: String) throws -> BackendCommandOutput
+}
+
+public struct ExpectTartPasswordSSHRunner: TartPasswordSSHRunner {
+    public init() {}
+
+    public func run(ipAddress: String, remoteCommand: String) throws -> BackendCommandOutput {
+        let scriptURL = FileManager.default.temporaryDirectory.appendingPathComponent("sand-ssh-password-\(UUID().uuidString).expect")
+        let script = """
+        log_user 1
+        send_user "admin@\(ipAddress) password: "
+        stty -echo
+        expect_user -re "(.*)\\n"
+        stty echo
+        send_user "\\n"
+        set password $expect_out(1,string)
+        spawn ssh -o PasswordAuthentication=yes -o PubkeyAuthentication=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@\(ipAddress) [lindex $argv 0]
+        expect {
+            -re "(?i)password:" { send "$password\\r"; exp_continue }
+            eof
+        }
+        catch wait result
+        exit [lindex $result 3]
+        """
+        try script.write(to: scriptURL, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: scriptURL) }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/expect")
+        process.arguments = [scriptURL.path, remoteCommand]
+        process.standardInput = FileHandle.standardInput
+        process.standardOutput = FileHandle.standardOutput
+        process.standardError = FileHandle.standardError
+        try process.run()
+        process.waitUntilExit()
+        return BackendCommandOutput(stdout: "", stderr: "", exitCode: Int(process.terminationStatus))
+    }
 }
 
 public struct ProcessTartScreenSharingOpener: TartScreenSharingOpener {

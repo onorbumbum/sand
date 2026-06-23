@@ -21,6 +21,21 @@ final class SandboxSpecTests: XCTestCase {
         XCTAssertEqual(spec.diskSize, DiskSize(gigabytes: 64))
     }
 
+    func testReadySpecsOmitBootstrapLineForByteStableYAML() throws {
+        let spec = SandboxSpec(name: try SandboxName("macbox"), image: SandboxImage(reference: "ghcr.io/example/macos:latest"), guestOS: .macOS)
+
+        XCTAssertEqual(spec.bootstrapState, .ready)
+        XCTAssertFalse(spec.renderedYAML().contains("bootstrap"))
+    }
+
+    func testSetupRequiredMacOSSpecRendersAndParsesBootstrapState() throws {
+        let spec = SandboxSpec(name: try SandboxName("macbox"), image: SandboxImage(reference: "ipsw:latest"), guestOS: .macOS, bootstrapState: .setupRequired)
+
+        XCTAssertTrue(spec.renderedYAML().contains("bootstrap: setup-required"))
+        XCTAssertEqual(try SandboxSpec.parseYAML(spec.renderedYAML()), spec)
+        XCTAssertEqual(try SandboxSpec.parseYAML(spec.renderedYAML()).bootstrapState, .setupRequired)
+    }
+
     func testMacOSSpecParsesAndRendersDiskSize() throws {
         let yaml = """
         schemaVersion: 1

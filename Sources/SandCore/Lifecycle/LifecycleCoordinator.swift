@@ -75,6 +75,9 @@ public struct LifecycleCoordinator: SandboxApplication {
     /// Either parses an authored spec from YAML or generates one from
     /// the provided parameters.
     public func create(_ request: CreateRequest) throws -> CommandResult {
+        if let ipswSource = request.ipswSource {
+            return try createFromIPSW(request, ipswSource: ipswSource)
+        }
         try metadataStore.withLifecycleMutationLock {
             let spec: SandboxSpec
             if let authoredSpecText = request.authoredSpecText {
@@ -97,6 +100,65 @@ public struct LifecycleCoordinator: SandboxApplication {
                 throw error
             }
         }
+        return .success
+    }
+
+    /// Builds a self-made macOS base from an IPSW.
+    ///
+    /// The raw IPSW install requires interactive first-boot macOS setup before
+    /// SSH/key automation is available, so this records the sandbox as
+    /// setup-required and guides the user to complete first boot in a GUI
+    /// session before running `sand bootstrap`.
+    private func createFromIPSW(_ request: CreateRequest, ipswSource: String) throws -> CommandResult {
+        try metadataStore.withLifecycleMutationLock {
+            let spec = SandboxSpec.generated(
+                name: request.sandboxName,
+                image: request.image,
+                guestOS: .macOS,
+                resourceProfile: request.resourceProfile,
+                diskSize: request.diskSize,
+                bootstrapState: .setupRequired
+            )
+            try spec.validateV1()
+            try metadataStore.createSpec(spec)
+            do {
+                try backend(for: spec).provisionFromIPSW(spec, ipswSource: ipswSource)
+            } catch {
+                try metadataStore.deleteSpec(named: spec.name)
+                throw error
+            }
+        }
+        let name = request.sandboxName.rawValue
+        writeOutput("Created setup-required macOS Sandbox VM '\(name)' from IPSW.")
+        writeOutput("Complete one-time first boot, then bootstrap:")
+        writeOutput("  1. Run `sand \(name) gui` and finish macOS Setup Assistant.")
+        writeOutput("  2. Create/enable the Sandbox User (admin), enable Remote Login, and configure passwordless sudo.")
+        writeOutput("  3. Run `sand bootstrap \(name)` to inject the Sand key and finish backend configuration.")
+        return .success
+    }
+
+    /// Completes the second stage of the self-built macOS IPSW flow.
+    ///
+    /// After the user finishes interactive first-boot setup in a GUI session,
+    /// this injects the Sand SSH key, verifies SSH reachability and passwordless
+    /// sudo, runs post-create backend configuration, and transitions the
+    /// sandbox from setup-required to ready for the frictionless shell/run path.
+    public func bootstrap(_ request: NamedSandboxRequest) throws -> CommandResult {
+        try metadataStore.withLifecycleMutationLock {
+            let spec = try metadataStore.readSpec(named: request.sandboxName)
+            guard spec.guestOS == .macOS else {
+                throw SandboxBootstrapError.unsupportedGuestOS(spec.guestOS.rawValue)
+            }
+            guard spec.bootstrapState == .setupRequired else {
+                throw SandboxBootstrapError.alreadyBootstrapped(spec.name.rawValue)
+            }
+            try backend(for: spec).bootstrap(spec)
+            var ready = spec
+            ready.bootstrapState = .ready
+            try metadataStore.writeSpec(ready)
+        }
+        let name = request.sandboxName.rawValue
+        writeOutput("Bootstrapped macOS Sandbox VM '\(name)'. It is ready — use `sand \(name) shell`.")
         return .success
     }
 
@@ -178,6 +240,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     /// working directory to the guest and opens a shell there.
     public func shell(_ request: ShellRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)
+        try requireBootstrapped(spec)
         let mapping = mappedWorkingDirectory(for: spec)
         emitWarningIfNeeded(mapping)
 
@@ -192,6 +255,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     /// Executes a workload command in the sandbox VM.
     public func run(_ request: RunRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)
+        try requireBootstrapped(spec)
         let mapping = mappedWorkingDirectory(for: spec)
         emitWarningIfNeeded(mapping)
 
@@ -315,6 +379,13 @@ public struct LifecycleCoordinator: SandboxApplication {
             diskSize: request.diskSize ?? sourceSpec.diskSize
         )
         return LocalCloneRequest(sourceSpec: sourceSpec, spec: spec)
+    }
+
+    // Blocks the frictionless shell/run path until a setup-required IPSW base
+    // has been bootstrapped, pointing the user at the first-boot + bootstrap flow.
+    private func requireBootstrapped(_ spec: SandboxSpec) throws {
+        guard spec.bootstrapState == .setupRequired else { return }
+        throw SandboxBootstrapError.setupRequired(spec.name.rawValue)
     }
 
     private func backend(for spec: SandboxSpec) throws -> any SandboxBackend {

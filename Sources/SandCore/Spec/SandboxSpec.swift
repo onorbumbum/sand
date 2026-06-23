@@ -13,6 +13,7 @@ public struct SandboxSpec: Equatable, Sendable {
     public var guestOS: GuestOS
     public var resourceProfile: ResourceProfile
     public var diskSize: DiskSize?
+    public var bootstrapState: BootstrapState
     public var sharedFolders: [SharedFolder]
 
     public init(
@@ -22,6 +23,7 @@ public struct SandboxSpec: Equatable, Sendable {
         guestOS: GuestOS = .linux,
         resourceProfile: ResourceProfile? = nil,
         diskSize: DiskSize? = nil,
+        bootstrapState: BootstrapState = .ready,
         sharedFolders: [SharedFolder] = []
     ) {
         self.schemaVersion = schemaVersion
@@ -30,12 +32,13 @@ public struct SandboxSpec: Equatable, Sendable {
         self.guestOS = guestOS
         self.resourceProfile = resourceProfile ?? ResourceProfile.default(for: guestOS)
         self.diskSize = diskSize ?? DiskSize.default(for: guestOS)
+        self.bootstrapState = bootstrapState
         self.sharedFolders = sharedFolders
     }
 
     /// Creates a spec with default settings.
-    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile? = nil, diskSize: DiskSize? = nil) -> SandboxSpec {
-        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile ?? ResourceProfile.default(for: guestOS), diskSize: diskSize, sharedFolders: [])
+    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile? = nil, diskSize: DiskSize? = nil, bootstrapState: BootstrapState = .ready) -> SandboxSpec {
+        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile ?? ResourceProfile.default(for: guestOS), diskSize: diskSize, bootstrapState: bootstrapState, sharedFolders: [])
     }
 
     public func validateV1() throws {
@@ -81,6 +84,9 @@ public struct SandboxSpec: Equatable, Sendable {
         lines.append("name: \(name.rawValue)")
         lines.append("image: \(image.reference)")
         lines.append("os: \(guestOS.rawValue)")
+        if bootstrapState != .ready {
+            lines.append("bootstrap: \(bootstrapState.rawValue)")
+        }
         if let diskSize {
             lines.append("disk: \(diskSize.description)")
         }
@@ -111,6 +117,7 @@ public struct SandboxSpec: Equatable, Sendable {
         var cpus: Int?
         var memory: MemorySize?
         var diskSize: DiskSize?
+        var bootstrapState: BootstrapState = .ready
         var sharedFolders: [SharedFolder] = []
         var inResources = false
         var inSharedFolders = false
@@ -168,6 +175,7 @@ public struct SandboxSpec: Equatable, Sendable {
             case "name": name = try SandboxName(value)
             case "image": image = SandboxImage(reference: value)
             case "os": guestOS = try GuestOS.parse(value)
+            case "bootstrap": bootstrapState = try BootstrapState.parse(value)
             case "disk": diskSize = try DiskSize.parse(value)
             case "resources":
                 guard value.isEmpty else { throw SandboxSpecError.malformedLine(rawLine) }
@@ -195,6 +203,7 @@ public struct SandboxSpec: Equatable, Sendable {
             guestOS: guestOS ?? .linux,
             resourceProfile: ResourceProfile(cpus: try required(cpus, "resources.cpus"), memory: try required(memory, "resources.memory")),
             diskSize: diskSize,
+            bootstrapState: bootstrapState,
             sharedFolders: sharedFolders
         )
         try spec.validateV1()
@@ -283,6 +292,25 @@ public enum GuestOS: String, Equatable, Sendable {
         case "linux": return .linux
         case "macos": return .macOS
         default: throw SandboxSpecError.unsupportedField("os: \(rawValue)")
+        }
+    }
+}
+
+/// Tracks whether a sandbox is ready for frictionless use or still needs
+/// one-time first-boot setup followed by `sand bootstrap`.
+///
+/// Self-built macOS bases from IPSW start as `setupRequired`: the VM exists
+/// but requires GUI first-boot Sandbox User setup before SSH/key automation
+/// is available. `sand bootstrap` transitions it to `ready`.
+public enum BootstrapState: String, Equatable, Sendable {
+    case ready
+    case setupRequired = "setup-required"
+
+    public static func parse(_ rawValue: String) throws -> BootstrapState {
+        switch rawValue {
+        case "ready": return .ready
+        case "setup-required": return .setupRequired
+        default: throw SandboxSpecError.unsupportedField("bootstrap: \(rawValue)")
         }
     }
 }

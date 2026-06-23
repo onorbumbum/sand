@@ -59,13 +59,16 @@ final class CLICommandRouterTests: XCTestCase {
         """
         let cases: [(arguments: [String], expected: AppCall)] = [
             (["doctor"], .doctor),
-            (["create", "mybox"], .create("mybox", nil, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil)),
-            (["create", "mybox", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil)),
-            (["create", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil)),
-            (["create", "mybox", "--cpus", "6", "--memory", "12GB", "--image", "custom:latest"], .create("mybox", nil, "custom:latest", "linux", 6, 12288, nil, nil)),
-            (["create", "mybox", "--os", "macos", "--from", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"], .create("mybox", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", "macos", 4, 16384, nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest")),
-            (["create", "mybox", "--os", "macos", "--memory", "8GB", "--disk", "150GB", "--from", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"], .create("mybox", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", "macos", 4, 8192, "150GB", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest")),
-            (["create", "mybox", "--from", "cleanbox"], .create("mybox", nil, "cleanbox", "linux", 4, 8192, nil, "cleanbox")),
+            (["create", "mybox"], .create("mybox", nil, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil, nil)),
+            (["create", "mybox", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil, nil)),
+            (["create", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192, nil, nil, nil)),
+            (["create", "mybox", "--cpus", "6", "--memory", "12GB", "--image", "custom:latest"], .create("mybox", nil, "custom:latest", "linux", 6, 12288, nil, nil, nil)),
+            (["create", "mybox", "--os", "macos", "--from", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"], .create("mybox", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", "macos", 4, 16384, nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", nil)),
+            (["create", "mybox", "--os", "macos", "--memory", "8GB", "--disk", "150GB", "--from", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"], .create("mybox", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", "macos", 4, 8192, "150GB", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", nil)),
+            (["create", "mybox", "--from", "cleanbox"], .create("mybox", nil, "cleanbox", "linux", 4, 8192, nil, "cleanbox", nil)),
+            (["create", "mybox", "--from-ipsw", "latest"], .create("mybox", nil, "ipsw:latest", "macos", 4, 16384, nil, nil, "latest")),
+            (["create", "mybox", "--os", "macos", "--from-ipsw", "/images/macos.ipsw"], .create("mybox", nil, "ipsw:/images/macos.ipsw", "macos", 4, 16384, nil, nil, "/images/macos.ipsw")),
+            (["bootstrap", "mybox"], .bootstrap("mybox")),
             (["list"], .list),
             (["apply", "mybox"], .apply("mybox")),
             (["delete", "mybox"], .delete("mybox", false)),
@@ -245,6 +248,27 @@ final class CLICommandRouterTests: XCTestCase {
             XCTAssertEqual(error as? CLICommandError, .unsupportedCommand("mybox"))
         }
     }
+
+    func testCreateMacOSWithoutSourceRejectsWithSourceChoices() throws {
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(application: app)
+
+        XCTAssertThrowsError(try router.dispatch(arguments: ["create", "mybox", "--os", "macos"])) { error in
+            XCTAssertEqual(error as? CLICommandError, .macOSSourceRequired)
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("--from <image-or-local-sandbox>"))
+            XCTAssertTrue(message.contains("--from-ipsw <latest|path|url>"))
+        }
+        XCTAssertEqual(app.calls, [])
+    }
+
+    func testCreateRejectsConflictingFromAndFromIPSWSources() throws {
+        let router = CLICommandRouter(application: RecordingSandboxApplication())
+
+        XCTAssertThrowsError(try router.dispatch(arguments: ["create", "mybox", "--from", "cleanbox", "--from-ipsw", "latest"])) { error in
+            XCTAssertEqual(error as? CLICommandError, .conflictingOptions("--from", "--from-ipsw"))
+        }
+    }
 }
 
 private final class RecordingSandboxApplication: SandboxApplication {
@@ -252,8 +276,9 @@ private final class RecordingSandboxApplication: SandboxApplication {
 
     func doctor() throws -> CommandResult { calls.append(.doctor); return .success }
     func create(_ request: CreateRequest) throws -> CommandResult {
-        calls.append(.create(request.sandboxName.rawValue, request.authoredSpecText, request.image.reference, request.guestOS.rawValue, request.resourceProfile.cpus, request.resourceProfile.memory.megabytes, request.diskSize?.description, request.sourceReference)); return .success
+        calls.append(.create(request.sandboxName.rawValue, request.authoredSpecText, request.image.reference, request.guestOS.rawValue, request.resourceProfile.cpus, request.resourceProfile.memory.megabytes, request.diskSize?.description, request.sourceReference, request.ipswSource)); return .success
     }
+    func bootstrap(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.bootstrap(request.sandboxName.rawValue)); return .success }
     func list() throws -> CommandResult { calls.append(.list); return .success }
     func apply(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.apply(request.sandboxName.rawValue)); return .success }
     func delete(_ request: DeleteRequest) throws -> CommandResult { calls.append(.delete(request.sandboxName.rawValue, request.force)); return .success }
@@ -275,7 +300,8 @@ private final class RecordingSandboxApplication: SandboxApplication {
 
 private enum AppCall: Equatable {
     case doctor
-    case create(String, String?, String, String, Int, Int, String?, String?)
+    case create(String, String?, String, String, Int, Int, String?, String?, String?)
+    case bootstrap(String)
     case list
     case apply(String)
     case delete(String, Bool)

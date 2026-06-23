@@ -105,6 +105,17 @@ final class RecordingSandboxBackend: SandboxBackend {
         runtimeStatus = .stopped
     }
 
+    func provisionFromIPSW(_ spec: SandboxSpec, ipswSource: String) throws {
+        calls.append(.provisionFromIPSW(spec.name.rawValue, ipswSource))
+        if let provisionError = provisionError { throw provisionError }
+        runtimeStatus = .stopped
+    }
+
+    func bootstrap(_ spec: SandboxSpec) throws {
+        calls.append(.bootstrap(spec.name.rawValue))
+        runtimeStatus = .stopped
+    }
+
     func apply(_ spec: SandboxSpec) throws {
         calls.append(.apply(spec.name.rawValue))
     }
@@ -187,6 +198,8 @@ enum BackendTestError: Error, Equatable {
 enum BackendCall: Equatable {
     case checkReadiness
     case provision(String)
+    case provisionFromIPSW(String, String)
+    case bootstrap(String)
     case apply(String)
     case start(String)
     case stop(String)

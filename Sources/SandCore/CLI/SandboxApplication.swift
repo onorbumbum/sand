@@ -6,6 +6,7 @@ import Foundation
 public protocol SandboxApplication {
     func doctor() throws -> CommandResult
     func create(_ request: CreateRequest) throws -> CommandResult
+    func bootstrap(_ request: NamedSandboxRequest) throws -> CommandResult
     func list() throws -> CommandResult
     func apply(_ request: NamedSandboxRequest) throws -> CommandResult
     func delete(_ request: DeleteRequest) throws -> CommandResult
@@ -41,6 +42,7 @@ public struct CreateRequest: Equatable {
     public var resourceProfile: ResourceProfile
     public var diskSize: DiskSize?
     public var sourceReference: String?
+    public var ipswSource: String?
 
     public init(
         sandboxName: SandboxName,
@@ -49,7 +51,8 @@ public struct CreateRequest: Equatable {
         guestOS: GuestOS = .linux,
         resourceProfile: ResourceProfile? = nil,
         diskSize: DiskSize? = nil,
-        sourceReference: String? = nil
+        sourceReference: String? = nil,
+        ipswSource: String? = nil
     ) {
         self.sandboxName = sandboxName
         self.authoredSpecText = authoredSpecText
@@ -58,6 +61,7 @@ public struct CreateRequest: Equatable {
         self.resourceProfile = resourceProfile ?? ResourceProfile.default(for: guestOS)
         self.diskSize = diskSize
         self.sourceReference = sourceReference
+        self.ipswSource = ipswSource
     }
 }
 
@@ -67,6 +71,24 @@ public enum SandboxCreateError: Error, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .localCloneSourceNotStopped(let name): return "local macOS clone source must be stopped: \(name)"
+        }
+    }
+}
+
+/// Errors raised when building or bootstrapping a self-made macOS base.
+public enum SandboxBootstrapError: Error, Equatable, CustomStringConvertible {
+    case unsupportedGuestOS(String)
+    case alreadyBootstrapped(String)
+    case setupRequired(String)
+
+    public var description: String {
+        switch self {
+        case .unsupportedGuestOS(let guestOS):
+            return "self-built IPSW bases and bootstrap are macOS-only; Sandbox VM uses \(guestOS)."
+        case .alreadyBootstrapped(let name):
+            return "Sandbox VM \(name) is already bootstrapped and ready for `sand \(name) shell`."
+        case .setupRequired(let name):
+            return "Sandbox VM \(name) still needs first-boot setup. Run `sand \(name) gui` to create/enable the Sandbox User, then run `sand bootstrap \(name)`."
         }
     }
 }

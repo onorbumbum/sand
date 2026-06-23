@@ -52,6 +52,104 @@ final class TartCLIBackendTests: XCTestCase {
         ])
     }
 
+    func testProvisionFromIPSWCreatesVMSetsResourcesAndLeavesSetupRequiredWithoutCloneStartOrKey() throws {
+        let name = try SandboxName("ipswbox")
+        let keyStore = StaticTartKeyStore()
+        let starter = RecordingTartVMStarter()
+        let runner = ScriptedTartRunner(results: [
+            ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
+            ["create", "ipswbox", "--from-ipsw", "latest"]: .success(.init(stdout: "created\n", stderr: "", exitCode: 0)),
+            ["set", "ipswbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: keyStore, sleeper: { _ in }, maxIPAttempts: 1)
+
+        try backend.provisionFromIPSW(SandboxSpec(name: name, image: SandboxImage(reference: "ipsw:latest"), guestOS: .macOS, bootstrapState: .setupRequired), ipswSource: "latest")
+
+        XCTAssertEqual(runner.calls, [
+            ["--version"],
+            ["create", "ipswbox", "--from-ipsw", "latest"],
+            ["set", "ipswbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64"]
+        ])
+        XCTAssertEqual(starter.calls, [])
+        XCTAssertEqual(keyStore.created, ["ipswbox"])
+        XCTAssertTrue(keyStore.logs["ipswbox:create"]?.contains("created") == true)
+    }
+
+    func testBootstrapInjectsKeyOverSSHPasswordAuthThenVerifiesWithKeyAndStops() throws {
+        let name = try SandboxName("ipswbox")
+        let injectScript = "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-ipswbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-ipswbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"
+        let keyPrefix = ["-i", "/tmp/ipswbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2"]
+        let keyReady = keyPrefix + ["printf SAND_SSH_READY"]
+        let starter = RecordingTartVMStarter()
+        let runner = ScriptedTartRunner(results: [
+            ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
+            ["list", "--format", "json"]: .success(.init(stdout: "[{\"Name\":\"ipswbox\",\"State\":\"running\",\"Running\":true}]", stderr: "", exitCode: 0)),
+            ["ip", "ipswbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
+            ["stop", "ipswbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let sshRunner = ScriptedTartRunner(results: [
+            (keyPrefix + ["true"]): .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            (keyPrefix + ["sudo -n true"]): .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let passwordSSHRunner = RecordingTartPasswordSSHRunner()
+        let backend = TartCLIBackend(runner: runner, sshRunner: sshRunner, starter: starter, keyStore: StaticTartKeyStore(), passwordSSHRunner: passwordSSHRunner, sleeper: { _ in }, maxIPAttempts: 1)
+
+        try backend.bootstrap(SandboxSpec(name: name, image: SandboxImage(reference: "ipsw:latest"), guestOS: .macOS, bootstrapState: .setupRequired))
+
+        XCTAssertEqual(runner.calls, [
+            ["--version"],
+            ["list", "--format", "json"],
+            ["ip", "ipswbox"],
+            ["stop", "ipswbox", "--timeout", "120"]
+        ])
+        XCTAssertEqual(passwordSSHRunner.calls, [TartPasswordSSHCall(ipAddress: "192.168.65.2", remoteCommand: injectScript)])
+        XCTAssertEqual(sshRunner.calls, [keyReady, keyPrefix + ["true"], keyPrefix + ["sudo -n true"]])
+        XCTAssertEqual(sshRunner.ioModes, [.captured, .captured, .captured])
+        XCTAssertEqual(starter.calls, [])
+    }
+
+    func testBootstrapConfiguresSharedFoldersOverKeyBasedSSH() throws {
+        let name = try SandboxName("ipswbox")
+        let injectScript = "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-ipswbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-ipswbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"
+        let keyPrefix = ["-i", "/tmp/ipswbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2"]
+        let keyReady = keyPrefix + ["printf SAND_SSH_READY"]
+        let symlinkScript = """
+        set -e
+        sudo -n mkdir -p '/workspace'
+        if [ -e '/workspace/sand' ] && [ ! -L '/workspace/sand' ]; then echo 'Guest Path exists and is not a symlink: /workspace/sand' >&2; exit 1; fi
+        sudo -n rm -f '/workspace/sand'
+        sudo -n ln -s '/Volumes/My Shared Files/sand-L3dvcmtzcGFjZS9zYW5k' '/workspace/sand'
+        """
+        let runner = ScriptedTartRunner(results: [
+            ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
+            ["list", "--format", "json"]: .success(.init(stdout: "[{\"Name\":\"ipswbox\",\"State\":\"running\",\"Running\":true}]", stderr: "", exitCode: 0)),
+            ["ip", "ipswbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
+            ["stop", "ipswbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let sshRunner = ScriptedTartRunner(results: [
+            (keyPrefix + ["true"]): .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            (keyPrefix + ["sudo -n true"]): .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            (keyPrefix + [symlinkScript]): .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let passwordSSHRunner = RecordingTartPasswordSSHRunner()
+        let backend = TartCLIBackend(runner: runner, sshRunner: sshRunner, starter: RecordingTartVMStarter(), keyStore: StaticTartKeyStore(), passwordSSHRunner: passwordSSHRunner, sleeper: { _ in }, maxIPAttempts: 1)
+        let spec = SandboxSpec(
+            name: name,
+            image: SandboxImage(reference: "ipsw:latest"),
+            guestOS: .macOS,
+            bootstrapState: .setupRequired,
+            sharedFolders: [
+                SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)
+            ]
+        )
+
+        try backend.bootstrap(spec)
+
+        XCTAssertEqual(passwordSSHRunner.calls, [TartPasswordSSHCall(ipAddress: "192.168.65.2", remoteCommand: injectScript)])
+        XCTAssertEqual(sshRunner.calls, [keyReady, keyPrefix + ["true"], keyPrefix + ["sudo -n true"], keyPrefix + [symlinkScript]])
+        XCTAssertFalse(runner.calls.contains { $0.first == "exec" })
+    }
+
     func testStartMountsMacOSSharedFoldersAndCreatesGuestPathSymlinks() throws {
         let name = try SandboxName("macbox")
         let starter = RecordingTartVMStarter()
@@ -214,6 +312,23 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(screenSharing.openedURLs, ["vnc://admin@192.168.65.2"])
     }
 
+    func testGUIForSetupRequiredIPSWVMUsesTartBuiltInVNCWithoutGuestScreenSharing() throws {
+        let name = try SandboxName("ipswbox")
+        let starter = RecordingTartVMStarter()
+        let screenSharing = RecordingTartScreenSharingOpener()
+        let runner = ScriptedTartRunner(results: [:])
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: StaticTartKeyStore(), screenSharing: screenSharing, sleeper: { _ in }, maxIPAttempts: 1)
+        let spec = SandboxSpec(name: name, image: SandboxImage(reference: "ipsw:latest"), guestOS: .macOS, bootstrapState: .setupRequired)
+
+        XCTAssertEqual(try backend.gui(BackendGUIRequest(spec: spec)), .success)
+
+        XCTAssertEqual(starter.calls, [
+            TartStartCall(arguments: ["run", "--vnc-experimental", "--root-disk-opts", "sync=full", "ipswbox"], logPath: "/tmp/ipswbox-gui.log")
+        ])
+        XCTAssertEqual(runner.calls, [])
+        XCTAssertEqual(screenSharing.openedURLs, [])
+    }
+
     func testInstallSigningCredentialsInjectsP12AndProvisioningProfileIntoGuestKeychain() throws {
         let name = try SandboxName("macbox")
         let runner = PermissiveTartRunner()
@@ -321,6 +436,20 @@ private final class RecordingTartScreenSharingOpener: TartScreenSharingOpener {
     func open(url: String) throws {
         openedURLs.append(url)
     }
+}
+
+private final class RecordingTartPasswordSSHRunner: TartPasswordSSHRunner {
+    var calls: [TartPasswordSSHCall] = []
+
+    func run(ipAddress: String, remoteCommand: String) throws -> BackendCommandOutput {
+        calls.append(TartPasswordSSHCall(ipAddress: ipAddress, remoteCommand: remoteCommand))
+        return BackendCommandOutput(stdout: "", stderr: "", exitCode: 0)
+    }
+}
+
+private struct TartPasswordSSHCall: Equatable {
+    var ipAddress: String
+    var remoteCommand: String
 }
 
 private struct TartStartCall: Equatable {

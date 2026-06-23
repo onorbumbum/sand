@@ -7,6 +7,8 @@ import Foundation
 public protocol SandboxBackend {
     func checkReadiness() throws -> BackendReadiness
     func provision(_ spec: SandboxSpec) throws
+    func provisionFromIPSW(_ spec: SandboxSpec, ipswSource: String) throws
+    func bootstrap(_ spec: SandboxSpec) throws
     func apply(_ spec: SandboxSpec) throws
     func start(_ spec: SandboxSpec) throws
     func stop(_ sandboxName: SandboxName) throws
@@ -17,6 +19,18 @@ public protocol SandboxBackend {
     func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus
     func logs(_ sandboxName: SandboxName) throws -> SandboxLogs
     func delete(_ sandboxName: SandboxName) throws
+}
+
+/// Default implementations for backends that do not support self-built macOS
+/// bases from IPSW (for example the Linux backend).
+public extension SandboxBackend {
+    func provisionFromIPSW(_ spec: SandboxSpec, ipswSource: String) throws {
+        throw SandboxBootstrapError.unsupportedGuestOS(spec.guestOS.rawValue)
+    }
+
+    func bootstrap(_ spec: SandboxSpec) throws {
+        throw SandboxBootstrapError.unsupportedGuestOS(spec.guestOS.rawValue)
+    }
 }
 
 /// The readiness state of the backend.

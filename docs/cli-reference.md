@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: 74d880da8775d220f4919b85dde149b1c3b779eb22f963776d057825adbfaa24 -->
+<!-- docs-input-hash: b12e514476abbe1833bc24124ce90c714876ad9530bc2084267e4829c48c3fca -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **API Surface** for managing **Sandbox VMs**, **A
 
 ## Generation source
 
-- Docs input hash: `74d880da8775d220f4919b85dde149b1c3b779eb22f963776d057825adbfaa24`
+- Docs input hash: `b12e514476abbe1833bc24124ce90c714876ad9530bc2084267e4829c48c3fca`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, and `sand --version` output.
@@ -18,7 +18,7 @@ This reference captures the v1 **API Surface** for managing **Sandbox VMs**, **A
 ## Supported v1 command surface
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `doctor`, `create`, `list`, `apply`, `delete`, `folders`, `signing`, `status`, `start`, `stop`, `shell`, `run`, `logs`, `spec`
+- Top-level commands: `doctor`, `create`, `bootstrap`, `list`, `apply`, `delete`, `folders`, `signing`, `status`, `start`, `stop`, `shell`, `run`, `logs`, `spec`
 
 ## Current v1 boundaries
 
@@ -43,6 +43,7 @@ Usage: sand <command> [options]
 Commands:
   doctor                         Verify host prerequisites
   create <name> [options]        Create a Sandbox VM
+  bootstrap <name>               Finish first-boot setup of a self-built macOS base
   list                           List Sandbox VMs
   apply <name>                   Apply spec changes
   delete <name> [--force]        Delete a Sandbox VM
@@ -71,9 +72,14 @@ Verifies host support, backend readiness, default image availability, and ~/.san
 ## `sand create`
 
 ```text
-Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--cpus <count>] [--memory <size>] [--disk <size>]
+Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--from-ipsw <latest|path|url>] [--cpus <count>] [--memory <size>] [--disk <size>]
 
 Creates a Sandbox VM from generated defaults, an authored Linux spec, a backend image, or a stopped local macOS sandbox.
+
+macOS sources are open-ended and must be explicit:
+  --from <image-or-local-sandbox>   Clone any Tart-compatible macOS image (Sequoia, Tahoe, pinned digest) or a stopped local sandbox.
+  --from-ipsw <latest|path|url>     Build a self-made macOS base via `tart create --from-ipsw`. Creates a setup-required VM;
+                                    run `sand <name> gui` to complete first boot, then `sand bootstrap <name>`.
 ```
 
 ## `sand list`
@@ -92,12 +98,22 @@ Usage: sand apply <name>
 Applies shared spec changes to an existing Sandbox VM.
 ```
 
+## `sand bootstrap`
+
+```text
+Usage: sand bootstrap <name>
+
+Finishes the second stage of a self-built macOS base created with `--from-ipsw`.
+
+After completing interactive first-boot macOS setup in `sand <name> gui` (create/enable the Sandbox User, enable Remote Login, configure passwordless sudo), this injects the Sand SSH key, verifies SSH and passwordless sudo, runs backend configuration, and marks the Sandbox VM ready for `sand <name> shell`.
+```
+
 ## `sand delete`
 
 ```text
 Usage: sand delete <name> [--force]
 
-Deletes the Sandbox VM runtime, guest state volume, and host metadata spec.
+Deletes the Sandbox VM runtime, guest state volume, and host metadata spec.},{
 ```
 
 ## `sand folders`

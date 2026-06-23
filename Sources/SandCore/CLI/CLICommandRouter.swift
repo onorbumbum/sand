@@ -61,6 +61,10 @@ public struct CLICommandRouter {
             if try printHelpIfRequested(arguments, CLIHelp.apply) { return .success }
             let name = try singleNameArgument(arguments, command: "apply")
             return try application.apply(NamedSandboxRequest(sandboxName: name))
+        case "bootstrap":
+            if try printHelpIfRequested(arguments, CLIHelp.bootstrap) { return .success }
+            let name = try singleNameArgument(arguments, command: "bootstrap")
+            return try application.bootstrap(NamedSandboxRequest(sandboxName: name))
         case "delete":
             if try printHelpIfRequested(arguments, CLIHelp.delete) { return .success }
             return try dispatchDelete(Array(arguments.dropFirst()))
@@ -119,6 +123,7 @@ public struct CLICommandRouter {
         var authoredSpecText: String?
         var sourceReference: String?
         var fromValue: String?
+        var ipswValue: String?
         var index = 0
 
         if !firstArgument.hasPrefix("--") {
@@ -132,6 +137,11 @@ public struct CLICommandRouter {
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--from") }
                 fromValue = arguments[index]
+            case "--from-ipsw":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--from-ipsw") }
+                ipswValue = arguments[index]
+                guestOS = .macOS
             case "--cpus":
                 index += 1
                 guard index < arguments.count, let parsedCPUs = Int(arguments[index]) else { throw CLICommandError.missingOptionValue("--cpus") }
@@ -160,7 +170,13 @@ public struct CLICommandRouter {
             index += 1
         }
 
-        if let fromValue {
+        if fromValue != nil, ipswValue != nil {
+            throw CLICommandError.conflictingOptions("--from", "--from-ipsw")
+        }
+
+        if let ipswValue {
+            image = SandboxImage(reference: "ipsw:\(ipswValue)")
+        } else if let fromValue {
             if guestOS == .linux && (FileManager.default.fileExists(atPath: fromValue) || fromValue.hasSuffix(".yaml") || fromValue.hasSuffix(".yml")) {
                 let text = try readTextFile(fromValue)
                 let spec = try SandboxSpec.parseYAML(text)
@@ -173,12 +189,14 @@ public struct CLICommandRouter {
                 sourceReference = fromValue
                 image = SandboxImage(reference: fromValue)
             }
+        } else if guestOS == .macOS {
+            throw CLICommandError.macOSSourceRequired
         }
 
         guard let name else { throw CLICommandError.missingSandboxName }
         let defaults = ResourceProfile.default(for: guestOS)
         let resourceProfile = ResourceProfile(cpus: cpus ?? defaults.cpus, memory: memory ?? defaults.memory)
-        return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, guestOS: guestOS, resourceProfile: resourceProfile, diskSize: diskSize, sourceReference: sourceReference))
+        return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, guestOS: guestOS, resourceProfile: resourceProfile, diskSize: diskSize, sourceReference: sourceReference, ipswSource: ipswValue))
     }
 
     // Parses and dispatches the `delete` command with its options.
@@ -351,6 +369,7 @@ private enum CLIHelp {
     Commands:
       doctor                         Verify host prerequisites
       create <name> [options]        Create a Sandbox VM
+      bootstrap <name>               Finish first-boot setup of a self-built macOS base
       list                           List Sandbox VMs
       apply <name>                   Apply spec changes
       delete <name> [--force]        Delete a Sandbox VM
@@ -381,15 +400,28 @@ private enum CLIHelp {
     """
 
     static let create = """
-    Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--cpus <count>] [--memory <size>] [--disk <size>]
+    Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--from-ipsw <latest|path|url>] [--cpus <count>] [--memory <size>] [--disk <size>]
 
     Creates a Sandbox VM from generated defaults, an authored Linux spec, a backend image, or a stopped local macOS sandbox.
+
+    macOS sources are open-ended and must be explicit:
+      --from <image-or-local-sandbox>   Clone any Tart-compatible macOS image (Sequoia, Tahoe, pinned digest) or a stopped local sandbox.
+      --from-ipsw <latest|path|url>     Build a self-made macOS base via `tart create --from-ipsw`. Creates a setup-required VM;
+                                        run `sand <name> gui` to complete first boot, then `sand bootstrap <name>`.
     """
 
     static let apply = """
     Usage: sand apply <name>
 
     Applies shared spec changes to an existing Sandbox VM.
+    """
+
+    static let bootstrap = """
+    Usage: sand bootstrap <name>
+
+    Finishes the second stage of a self-built macOS base created with `--from-ipsw`.
+
+    After completing interactive first-boot macOS setup in `sand <name> gui` (create/enable the Sandbox User, enable Remote Login, configure passwordless sudo), this injects the Sand SSH key, verifies SSH and passwordless sudo, runs backend configuration, and marks the Sandbox VM ready for `sand <name> shell`.
     """
 
     static let delete = """
@@ -471,6 +503,7 @@ public enum CLICommandError: Error, Equatable, CustomStringConvertible {
     case unsupportedAction(String)
     case unsupportedOption(String)
     case specNameMismatch(expected: String, actual: String)
+    case macOSSourceRequired
     case unexpectedArguments([String])
 
     public var description: String {
@@ -486,6 +519,7 @@ public enum CLICommandError: Error, Equatable, CustomStringConvertible {
         case .unsupportedAction(let action): return "unsupported sandbox action: \(action)"
         case .unsupportedOption(let option): return "unsupported option: \(option)"
         case .specNameMismatch(let expected, let actual): return "sandbox name mismatch: command expected \(expected), spec declares \(actual)"
+        case .macOSSourceRequired: return "macOS Sandbox VMs need an explicit source. Choose `--from <image-or-local-sandbox>` to clone a Tart image or local sandbox, or `--from-ipsw <latest|path|url>` to build a self-made base from an IPSW."
         case .unexpectedArguments(let arguments): return "unexpected arguments: \(arguments.joined(separator: " "))"
         }
     }

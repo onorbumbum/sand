@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 74d880da8775d220f4919b85dde149b1c3b779eb22f963776d057825adbfaa24 -->
+<!-- docs-input-hash: b12e514476abbe1833bc24124ce90c714876ad9530bc2084267e4829c48c3fca -->
 
 # sand Onboarding Guide
 
@@ -59,7 +59,7 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 | `Sources/SandCore/Doctor/` | Doctor Checks for Host Mac support, backend readiness, default image availability, and Host Metadata writability. |
 | `Sources/SandCore/Domain/` | Small domain types such as Sandbox Name and Workload Command. |
 | `Sources/SandCore/FolderPolicy/` | Shared Folder validation, Access Mode handling, Guest Path rules, duplicate and overlap policy. |
-| `Sources/SandCore/Lifecycle/` | Lifecycle Mutation coordination around create, apply, start, stop, delete, and run flows. |
+| `Sources/SandCore/Lifecycle/` | Lifecycle Mutation coordination around create, bootstrap, apply, start, stop, delete, and run flows. |
 | `Sources/SandCore/Metadata/` | Host Metadata storage under `~/.sand/`. |
 | `Sources/SandCore/Prompt/` | Confirmation behavior for destructive or interrupting actions. |
 | `Sources/SandCore/Spec/` | Sandbox Spec model and validation. |

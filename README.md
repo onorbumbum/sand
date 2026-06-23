@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: 74d880da8775d220f4919b85dde149b1c3b779eb22f963776d057825adbfaa24 -->
+<!-- docs-input-hash: b12e514476abbe1833bc24124ce90c714876ad9530bc2084267e4829c48c3fca -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -233,7 +233,7 @@ For the complete generated reference, see [`docs/cli-reference.md`](docs/cli-ref
 Supported v1 commands:
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`, `sand signing <action> ...`
+- Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand bootstrap <name>`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`, `sand signing <action> ...`
 - Sandbox actions: `sand status <name>`, `sand start <name>`, `sand stop <name>`, `sand shell <name>`, `sand run <name> <command> [args...]`, `sand <name> gui`, `sand logs <name>`, `sand spec <name>`
 
 Command help:
@@ -244,6 +244,7 @@ sand doctor --help
 sand create --help
 sand list --help
 sand apply --help
+sand bootstrap --help
 sand delete --help
 sand folders --help
 ```
@@ -255,6 +256,18 @@ sand folders add demo "$HOME/Projects/my-project" rw --as /workspace
 sand folders add demo "$HOME/Reference" ro --as /reference
 sand folders list demo
 sand folders remove demo "$HOME/Reference"
+```
+
+macOS sources are explicit and open-ended:
+
+```sh
+# Clone any Tart-compatible image/local sandbox, including Tahoe, Sequoia, or a pinned digest.
+sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-tahoe-xcode:latest
+
+# Or build a self-made macOS base from an IPSW, finish first boot in GUI, then bootstrap.
+sand create cleanmac --os macos --from-ipsw latest
+sand cleanmac gui
+sand bootstrap cleanmac
 ```
 
 macOS signing:
