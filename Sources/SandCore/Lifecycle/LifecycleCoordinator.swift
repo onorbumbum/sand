@@ -131,7 +131,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         let name = request.sandboxName.rawValue
         writeOutput("Created setup-required macOS Sandbox VM '\(name)' from IPSW.")
         writeOutput("Complete one-time first boot, then bootstrap:")
-        writeOutput("  1. Run `sand \(name) gui` and finish macOS Setup Assistant.")
+        writeOutput("  1. Run `sand gui \(name)` and finish macOS Setup Assistant.")
         writeOutput("  2. Create/enable the Sandbox User (admin), enable Remote Login, and configure passwordless sudo.")
         writeOutput("  3. Run `sand bootstrap \(name)` to inject the Sand key and finish backend configuration.")
         return .success

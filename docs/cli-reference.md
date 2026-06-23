@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: dcda9fc55be2ed1b1292a6eda2087e2da695acc449f775abbf41f0578c62aeb2 -->
+<!-- docs-input-hash: 7f022acc9b4aae7476723c6e67756f13766d6e726a6bf6d42ea9406620b1053b -->
 
 # sand CLI Reference
 
@@ -10,15 +10,15 @@ This reference captures the v1 **API Surface** for managing Linux and macOS **Sa
 
 ## Generation source
 
-- Docs input hash: `dcda9fc55be2ed1b1292a6eda2087e2da695acc449f775abbf41f0578c62aeb2`
+- Docs input hash: `7f022acc9b4aae7476723c6e67756f13766d6e726a6bf6d42ea9406620b1053b`
 - Generator: `scripts/generate-cli-reference.sh`
-- Help source command: `swift run --package-path <repo> sand`
+- Help source command: `.build/debug/sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, and `sand --version` output.
 
 ## Supported v1 command surface
 
 - Global: `sand --help`, `sand --version`
-- Top-level commands: `doctor`, `create`, `bootstrap`, `list`, `apply`, `delete`, `folders`, `signing`, `status`, `start`, `stop`, `shell`, `run`, `logs`, `spec`
+- Top-level commands: `doctor`, `create`, `bootstrap`, `list`, `apply`, `delete`, `folders`, `signing`, `status`, `start`, `stop`, `shell`, `run`, `gui`, `logs`, `spec`
 
 ## Current v1 boundaries
 
@@ -31,11 +31,11 @@ The v1 command surface is intentionally explicit and small:
 
 ## macOS Sandbox VMs
 
-macOS guests are first-class Sandbox VMs backed by Tart. Use `sand create <name> --os macos --from <registry-image-or-local-sandbox>` to clone an existing Tart-compatible image or stopped local sandbox. Use `sand create <name> --from-ipsw <latest|path|url>` for the macOS Install Flow, then complete first boot in `sand <name> gui` and run `sand bootstrap <name>`.
+macOS guests are first-class Sandbox VMs backed by Tart. Use `sand create <name> --os macos --from <registry-image-or-local-sandbox>` to clone an existing Tart-compatible image or stopped local sandbox. Use `sand create <name> --from-ipsw <latest|path|url>` for the macOS Install Flow, then complete first boot in `sand gui <name>` and run `sand bootstrap <name>`.
 
 `--disk <size>` is a macOS-only create-time Disk Size field. The default macOS disk is about 100GB, clone disk size is grow-only, and in-place disk resize is not part of the v1 command surface.
 
-`sand <name> gui` opens a macOS GUI Session through Tart VNC and the Host Mac Screen Sharing app. `gui` is for VM desktop setup and Apple-ID-gated work; it does not forward a host-connected physical iPhone or iPad into the Sandbox Guest.
+`sand gui <name>` opens a macOS GUI Session through Tart VNC and the Host Mac Screen Sharing app. `gui` is for VM desktop setup and Apple-ID-gated work; it does not forward a host-connected physical iPhone or iPad into the Sandbox Guest.
 
 macOS support requires the Tart CLI on `PATH` (`brew install cirruslabs/cli/tart`). `sand` itself remains an unsigned, entitlement-free CLI because Tart carries the Virtualization Framework entitlement.
 
@@ -44,7 +44,7 @@ Plan macOS Sandbox VMs as a handful, not dozens: Apple's macOS guest license all
 ## `sand --version`
 
 ```text
-sand 0.2.0-dev
+sand 0.2.1-dev
 ```
 
 ## `sand --help`
@@ -66,7 +66,7 @@ Commands:
   stop <name>                    Stop a Sandbox VM
   shell <name>                   Open a shell
   run <name> <command> [args...] Run a Workload Command
-  <name> gui                     Open a graphical desktop session
+  gui <name>                     Open a graphical desktop session
   logs <name>                    Show logs
   spec <name>                    Print the sandbox spec
 
@@ -97,9 +97,9 @@ Options:
 macOS sources are open-ended and must be explicit:
   --from <image-or-local-sandbox>   Clone any Tart-compatible macOS image (Sequoia, Tahoe, pinned digest) or a stopped local sandbox.
   --from-ipsw <latest|path|url>     Build a self-made macOS base via `tart create --from-ipsw`. Creates a setup-required VM;
-                                    run `sand <name> gui` to complete first boot, then `sand bootstrap <name>`.
+                                    run `sand gui <name>` to complete first boot, then `sand bootstrap <name>`.
 
-Use `sand <name> gui` to open a macOS graphical desktop session for first boot or Apple-ID-gated setup.
+Use `sand gui <name>` to open a macOS graphical desktop session for first boot or Apple-ID-gated setup.
 ```
 
 ## `sand list`
@@ -125,7 +125,7 @@ Usage: sand bootstrap <name>
 
 Prepares a self-built macOS Sandbox VM for normal `sand shell` and `sand run` access.
 
-Use this only after `sand create <name> --from-ipsw <latest|path|url>` and first-boot setup in `sand <name> gui`. A fresh IPSW install needs one manual macOS setup pass before `sand` can connect without passwords.
+Use this only after `sand create <name> --from-ipsw <latest|path|url>` and first-boot setup in `sand gui <name>`. A fresh IPSW install needs one manual macOS setup pass before `sand` can connect without passwords.
 
 `bootstrap` installs sand's SSH key, verifies SSH and passwordless sudo, finishes guest configuration, and marks the Sandbox VM ready. Cloned Tart registry images such as `macos-sequoia-base` and `macos-sequoia-xcode` do not need this step.
 ```
@@ -201,6 +201,15 @@ Opens an interactive shell in the Sandbox VM.
 Usage: sand run <name> <command> [args...]
 
 Runs a command inside the Sandbox VM.
+```
+
+## `sand gui`
+
+
+```text
+Usage: sand gui <name>
+
+Opens a macOS graphical desktop session through Tart VNC and Host Mac Screen Sharing.
 ```
 
 ## `sand logs`

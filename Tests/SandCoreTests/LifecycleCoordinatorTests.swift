@@ -101,7 +101,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(spec.bootstrapState, .setupRequired)
         XCTAssertEqual(spec.image, SandboxImage(reference: "ipsw:latest"))
         let joined = output.joined(separator: "\n")
-        XCTAssertTrue(joined.contains("sand ipswbox gui"))
+        XCTAssertTrue(joined.contains("sand gui ipswbox"))
         XCTAssertTrue(joined.contains("sand bootstrap ipswbox"))
     }
 

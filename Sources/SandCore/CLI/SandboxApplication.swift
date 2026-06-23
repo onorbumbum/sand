@@ -86,9 +86,9 @@ public enum SandboxBootstrapError: Error, Equatable, CustomStringConvertible {
         case .unsupportedGuestOS(let guestOS):
             return "self-built IPSW bases and bootstrap are macOS-only; Sandbox VM uses \(guestOS)."
         case .alreadyBootstrapped(let name):
-            return "Sandbox VM \(name) is already bootstrapped and ready for `sand \(name) shell`."
+            return "Sandbox VM \(name) is already bootstrapped and ready for `sand shell \(name)`."
         case .setupRequired(let name):
-            return "Sandbox VM \(name) still needs first-boot setup. Run `sand \(name) gui` to create/enable the Sandbox User, then run `sand bootstrap \(name)`."
+            return "Sandbox VM \(name) still needs first-boot setup. Run `sand gui \(name)` to create/enable the Sandbox User, then run `sand bootstrap \(name)`."
         }
     }
 }

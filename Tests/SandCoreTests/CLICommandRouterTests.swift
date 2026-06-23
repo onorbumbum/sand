@@ -19,7 +19,7 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertTrue(output[0].contains("doctor"))
         XCTAssertTrue(output[0].contains("signing <action>"))
         XCTAssertTrue(output[0].contains("run <name>"))
-        XCTAssertEqual(output[1], "sand 0.2.0-dev")
+        XCTAssertEqual(output[1], "sand 0.2.1-dev")
         XCTAssertEqual(app.calls, [])
     }
 
@@ -34,12 +34,13 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertEqual(try router.dispatch(arguments: ["apply", "--help"]), .success)
         XCTAssertEqual(try router.dispatch(arguments: ["folders", "--help"]), .success)
         XCTAssertEqual(try router.dispatch(arguments: ["signing", "--help"]), .success)
+        XCTAssertEqual(try router.dispatch(arguments: ["gui", "--help"]), .success)
 
         XCTAssertTrue(output[0].contains("Usage: sand create <name>"))
         XCTAssertTrue(output[0].contains("--os <linux|macos>"))
         XCTAssertTrue(output[0].contains("--disk <size>"))
         XCTAssertTrue(output[0].contains("macOS-only create-time Disk Size"))
-        XCTAssertTrue(output[0].contains("sand <name> gui"))
+        XCTAssertTrue(output[0].contains("sand gui <name>"))
         XCTAssertTrue(output[1].contains("Usage: sand bootstrap <name>"))
         XCTAssertTrue(output[1].contains("Prepares a self-built macOS Sandbox VM"))
         XCTAssertTrue(output[1].contains("Cloned Tart registry images"))
@@ -50,6 +51,7 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertTrue(output[4].contains("folders add <name> <host-path> <rw|ro>"))
         XCTAssertTrue(output[5].contains("Usage: sand signing install <name>"))
         XCTAssertTrue(output[5].contains("Host Mac keychain is never mounted or shared"))
+        XCTAssertTrue(output[6].contains("Usage: sand gui <name>"))
         XCTAssertEqual(app.calls, [])
     }
 
@@ -85,7 +87,7 @@ final class CLICommandRouterTests: XCTestCase {
             (["stop", "mybox"], .stop("mybox")),
             (["shell", "mybox"], .shell("mybox")),
             (["run", "mybox", "echo", "hello"], .run("mybox", ["echo", "hello"])),
-            (["mybox", "gui"], .gui("mybox")),
+            (["gui", "mybox"], .gui("mybox")),
             (["logs", "mybox"], .logs("mybox")),
             (["spec", "mybox"], .spec("mybox")),
             (["folders", "add", "mybox", "~/Projects", "rw"], .addFolder("mybox", "~/Projects", "rw", nil)),
@@ -252,6 +254,9 @@ final class CLICommandRouterTests: XCTestCase {
             XCTAssertEqual(error as? CLICommandError, .unsupportedOption("--inbound"))
         }
         XCTAssertThrowsError(try router.dispatch(arguments: ["mybox", "status"])) { error in
+            XCTAssertEqual(error as? CLICommandError, .unsupportedCommand("mybox"))
+        }
+        XCTAssertThrowsError(try router.dispatch(arguments: ["mybox", "gui"])) { error in
             XCTAssertEqual(error as? CLICommandError, .unsupportedCommand("mybox"))
         }
     }

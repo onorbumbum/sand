@@ -27,7 +27,7 @@ From the user's perspective:
 
 - `sand create <name> --os macos --from <registry-image>` clones a prebuilt image (e.g. a Cirrus Xcode image) in seconds; `--os macos` alone runs the self-built **macOS Install Flow** (`tart create --from-ipsw`, ~30 min).
 - `sand <name> shell` / `run` work identically to Linux — frictionless, no password prompt — over hidden SSH, using a per-sandbox SSH key `sand` generates and injects at create.
-- `sand <name> gui` opens a **GUI Session** (Tart VNC + host Screen Sharing) for the Apple-ID-gated work no tool can automate.
+- `sand gui <name>` opens a **GUI Session** (Tart VNC + host Screen Sharing) for the Apple-ID-gated work no tool can automate.
 - **Shared Folders** behave the same: the chosen **Guest Path** is preserved even though macOS virtiofs mounts at a fixed `/Volumes/My Shared Files/<tag>` location, via a backend-managed guest-side symlink. **Host-Safe File Ownership** holds for free because virtiofs writes land as the host user.
 - **Outbound-Only Networking** holds: Tart's NAT keeps SSH/VNC reachable from the Host Mac only, never the LAN.
 - macOS-only **Disk Size** (`disk:`) is a create-time, grow-only spec field.
@@ -49,7 +49,7 @@ Feasibility is gated on a mandatory **Tart Backend Validation Spike** on real Ap
 11. As the user, I want `sand` to generate and inject a per-sandbox SSH key at create, so that sessions are frictionless without relying on a shared default password.
 12. As the user, I want the private key stored in **Host Metadata** under `~/.sand/`, so that only my host can reach the guest.
 13. As the user, I want the baked-in image password kept only as documented break-glass for `gui`, so that the default credential is not my daily path.
-14. As the user, I want `sand <name> gui` to open a **GUI Session** via Tart VNC and host Screen Sharing, so that I can do Apple-ID-gated setup that cannot be automated.
+14. As the user, I want `sand gui <name>` to open a **GUI Session** via Tart VNC and host Screen Sharing, so that I can do Apple-ID-gated setup that cannot be automated.
 15. As the user, I want `gui` to be macOS-only, so that the command surface stays honest about what each guest supports.
 16. As the user, I want **Shared Folders** on macOS to appear at the same chosen **Guest Path** as on Linux, so that my mental model and `--as` overrides are backend-agnostic.
 17. As the user, I want the fixed `/Volumes/My Shared Files/<tag>` virtiofs location hidden behind a backend-managed symlink, so that I never have to think about it.
@@ -109,7 +109,7 @@ Feasibility is gated on a mandatory **Tart Backend Validation Spike** on real Ap
 - **Guest Path is backend-aware but user-identical.** On macOS, the backend mounts via virtiofs at the OS-fixed `/Volumes/My Shared Files/<tag>` and creates a guest-side symlink from the chosen/derived Guest Path to it. The fixed location is a hidden backend detail; `--as` and Working Directory Mapping behave identically across backends.
 - **Host-Safe File Ownership comes free on macOS.** virtiofs (Virtualization.framework) creates guest-written files on the host owned by the user who launched the VM — no uid translation, unlike Linux. Confirmed cheaply in the spike rather than engineered.
 - **Frictionless sessions via injected key.** At create/clone, `sand` generates a per-sandbox SSH keypair, injects the public key into the macOS guest's `authorized_keys`, and stores the private key in Host Metadata under `~/.sand/`. All sand sessions use the key; the baked-in `admin`/`admin` password is documented break-glass for `gui` only.
-- **Transport.** Hidden SSH (`tart ip` + ssh) for `shell`/`run`; `sand <name> gui` runs `tart run --vnc` and opens host Screen Sharing.
+- **Transport.** Hidden SSH (`tart ip` + ssh) for `shell`/`run`; `sand gui <name>` runs `tart run --vnc` and opens host Screen Sharing.
 - **Apply semantics on macOS.** Shared-folder changes trigger stop/update/restart with the disk untouched (Guest State preserved). CPU, memory, and image changes are rejected by apply, as on Linux.
 - **Doctor is os-aware.** Adds a `tart` presence/version check, required only for macOS operations; Linux-only users are not blocked by a missing Tart. Creating `--os macos` without `tart` fails with an actionable message.
 - **Resource defaults are guest-OS-dependent.** Linux 4 CPU / 8GB; macOS 4 CPU / 16GB. Disk Size defaults to ~100GB on macOS.

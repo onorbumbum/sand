@@ -2,7 +2,7 @@ import Foundation
 
 /// Parses and dispatches CLI commands to the application layer.
 public struct CLICommandRouter {
-    public static let productVersion = "0.2.0-dev"
+    public static let productVersion = "0.2.1-dev"
 
     private let application: any SandboxApplication
     private let readTextFile: (String) throws -> String
@@ -31,10 +31,6 @@ public struct CLICommandRouter {
         guard let first = arguments.first else {
             writeOutput(CLIHelp.topLevel)
             return .success
-        }
-
-        if arguments.count == 2, arguments[1] == "gui" {
-            return try application.gui(GUIRequest(sandboxName: try SandboxName(first)))
         }
 
         switch first {
@@ -96,6 +92,10 @@ public struct CLICommandRouter {
             let name = try SandboxName(arguments[1])
             let command = try WorkloadCommand(arguments: Array(arguments.dropFirst(2)))
             return try application.run(RunRequest(sandboxName: name, command: command))
+        case "gui":
+            if try printHelpIfRequested(arguments, CLIHelp.gui) { return .success }
+            let name = try singleNameArgument(arguments, command: "gui")
+            return try application.gui(GUIRequest(sandboxName: name))
         case "logs":
             if try printHelpIfRequested(arguments, CLIHelp.logs) { return .success }
             let name = try singleNameArgument(arguments, command: "logs")
@@ -380,7 +380,7 @@ private enum CLIHelp {
       stop <name>                    Stop a Sandbox VM
       shell <name>                   Open a shell
       run <name> <command> [args...] Run a Workload Command
-      <name> gui                     Open a graphical desktop session
+      gui <name>                     Open a graphical desktop session
       logs <name>                    Show logs
       spec <name>                    Print the sandbox spec
 
@@ -413,9 +413,9 @@ private enum CLIHelp {
     macOS sources are open-ended and must be explicit:
       --from <image-or-local-sandbox>   Clone any Tart-compatible macOS image (Sequoia, Tahoe, pinned digest) or a stopped local sandbox.
       --from-ipsw <latest|path|url>     Build a self-made macOS base via `tart create --from-ipsw`. Creates a setup-required VM;
-                                        run `sand <name> gui` to complete first boot, then `sand bootstrap <name>`.
+                                        run `sand gui <name>` to complete first boot, then `sand bootstrap <name>`.
 
-    Use `sand <name> gui` to open a macOS graphical desktop session for first boot or Apple-ID-gated setup.
+    Use `sand gui <name>` to open a macOS graphical desktop session for first boot or Apple-ID-gated setup.
     """
 
     static let apply = """
@@ -429,7 +429,7 @@ private enum CLIHelp {
 
     Prepares a self-built macOS Sandbox VM for normal `sand shell` and `sand run` access.
 
-    Use this only after `sand create <name> --from-ipsw <latest|path|url>` and first-boot setup in `sand <name> gui`. A fresh IPSW install needs one manual macOS setup pass before `sand` can connect without passwords.
+    Use this only after `sand create <name> --from-ipsw <latest|path|url>` and first-boot setup in `sand gui <name>`. A fresh IPSW install needs one manual macOS setup pass before `sand` can connect without passwords.
 
     `bootstrap` installs sand's SSH key, verifies SSH and passwordless sudo, finishes guest configuration, and marks the Sandbox VM ready. Cloned Tart registry images such as `macos-sequoia-base` and `macos-sequoia-xcode` do not need this step.
     """
@@ -485,6 +485,12 @@ private enum CLIHelp {
     Usage: sand run <name> <command> [args...]
 
     Runs a command inside the Sandbox VM.
+    """
+
+    static let gui = """
+    Usage: sand gui <name>
+
+    Opens a macOS graphical desktop session through Tart VNC and Host Mac Screen Sharing.
     """
 
     static let logs = """

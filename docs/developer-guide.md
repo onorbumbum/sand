@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: dcda9fc55be2ed1b1292a6eda2087e2da695acc449f775abbf41f0578c62aeb2 -->
+<!-- docs-input-hash: 7f022acc9b4aae7476723c6e67756f13766d6e726a6bf6d42ea9406620b1053b -->
 
 # sand Developer Guide
 
@@ -42,7 +42,7 @@ macOS-specific implementation constraints:
 
 - `disk:` / `--disk <size>` is macOS-only, create-time, and grow-only for clones.
 - Shared Folders must preserve the chosen Guest Path even though Tart exposes them at `/Volumes/My Shared Files/<tag>`; the Tart backend owns the guest-side symlink.
-- `sand <name> gui` is macOS-only and opens a GUI Session through Tart VNC plus Host Mac Screen Sharing.
+- `sand gui <name>` is macOS-only and opens a GUI Session through Tart VNC plus Host Mac Screen Sharing.
 - Signing Credentials are Guest Secrets injected into the Sandbox Guest keychain; the Host Mac keychain is never mounted.
 - Simulator work does not need signing or Apple ID. Distribution signing is supported through injected Signing Credentials. Physical-device deploy/debug is unsupported.
 

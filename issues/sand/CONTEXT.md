@@ -65,7 +65,7 @@ Creating a new macOS Sandbox VM from an existing one (or a registry image) via `
 _Avoid_: Base VM as a first-class concept, `sand base` subcommand, protected templates
 
 **macOS Setup Checklist**:
-The documented, optional, one-time list of manual Apple-ID-gated steps for a self-built macOS Sandbox VM: signing into Apple ID, installing full Xcode, installing simulator runtimes, and (only if automatic signing management is wanted) enabling Xcode's automatic signing. Done once via `sand <name> gui` on a sandbox the user then clones from; the result persists in Guest State and into every Clone, so it is not a per-build gate. Optional because a prebuilt Tart image (e.g. `macos-sequoia-xcode`) already ships Xcode, and because distribution code signing does NOT require it (see **Signing Credentials**). Apple gates the interactive Apple-ID login behind authentication that no tool can automate, which is the only irreducibly manual part.
+The documented, optional, one-time list of manual Apple-ID-gated steps for a self-built macOS Sandbox VM: signing into Apple ID, installing full Xcode, installing simulator runtimes, and (only if automatic signing management is wanted) enabling Xcode's automatic signing. Done once via `sand gui <name>` on a sandbox the user then clones from; the result persists in Guest State and into every Clone, so it is not a per-build gate. Optional because a prebuilt Tart image (e.g. `macos-sequoia-xcode`) already ships Xcode, and because distribution code signing does NOT require it (see **Signing Credentials**). Apple gates the interactive Apple-ID login behind authentication that no tool can automate, which is the only irreducibly manual part.
 _Avoid_: Undocumented manual steps, assuming the checklist is always required, conflating distribution signing with Apple-ID login, claiming full automation
 
 **Signing Credentials**:
@@ -101,7 +101,7 @@ An interactive shell connection into the Sandbox VM as the Sandbox User, without
 _Avoid_: SSH-only workflow, embedded Pi runner, manual login
 
 **GUI Session**:
-A graphical desktop connection into a macOS Sandbox VM, opened by `sand <name> gui`, which runs the VM with Tart's VNC server (`tart run --vnc`) and launches the host macOS Screen Sharing app pointed at the resulting VNC address. Not applicable to Linux Sandbox VMs.
+A graphical desktop connection into a macOS Sandbox VM, opened by `sand gui <name>`, which runs the VM with Tart's VNC server (`tart run --vnc`) and launches the host macOS Screen Sharing app pointed at the resulting VNC address. Not applicable to Linux Sandbox VMs.
 _Avoid_: Embedded VNC viewer, manual VNC setup, remote desktop client
 
 **Lifecycle Mutation**:
@@ -226,7 +226,7 @@ _Avoid_: Parent machine, main computer
 - A macOS **Sandbox VM** is reached over hidden SSH (`tart ip` + ssh) for **Sandbox Sessions** and **Workload Commands**; Tart/VF has no container-exec equivalent.
 - A macOS **Sandbox VM** needs the **macOS Setup Checklist** only when self-built; prebuilt Tart images can ship Xcode preinstalled.
 - A macOS **Sandbox VM** can build/run in the Simulator (no signing) and code-sign for distribution via injected **Signing Credentials** (no Apple-ID login, no GUI). Automatic signing via Apple ID is an optional one-time GUI step that persists in Guest State and Clones.
-- Deploying or debugging on a **physical** iOS device is out of scope: Apple's Virtualization Framework provides no USB passthrough for macOS guests (a platform limit, not a Tart or `sand` choice), so a host-connected device is invisible to the Sandbox Guest. `sand <name> gui` gives graphical access to the VM's own desktop, not host-device forwarding.
+- Deploying or debugging on a **physical** iOS device is out of scope: Apple's Virtualization Framework provides no USB passthrough for macOS guests (a platform limit, not a Tart or `sand` choice), so a host-connected device is invisible to the Sandbox Guest. `sand gui <name>` gives graphical access to the VM's own desktop, not host-device forwarding.
 - `sand` does not need the `com.apple.security.virtualization` entitlement or code signing, because Tart (which carries the entitlement) owns the Virtualization Framework calls. `sand` requires the Tart CLI on PATH, a CLI peer to the Apple `container` dependency.
 - Daily **Sandbox Sessions** run as the **Sandbox User**, not root.
 - Read-write **Shared Folders** must preserve **Host-Safe File Ownership**.
@@ -302,7 +302,7 @@ A grilling session on **2026-06-22** added macOS Sandbox VM support to the previ
 - **Split backends, both shell-out-to-a-CLI.** Apple `container` for Linux, **Tart** for macOS. Symmetric model: each pulls an OCI image and runs it with sand-controlled mounts. The `SandboxBackend` deep module hides the difference.
 - **Tart over in-process Virtualization Framework.** Verified Tart meets every hard requirement (create-from-IPSW, OCI clone incl. prebuilt Xcode images, rw/ro dir mounts, SSH via `tart ip`, VNC, cpu/mem/disk config, NAT/Softnet isolation). Consequence: `sand` needs **no** code signing or virtualization entitlement; it requires the `tart` CLI on PATH. In-process VF is the documented fallback only if Tart fails a hard requirement.
 - **No first-class "base" concept.** `--from` unifies Linux image templates and macOS clone sources; a clean clone source is a convention.
-- **Transport:** hidden SSH for shell/run; `sand <name> gui` runs `tart run --vnc` and auto-opens the host Screen Sharing app.
+- **Transport:** hidden SSH for shell/run; `sand gui <name>` runs `tart run --vnc` and auto-opens the host Screen Sharing app.
 - **Guest State** on macOS is the whole VM disk. **Disk Size** is a macOS-only, grow-only, create-time spec field. **Outbound-Only Networking** refined to "no inbound from LAN/internet; host-local control channels allowed."
 
 ### Open — needs validation or a decision
@@ -310,7 +310,7 @@ A grilling session on **2026-06-22** added macOS Sandbox VM support to the previ
 1. **Backend Validation Spike for Tart (mandatory before build).** Prove on real Apple Silicon hardware that `tart` satisfies every hard requirement end-to-end. CONTEXT.md already requires a spike per backend.
 2. **Verify Tart's NAT binds SSH/VNC host-only, not to the LAN** — backs the Outbound-Only guarantee.
 3. **Verify virtiofs writes land as the host user** — backs Host-Safe File Ownership on macOS. Expected low-risk: Virtualization.framework virtiofs creates guest-written files on the host owned by the user who launched the VM, so there is no uid-translation problem like Linux has. Downgraded from blocker to a 5-minute spike confirmation (write from guest → `ls -l` on host → owned by host user, editable without sudo).
-4. **Credential handling at create** — RESOLVED (2026-06-22): generate a per-sandbox SSH keypair at create/clone, inject the public key into the macOS guest's `authorized_keys`, store the private key in **Host Metadata** (`~/.sand/`), and use the key (not the baked-in `admin`/`admin` password) for all sand sessions. The default password stays only as documented break-glass for `sand <name> gui`. Spike must prove: clone → key injected → `sand <name> shell` connects with zero prompt. Contained today by **Outbound-Only Networking** (SSH host-only over private NAT); the key approach keeps it honest if inbound is ever added.
+4. **Credential handling at create** — RESOLVED (2026-06-22): generate a per-sandbox SSH keypair at create/clone, inject the public key into the macOS guest's `authorized_keys`, store the private key in **Host Metadata** (`~/.sand/`), and use the key (not the baked-in `admin`/`admin` password) for all sand sessions. The default password stays only as documented break-glass for `sand gui <name>`. Spike must prove: clone → key injected → `sand <name> shell` connects with zero prompt. Contained today by **Outbound-Only Networking** (SSH host-only over private NAT); the key approach keeps it honest if inbound is ever added.
 5. **Spec schema evolution** — RESOLVED (2026-06-22): additive optional fields, NO `schemaVersion` bump (bump is reserved for breaking changes; this is additive). Parser learns `os: linux|macos` (default `linux`, so existing specs stay valid) and `disk: <size>` (macOS-only). Add three rules mirroring existing immutability gates: `disk` rejected when `os != macos`; `os` immutable after create (join the image/cpu/memory immutable set in `validateUpdate`); `disk` grow-only on clone, in-place resize rejected. `SandboxSpec.parseYAML` currently throws `unsupportedField` on any unknown top-level key (lines 148–150), so these two keys must be taught explicitly.
 6. **Resource defaults** — macOS default set to 4 CPU / 16GB on paper; confirm against real Xcode builds.
 7. **Trust posture on prebuilt third-party (Cirrus) macOS+Xcode images** — acceptable default, or require self-built? Currently offered as the easy path with self-build as the alternative.

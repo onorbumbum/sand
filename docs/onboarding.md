@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: dcda9fc55be2ed1b1292a6eda2087e2da695acc449f775abbf41f0578c62aeb2 -->
+<!-- docs-input-hash: 7f022acc9b4aae7476723c6e67756f13766d6e726a6bf6d42ea9406620b1053b -->
 
 # sand Onboarding Guide
 
@@ -16,7 +16,7 @@ Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbu
 
 ## macOS Sandbox VMs
 
-macOS guests are first-class Sandbox VMs for Xcode/iOS work. Linux remains the default guest OS; use `sand create <name> --os macos --from <registry-image-or-local-sandbox>` to clone a Tart-compatible macOS image or stopped local sandbox, or `sand create <name> --from-ipsw <latest|path|url>` for the self-built macOS Install Flow followed by `sand <name> gui` and `sand bootstrap <name>`.
+macOS guests are first-class Sandbox VMs for Xcode/iOS work. Linux remains the default guest OS; use `sand create <name> --os macos --from <registry-image-or-local-sandbox>` to clone a Tart-compatible macOS image or stopped local sandbox, or `sand create <name> --from-ipsw <latest|path|url>` for the self-built macOS Install Flow followed by `sand gui <name>` and `sand bootstrap <name>`.
 
 The architecture is split by guest OS: Linux uses Apple's `container` CLI backend, macOS uses the Tart CLI backend, and `SandboxBackend` hides both behind one lifecycle interface. Tart must be on `PATH` for macOS support:
 
@@ -27,7 +27,7 @@ sand doctor
 
 `sand` stays unsigned and entitlement-free because Tart carries the Virtualization Framework entitlement. macOS Shared Folders preserve the chosen Guest Path; Tart's fixed `/Volumes/My Shared Files/<tag>` mount location is hidden behind a guest-side symlink. `disk:` / `--disk <size>` is macOS-only, defaults to about 100GB, and is a create-time/grow-only concern.
 
-macOS platform limits are part of the product contract: expect roughly two concurrent macOS Sandbox VMs per Host Mac, about 100GB per VM, slower boot than Linux, and no physical-device deploy/debug because macOS guests do not get USB passthrough. `sand <name> gui` opens the VM desktop; it does not forward a host-connected iPhone or iPad.
+macOS platform limits are part of the product contract: expect roughly two concurrent macOS Sandbox VMs per Host Mac, about 100GB per VM, slower boot than Linux, and no physical-device deploy/debug because macOS guests do not get USB passthrough. `sand gui <name>` opens the VM desktop; it does not forward a host-connected iPhone or iPad.
 
 ## Start here: humans
 

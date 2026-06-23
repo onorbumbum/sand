@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: dcda9fc55be2ed1b1292a6eda2087e2da695acc449f775abbf41f0578c62aeb2 -->
+<!-- docs-input-hash: 7f022acc9b4aae7476723c6e67756f13766d6e726a6bf6d42ea9406620b1053b -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -58,7 +58,7 @@ This alpha is intentionally focused on the daily loop:
 - keep Guest State under `/state/sandbox` across stop/start for the same Sandbox VM
 - use the Developer-Ready Sandbox image with common development tools already installed
 - create macOS Sandbox VMs through Tart for Xcode/iOS work
-- open macOS GUI Sessions with `sand <name> gui`
+- open macOS GUI Sessions with `sand gui <name>`
 - install macOS Signing Credentials as Guest Secrets for headless distribution signing
 
 ## Current boundaries
@@ -127,7 +127,7 @@ Build a macOS VM from an Apple IPSW only when you want your own fresh base image
 
 ```sh
 sand create cleanmac --os macos --from-ipsw latest
-sand cleanmac gui
+sand gui cleanmac
 sand bootstrap cleanmac
 ```
 
@@ -279,7 +279,7 @@ Supported v1 commands:
 
 - Global: `sand --help`, `sand --version`
 - Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand bootstrap <name>`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`, `sand signing <action> ...`
-- Sandbox actions: `sand status <name>`, `sand start <name>`, `sand stop <name>`, `sand shell <name>`, `sand run <name> <command> [args...]`, `sand <name> gui`, `sand logs <name>`, `sand spec <name>`
+- Sandbox actions: `sand status <name>`, `sand start <name>`, `sand stop <name>`, `sand shell <name>`, `sand run <name> <command> [args...]`, `sand gui <name>`, `sand logs <name>`, `sand spec <name>`
 
 Command help:
 
@@ -329,7 +329,7 @@ sand create iosbig --os macos --disk 150GB --from ghcr.io/cirruslabs/macos-sequo
 # Or build a self-made macOS base from an IPSW.
 # First boot happens in the GUI; bootstrap then enables normal sand shell/run access.
 sand create cleanmac --os macos --from-ipsw latest
-sand cleanmac gui
+sand gui cleanmac
 sand bootstrap cleanmac
 ```
 
@@ -343,7 +343,7 @@ sand run macbase /bin/zsh -lc 'ls -la /workspace && cat /workspace/from-host.txt
 cat ~/sand-macos-test/from-guest.txt
 ```
 
-macOS Shared Folders use the same chosen Guest Path as Linux. Tart mounts at macOS's fixed `/Volumes/My Shared Files/<tag>` location, and `sand` hides that backend detail behind a guest-side symlink. `sand <name> gui` opens the VM desktop through Tart VNC and Host Mac Screen Sharing.
+macOS Shared Folders use the same chosen Guest Path as Linux. Tart mounts at macOS's fixed `/Volumes/My Shared Files/<tag>` location, and `sand` hides that backend detail behind a guest-side symlink. `sand gui <name>` opens the VM desktop through Tart VNC and Host Mac Screen Sharing.
 
 macOS signing:
 
