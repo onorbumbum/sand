@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: d423445febdaed9019d045042030464047c07d640c5ec6d274d8efe4e7956ae3 -->
+<!-- docs-input-hash: 5dbfe94dbf48a62edf7142da080a1bf7ded8f2fa9aeaa0d47029ffd52922206b -->
 
 # sand Onboarding Guide
 
@@ -25,7 +25,7 @@ brew install cirruslabs/cli/tart
 sand doctor
 ```
 
-`sand` stays unsigned and entitlement-free because Tart carries the Virtualization Framework entitlement. macOS Shared Folders preserve the chosen Guest Path; Tart's fixed `/Volumes/My Shared Files/<tag>` mount location is hidden behind a guest-side symlink. `disk:` / `--disk <size>` is macOS-only, defaults to about 100GB, and is a create-time/grow-only concern.
+`sand` stays unsigned and entitlement-free because Tart carries the Virtualization Framework entitlement. macOS Shared Folders preserve the chosen Guest Path; Tart's fixed `/Volumes/My Shared Files/<tag>` mount location is hidden behind a guest-side symlink. `disk:` / `--disk <size>` is macOS-only, defaults to about 100GB, and is a create-time/grow-only concern. `display:` / `--display <WIDTHxHEIGHT[px|pt]>` is macOS-only and sets Tart's VM display resolution, e.g. `--display 1920x1080` for a full-HD GUI.
 
 macOS platform limits are part of the product contract: expect roughly two concurrent macOS Sandbox VMs per Host Mac, about 100GB per VM, slower boot than Linux, and no physical-device deploy/debug because macOS guests do not get USB passthrough. `sand gui <name>` opens the VM desktop; it does not forward a host-connected iPhone or iPad. If Host Mac Screen Sharing asks for credentials, use `admin` / `admin` for Cirrus Tart registry images, or the Sandbox User credentials created during first boot for self-built IPSW VMs.
 

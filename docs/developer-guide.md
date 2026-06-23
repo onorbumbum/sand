@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: d423445febdaed9019d045042030464047c07d640c5ec6d274d8efe4e7956ae3 -->
+<!-- docs-input-hash: 5dbfe94dbf48a62edf7142da080a1bf7ded8f2fa9aeaa0d47029ffd52922206b -->
 
 # sand Developer Guide
 
@@ -36,11 +36,12 @@ macOS Sandbox VMs are first-class but heavier than Linux Sandbox VMs. They requi
 
 The intended dependency direction is CLI → application boundary → domain/policy/backend interfaces. Backend adapter details should not spread into general domain modules.
 
-The split-backend decision is recorded in [`docs/adr/0001-split-backends-linux-container-macos-tart.md`](adr/0001-split-backends-linux-container-macos-tart.md): Linux shells out to Apple `container`; macOS shells out to Tart; both pull or clone OCI-backed images and run with sand-controlled Shared Folders. The user-facing API stays stable across both backends, but CLI help may name `--os macos`, `--disk`, Tart installation, or `gui` when those are direct user obligations.
+The split-backend decision is recorded in [`docs/adr/0001-split-backends-linux-container-macos-tart.md`](adr/0001-split-backends-linux-container-macos-tart.md): Linux shells out to Apple `container`; macOS shells out to Tart; both pull or clone OCI-backed images and run with sand-controlled Shared Folders. The user-facing API stays stable across both backends, but CLI help may name `--os macos`, `--disk`, `--display`, Tart installation, or `gui` when those are direct user obligations.
 
 macOS-specific implementation constraints:
 
 - `disk:` / `--disk <size>` is macOS-only, create-time, and grow-only for clones.
+- `display:` / `--display <WIDTHxHEIGHT[px|pt]>` is macOS-only and maps to `tart set --display`.
 - Shared Folders must preserve the chosen Guest Path even though Tart exposes them at `/Volumes/My Shared Files/<tag>`; the Tart backend owns the guest-side symlink.
 - `sand gui <name>` is macOS-only and opens a GUI Session through Tart VNC plus Host Mac Screen Sharing. Screen Sharing may ask for credentials: `admin` / `admin` for Cirrus Tart registry images, or the Sandbox User credentials created during first boot for self-built IPSW VMs.
 - Signing Credentials are Guest Secrets injected into the Sandbox Guest keychain; the Host Mac keychain is never mounted.

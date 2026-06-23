@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: d423445febdaed9019d045042030464047c07d640c5ec6d274d8efe4e7956ae3 -->
+<!-- docs-input-hash: 5dbfe94dbf48a62edf7142da080a1bf7ded8f2fa9aeaa0d47029ffd52922206b -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -104,11 +104,11 @@ sand run demo pwd
 sand shell demo
 ```
 
-Create a lightweight macOS Sandbox VM for shell, GUI, and Shared Folder checks:
+Create a lightweight macOS Sandbox VM for shell, GUI, and Shared Folder checks. `--display` sets a larger GUI resolution; omit it to keep Tart's image default.
 
 ```sh
 brew install cirruslabs/cli/tart
-sand create macbase --os macos --from ghcr.io/cirruslabs/macos-sequoia-base:latest
+sand create macbase --os macos --from ghcr.io/cirruslabs/macos-sequoia-base:latest --display 1920x1080
 mkdir -p ~/sand-macos-test
 echo "hello from host" > ~/sand-macos-test/from-host.txt
 sand folders add macbase ~/sand-macos-test rw --as /workspace
@@ -119,7 +119,7 @@ cat ~/sand-macos-test/from-guest.txt
 Create an Xcode-ready macOS Sandbox VM when you need iOS Simulator builds or distribution signing:
 
 ```sh
-sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-sequoia-xcode:latest
+sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-sequoia-xcode:latest --display 1920x1080
 sand run iosbox /usr/bin/xcodebuild -version
 ```
 
@@ -333,6 +333,9 @@ sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-sequoia-xcode:late
 
 # Size the macOS VM disk at create time. Disk Size is macOS-only and grow-only for clones.
 sand create iosbig --os macos --disk 150GB --from ghcr.io/cirruslabs/macos-sequoia-base:latest
+
+# Set a larger macOS GUI display. Unsuffixed values are pixels.
+sand create ioshd --os macos --display 1920x1080 --from ghcr.io/cirruslabs/macos-sequoia-xcode:latest
 
 # Or build a self-made macOS base from an IPSW.
 # First boot happens in the GUI; bootstrap then enables normal sand shell/run access.
