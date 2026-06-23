@@ -33,17 +33,20 @@ public struct CreateRequest: Equatable {
     public var sandboxName: SandboxName
     public var authoredSpecText: String?
     public var image: SandboxImage
+    public var guestOS: GuestOS
     public var resourceProfile: ResourceProfile
 
     public init(
         sandboxName: SandboxName,
         authoredSpecText: String? = nil,
         image: SandboxImage = .developerReadyDefault,
+        guestOS: GuestOS = .linux,
         resourceProfile: ResourceProfile = .default
     ) {
         self.sandboxName = sandboxName
         self.authoredSpecText = authoredSpecText
         self.image = image
+        self.guestOS = guestOS
         self.resourceProfile = resourceProfile
     }
 }

@@ -10,6 +10,7 @@ public struct SandboxSpec: Equatable, Sendable {
     public var schemaVersion: Int
     public var name: SandboxName
     public var image: SandboxImage
+    public var guestOS: GuestOS
     public var resourceProfile: ResourceProfile
     public var sharedFolders: [SharedFolder]
 
@@ -17,19 +18,21 @@ public struct SandboxSpec: Equatable, Sendable {
         schemaVersion: Int = SandboxSpec.supportedSchemaVersion,
         name: SandboxName,
         image: SandboxImage = .developerReadyDefault,
+        guestOS: GuestOS = .linux,
         resourceProfile: ResourceProfile = .default,
         sharedFolders: [SharedFolder] = []
     ) {
         self.schemaVersion = schemaVersion
         self.name = name
         self.image = image
+        self.guestOS = guestOS
         self.resourceProfile = resourceProfile
         self.sharedFolders = sharedFolders
     }
 
     /// Creates a spec with default settings.
-    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, resourceProfile: ResourceProfile = .default) -> SandboxSpec {
-        SandboxSpec(name: name, image: image, resourceProfile: resourceProfile, sharedFolders: [])
+    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile = .default) -> SandboxSpec {
+        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile, sharedFolders: [])
     }
 
     public func validateV1() throws {
@@ -53,6 +56,7 @@ public struct SandboxSpec: Equatable, Sendable {
         lines.append("schemaVersion: \(schemaVersion)")
         lines.append("name: \(name.rawValue)")
         lines.append("image: \(image.reference)")
+        lines.append("os: \(guestOS.rawValue)")
         lines.append("resources:")
         lines.append("  cpus: \(resourceProfile.cpus)")
         lines.append("  memory: \(resourceProfile.memory.description)")
@@ -76,6 +80,7 @@ public struct SandboxSpec: Equatable, Sendable {
         var schemaVersion: Int?
         var name: SandboxName?
         var image: SandboxImage?
+        var guestOS: GuestOS?
         var cpus: Int?
         var memory: MemorySize?
         var sharedFolders: [SharedFolder] = []
@@ -134,10 +139,11 @@ public struct SandboxSpec: Equatable, Sendable {
             case "schemaVersion": schemaVersion = Int(value)
             case "name": name = try SandboxName(value)
             case "image": image = SandboxImage(reference: value)
+            case "os": guestOS = try GuestOS.parse(value)
             case "resources":
                 guard value.isEmpty else { throw SandboxSpecError.malformedLine(rawLine) }
                 inResources = true
-            case "sharedFolders":
+            case "sharedFolders", "allowedFolders":
                 if value == "[]" {
                     inSharedFolders = false
                 } else {
@@ -157,6 +163,7 @@ public struct SandboxSpec: Equatable, Sendable {
             schemaVersion: schemaVersion ?? SandboxSpec.supportedSchemaVersion,
             name: try required(name, "name"),
             image: image ?? .developerReadyDefault,
+            guestOS: guestOS ?? .linux,
             resourceProfile: ResourceProfile(cpus: try required(cpus, "resources.cpus"), memory: try required(memory, "resources.memory")),
             sharedFolders: sharedFolders
         )
@@ -220,6 +227,20 @@ public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
         case .missingField(let field): return "missing sandbox spec field: \(field)"
         case .malformedLine(let line): return "malformed sandbox spec line: \(line)"
         case .resourceProfileImmutable(let field): return "resource profile field cannot be edited after creation: \(field)"
+        }
+    }
+}
+
+/// Guest operating systems supported by sandbox backends.
+public enum GuestOS: String, Equatable, Sendable {
+    case linux
+    case macOS = "macos"
+
+    public static func parse(_ rawValue: String) throws -> GuestOS {
+        switch rawValue {
+        case "linux": return .linux
+        case "macos": return .macOS
+        default: throw SandboxSpecError.unsupportedField("os: \(rawValue)")
         }
     }
 }

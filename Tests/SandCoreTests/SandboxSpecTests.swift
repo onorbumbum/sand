@@ -7,6 +7,7 @@ final class SandboxSpecTests: XCTestCase {
 
         XCTAssertEqual(spec.schemaVersion, 1)
         XCTAssertEqual(spec.image, .developerReadyDefault)
+        XCTAssertEqual(spec.guestOS, .linux)
         XCTAssertEqual(spec.resourceProfile, ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 8)))
         XCTAssertEqual(spec.sharedFolders, [])
         XCTAssertFalse(spec.renderedYAML().contains("inbound"))
@@ -34,6 +35,7 @@ final class SandboxSpecTests: XCTestCase {
         schemaVersion: 1
         name: custom
         image: registry.example/sand:dev
+        os: macos
         resources:
           cpus: 6
           memory: 12GB
@@ -48,8 +50,47 @@ final class SandboxSpecTests: XCTestCase {
 
         XCTAssertEqual(spec.name, try SandboxName("custom"))
         XCTAssertEqual(spec.image, SandboxImage(reference: "registry.example/sand:dev"))
+        XCTAssertEqual(spec.guestOS, .macOS)
         XCTAssertEqual(spec.resourceProfile, ResourceProfile(cpus: 6, memory: MemorySize(gigabytes: 12)))
         XCTAssertEqual(spec.sharedFolders.first?.accessMode, .readOnly)
+    }
+
+    func testSpecsWithoutOSParseAsLinuxForAdditiveCompatibility() throws {
+        let yaml = """
+        schemaVersion: 1
+        name: legacy
+        image: sand/developer-ready:ubuntu-lts
+        resources:
+          cpus: 4
+          memory: 8GB
+        sharedFolders:
+          []
+        """
+
+        XCTAssertEqual(try SandboxSpec.parseYAML(yaml).guestOS, .linux)
+    }
+
+    func testLegacyAllowedFoldersSpecsStillParseAsSharedFolders() throws {
+        let yaml = """
+        schemaVersion: 1
+        name: legacy
+        image: sand/developer-ready:ubuntu-lts
+        resources:
+          cpus: 2
+          memory: 4GB
+        allowedFolders:
+          - hostPath: ~/Projects
+            resolvedHostPath: /Users/onur/Projects
+            guestPath: /workspace
+            accessMode: read-write
+        """
+
+        let spec = try SandboxSpec.parseYAML(yaml)
+
+        XCTAssertEqual(spec.guestOS, .linux)
+        XCTAssertEqual(spec.sharedFolders, [
+            SharedFolder(displayHostPath: "~/Projects", resolvedHostPath: "/Users/onur/Projects", guestPath: try GuestPath("/workspace"), accessMode: .readWrite)
+        ])
     }
 
     func testUnsupportedV1FieldsSuchAsInboundNetworkingAreRejected() throws {

@@ -145,6 +145,31 @@ final class RecordingSandboxBackend: SandboxBackend {
     }
 }
 
+final class RecordingBackendResolver: BackendResolver {
+    let linuxBackend: RecordingSandboxBackend
+    let macOSBackend: RecordingSandboxBackend
+    var requestedGuestOS: [GuestOS] = []
+
+    init(linuxBackend: RecordingSandboxBackend, macOSBackend: RecordingSandboxBackend) {
+        self.linuxBackend = linuxBackend
+        self.macOSBackend = macOSBackend
+    }
+
+    func backend(for guestOS: GuestOS) throws -> any SandboxBackend {
+        requestedGuestOS.append(guestOS)
+        switch guestOS {
+        case .linux:
+            return linuxBackend
+        case .macOS:
+            return macOSBackend
+        }
+    }
+
+    func doctorBackend() throws -> any SandboxBackend {
+        linuxBackend
+    }
+}
+
 enum BackendTestError: Error, Equatable {
     case provisionFailed
 }

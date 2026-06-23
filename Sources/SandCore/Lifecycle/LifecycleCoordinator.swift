@@ -9,7 +9,7 @@ import Foundation
 /// - Note: All mutations are protected by lifecycle locks.
 public struct LifecycleCoordinator: SandboxApplication {
     private let metadataStore: any HostMetadataStore
-    private let backend: any SandboxBackend
+    private let backendResolver: any BackendResolver
     private let workingDirectoryMapper: WorkingDirectoryMapper
     private let folderPolicy: FolderPolicy
     private let prompt: any PromptConfirmation
@@ -29,7 +29,28 @@ public struct LifecycleCoordinator: SandboxApplication {
         writeWarning: @escaping (String) -> Void = { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
     ) {
         self.metadataStore = metadataStore
-        self.backend = backend
+        self.backendResolver = SingleBackendResolver(backend: backend)
+        self.workingDirectoryMapper = workingDirectoryMapper
+        self.folderPolicy = folderPolicy
+        self.prompt = prompt
+        self.doctorPlatform = doctorPlatform
+        self.writeOutput = writeOutput
+        self.writeWarning = writeWarning
+    }
+
+    /// Initializes a new lifecycle coordinator with guest-OS backend routing.
+    public init(
+        metadataStore: any HostMetadataStore,
+        backendResolver: any BackendResolver,
+        workingDirectoryMapper: WorkingDirectoryMapper = WorkingDirectoryMapper(),
+        folderPolicy: FolderPolicy = FolderPolicy(),
+        prompt: any PromptConfirmation = AlwaysProceedPromptConfirmation(),
+        doctorPlatform: any DoctorPlatform = HostDoctorPlatform(),
+        writeOutput: @escaping (String) -> Void = { Swift.print($0) },
+        writeWarning: @escaping (String) -> Void = { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
+    ) {
+        self.metadataStore = metadataStore
+        self.backendResolver = backendResolver
         self.workingDirectoryMapper = workingDirectoryMapper
         self.folderPolicy = folderPolicy
         self.prompt = prompt
@@ -42,7 +63,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     ///
     /// Verifies backend availability, image accessibility, and disk writability.
     public func doctor() throws -> CommandResult {
-        let report = try DoctorChecks(backend: backend, metadataStore: metadataStore, platform: doctorPlatform).run()
+        let report = try DoctorChecks(backend: backendResolver.doctorBackend(), metadataStore: metadataStore, platform: doctorPlatform).run()
         for line in DoctorPresenter().lines(for: report) {
             writeOutput(line)
         }
@@ -59,11 +80,11 @@ public struct LifecycleCoordinator: SandboxApplication {
             if let authoredSpecText = request.authoredSpecText {
                 spec = try SandboxSpec.parseYAML(authoredSpecText)
             } else {
-                spec = SandboxSpec.generated(name: request.sandboxName, image: request.image, resourceProfile: request.resourceProfile)
+                spec = SandboxSpec.generated(name: request.sandboxName, image: request.image, guestOS: request.guestOS, resourceProfile: request.resourceProfile)
             }
             try metadataStore.createSpec(spec)
             do {
-                try backend.provision(spec)
+                try backend(for: spec).provision(spec)
             } catch {
                 try metadataStore.deleteSpec(named: spec.name)
                 throw error
@@ -76,7 +97,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     public func list() throws -> CommandResult {
         let presenter = StatusPresenter()
         for spec in try metadataStore.listSpecs() {
-            let runtimeStatus = try backend.status(spec.name)
+            let runtimeStatus = try backend(for: spec).status(spec.name)
             let view = presenter.present(name: spec.name, spec: spec, runtimeStatus: runtimeStatus)
             writeOutput(presenter.listLine(for: view))
         }
@@ -89,6 +110,7 @@ public struct LifecycleCoordinator: SandboxApplication {
             let spec = try metadataStore.readSpec(named: request.sandboxName)
             let createdSpec = try metadataStore.readCreatedSpec(named: request.sandboxName)
             try spec.validateUpdate(from: createdSpec)
+            let backend = try backend(for: spec)
             if try backend.status(request.sandboxName) == .running {
                 let decision = try prompt.confirm(ConfirmationRequest(message: "Apply changes to running Sandbox VM \(request.sandboxName.rawValue)?", destructive: false))
                 guard decision == .proceed else { return .failure(exitCode: 1) }
@@ -106,7 +128,8 @@ public struct LifecycleCoordinator: SandboxApplication {
         }
 
         try metadataStore.withLifecycleMutationLock {
-            try backend.delete(request.sandboxName)
+            let spec = try metadataStore.readSpec(named: request.sandboxName)
+            try backend(for: spec).delete(request.sandboxName)
             try metadataStore.deleteSpec(named: request.sandboxName)
         }
         return .success
@@ -115,7 +138,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     /// Displays detailed status information for a sandbox VM.
     public func status(_ request: NamedSandboxRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)
-        let runtimeStatus = try backend.status(request.sandboxName)
+        let runtimeStatus = try backend(for: spec).status(request.sandboxName)
         let presenter = StatusPresenter()
         let view = presenter.present(name: spec.name, spec: spec, runtimeStatus: runtimeStatus)
         for line in presenter.detailLines(for: view) {
@@ -127,7 +150,8 @@ public struct LifecycleCoordinator: SandboxApplication {
     /// Starts a stopped sandbox VM.
     public func start(_ request: NamedSandboxRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
-            try backend.start(request.sandboxName)
+            let spec = try metadataStore.readSpec(named: request.sandboxName)
+            try backend(for: spec).start(request.sandboxName)
         }
         return .success
     }
@@ -135,7 +159,8 @@ public struct LifecycleCoordinator: SandboxApplication {
     /// Stops a running sandbox VM.
     public func stop(_ request: NamedSandboxRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
-            try backend.stop(request.sandboxName)
+            let spec = try metadataStore.readSpec(named: request.sandboxName)
+            try backend(for: spec).stop(request.sandboxName)
         }
         return .success
     }
@@ -146,9 +171,10 @@ public struct LifecycleCoordinator: SandboxApplication {
     /// working directory to the guest and opens a shell there.
     public func shell(_ request: ShellRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)
-        let mapping = workingDirectoryMapper.map(hostCurrentDirectory: metadataStore.currentHostDirectory(), spec: spec)
+        let mapping = mappedWorkingDirectory(for: spec)
         emitWarningIfNeeded(mapping)
 
+        let backend = try backend(for: spec)
         if try backend.status(request.sandboxName) == .stopped {
             try backend.start(request.sandboxName)
         }
@@ -159,9 +185,10 @@ public struct LifecycleCoordinator: SandboxApplication {
     /// Executes a workload command in the sandbox VM.
     public func run(_ request: RunRequest) throws -> CommandResult {
         let spec = try metadataStore.readSpec(named: request.sandboxName)
-        let mapping = workingDirectoryMapper.map(hostCurrentDirectory: metadataStore.currentHostDirectory(), spec: spec)
+        let mapping = mappedWorkingDirectory(for: spec)
         emitWarningIfNeeded(mapping)
 
+        let backend = try backend(for: spec)
         if try backend.status(request.sandboxName) == .stopped {
             try backend.start(request.sandboxName)
         }
@@ -177,7 +204,8 @@ public struct LifecycleCoordinator: SandboxApplication {
 
     /// Retrieves and displays logs from the sandbox VM.
     public func logs(_ request: NamedSandboxRequest) throws -> CommandResult {
-        let logs = try backend.logs(request.sandboxName)
+        let spec = try metadataStore.readSpec(named: request.sandboxName)
+        let logs = try backend(for: spec).logs(request.sandboxName)
         let lines = logs.text.split(whereSeparator: \.isNewline).map(String.init)
         if lines.isEmpty {
             writeOutput("No logs available for Sandbox VM \(request.sandboxName.rawValue).")
@@ -228,6 +256,21 @@ public struct LifecycleCoordinator: SandboxApplication {
         }
     }
 
+    private func backend(for spec: SandboxSpec) throws -> any SandboxBackend {
+        try backendResolver.backend(for: spec.guestOS)
+    }
+
+    private func mappedWorkingDirectory(for spec: SandboxSpec) -> WorkingDirectoryMapping {
+        let mapping = workingDirectoryMapper.map(hostCurrentDirectory: metadataStore.currentHostDirectory(), spec: spec)
+        guard spec.guestOS == .macOS, mapping.warning != nil, mapping.guestPath.rawValue == "/workspace" else {
+            return mapping
+        }
+        return WorkingDirectoryMapping(
+            guestPath: try! GuestPath("/Users/admin"),
+            warning: "Current directory is not inside an Shared Folder; starting in /Users/admin."
+        )
+    }
+
     private func emitWarningIfNeeded(_ mapping: WorkingDirectoryMapping) {
         if let warning = mapping.warning {
             writeWarning(warning)
@@ -239,6 +282,7 @@ public struct LifecycleCoordinator: SandboxApplication {
         try updated.validateUpdate(from: current)
         let createdSpec = try metadataStore.readCreatedSpec(named: current.name)
         try updated.validateUpdate(from: createdSpec)
+        let backend = try backend(for: updated)
         if try backend.status(current.name) == .running {
             let decision = try prompt.confirm(ConfirmationRequest(message: "Apply changes to running Sandbox VM \(current.name.rawValue)?", destructive: false))
             guard decision == .proceed else { return false }

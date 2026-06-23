@@ -1,7 +1,7 @@
 import XCTest
 
 final class ArchitectureBoundaryTests: XCTestCase {
-    func testProductSourcesDoNotExposeFakeBackendsOrRawContainerOutsideAdapter() throws {
+    func testProductSourcesDoNotExposeFakeBackendsOrRawBackendCLIsOutsideAdapters() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -16,6 +16,9 @@ final class ArchitectureBoundaryTests: XCTestCase {
             XCTAssertFalse(text.contains("RecordingSandboxBackend"), relativePath)
             if relativePath != "Sources/SandCore/Backend/AppleContainerCLIBackend.swift" {
                 XCTAssertFalse(text.contains("container"), relativePath)
+            }
+            if relativePath != "Sources/SandCore/Backend/TartCLIBackend.swift" {
+                XCTAssertFalse(text.contains("\"tart\""), relativePath)
             }
         }
     }

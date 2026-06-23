@@ -60,10 +60,26 @@ final class LifecycleCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(result, .success)
         XCTAssertEqual(output, [
-            "mybox\tstopped\tsand/developer-ready:ubuntu-lts\t0 folders",
-            "other\tstopped\tcustom:latest\t0 folders"
+            "mybox\tstopped\tlinux\tsand/developer-ready:ubuntu-lts\t0 folders",
+            "other\tstopped\tlinux\tcustom:latest\t0 folders"
         ])
         XCTAssertEqual(backend.calls, [.status("mybox"), .status("other")])
+    }
+
+    func testCreateRoutesGeneratedMacOSAndLinuxSpecsThroughResolver() throws {
+        let linuxBackend = RecordingSandboxBackend(status: .missing)
+        let macBackend = RecordingSandboxBackend(status: .missing)
+        let resolver = RecordingBackendResolver(linuxBackend: linuxBackend, macOSBackend: macBackend)
+        let metadataStore = MemoryMetadataStore()
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backendResolver: resolver)
+
+        XCTAssertEqual(try coordinator.create(CreateRequest(sandboxName: try SandboxName("linuxbox"))), .success)
+        XCTAssertEqual(try coordinator.create(CreateRequest(sandboxName: try SandboxName("macbox"), image: SandboxImage(reference: "ghcr.io/example/macos:latest"), guestOS: .macOS)), .success)
+
+        XCTAssertEqual(resolver.requestedGuestOS, [.linux, .macOS])
+        XCTAssertEqual(linuxBackend.calls, [.provision("linuxbox")])
+        XCTAssertEqual(macBackend.calls, [.provision("macbox")])
+        XCTAssertEqual(try metadataStore.readSpec(named: try SandboxName("macbox")).guestOS, .macOS)
     }
 
     func testCreateRollsBackHostMetadataWhenBackendProvisioningFails() throws {
@@ -209,6 +225,7 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(output, [
             "name: mybox",
             "state: running",
+            "os: linux",
             "image: custom:latest",
             "resources: 6 CPUs, 12GB memory",
             "sharedFolders: 0"
@@ -270,6 +287,20 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(result, .success)
         XCTAssertEqual(warnings, ["Current directory is not inside an Shared Folder; starting in /workspace."])
         XCTAssertEqual(backend.calls, [.status("mybox"), .run("mybox", ["pwd"], "/workspace")])
+    }
+
+    func testMacOSRunOutsideSharedFoldersUsesExistingSandboxUserHomeFallback() throws {
+        var warnings: [String] = []
+        let spec = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS)
+        let metadataStore = MemoryMetadataStore(specs: [spec], currentHostDirectory: "/Users/onur/Downloads")
+        let backend = RecordingSandboxBackend(status: .running)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeWarning: { warnings.append($0) })
+
+        let result = try coordinator.run(RunRequest(sandboxName: spec.name, command: try WorkloadCommand(arguments: ["pwd"])))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(warnings, ["Current directory is not inside an Shared Folder; starting in /Users/admin."])
+        XCTAssertEqual(backend.calls, [.status("macbox"), .run("macbox", ["pwd"], "/Users/admin")])
     }
 
     func testShellOutsideSharedFoldersWarnsAndUsesFallbackWorkingDirectory() throws {

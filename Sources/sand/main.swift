@@ -7,7 +7,7 @@ import SandCore
 /// arguments to the appropriate handler. Sets up:
 ///
 /// - `FileHostMetadataStore` for persisting sandbox specifications
-/// - `AppleContainerCLIBackend` for VM operations
+/// - Guest OS backend resolver for VM operations
 /// - `LifecycleCoordinator` to orchestrate commands
 /// - `CLICommandRouter` to parse and dispatch arguments
 ///
@@ -15,8 +15,8 @@ import SandCore
 /// - `0`: Successful execution
 /// - `1`: Error occurred during processing
 let metadataStore = FileHostMetadataStore()
-let backend = AppleContainerCLIBackend()
-let application = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, prompt: StandardInputPromptConfirmation())
+let backendResolver = GuestOSBackendResolver(linuxBackend: AppleContainerCLIBackend(), macOSBackend: TartCLIBackend())
+let application = LifecycleCoordinator(metadataStore: metadataStore, backendResolver: backendResolver, prompt: StandardInputPromptConfirmation())
 let router = CLICommandRouter(application: application)
 
 // Dispatches the command-line arguments and exits with the result code.

@@ -33,7 +33,7 @@ final class CLICommandRouterTests: XCTestCase {
         XCTAssertEqual(try router.dispatch(arguments: ["folders", "--help"]), .success)
 
         XCTAssertTrue(output[0].contains("Usage: sand create <name>"))
-        XCTAssertTrue(output[0].contains("--from <spec.yaml>"))
+        XCTAssertTrue(output[0].contains("--os <linux|macos>"))
         XCTAssertTrue(output[1].contains("Usage: sand delete <name>"))
         XCTAssertTrue(output[1].contains("--force"))
         XCTAssertTrue(output[2].contains("Usage: sand apply <name>"))
@@ -55,10 +55,11 @@ final class CLICommandRouterTests: XCTestCase {
         """
         let cases: [(arguments: [String], expected: AppCall)] = [
             (["doctor"], .doctor),
-            (["create", "mybox"], .create("mybox", nil, "sand/developer-ready:ubuntu-lts", 4, 8192)),
-            (["create", "mybox", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", 4, 8192)),
-            (["create", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", 4, 8192)),
-            (["create", "mybox", "--cpus", "6", "--memory", "12GB", "--image", "custom:latest"], .create("mybox", nil, "custom:latest", 6, 12288)),
+            (["create", "mybox"], .create("mybox", nil, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192)),
+            (["create", "mybox", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192)),
+            (["create", "--from", "spec.yaml"], .create("mybox", authoredSpecText, "sand/developer-ready:ubuntu-lts", "linux", 4, 8192)),
+            (["create", "mybox", "--cpus", "6", "--memory", "12GB", "--image", "custom:latest"], .create("mybox", nil, "custom:latest", "linux", 6, 12288)),
+            (["create", "mybox", "--os", "macos", "--from", "ghcr.io/cirruslabs/macos-sequoia-xcode:latest"], .create("mybox", nil, "ghcr.io/cirruslabs/macos-sequoia-xcode:latest", "macos", 4, 8192)),
             (["list"], .list),
             (["apply", "mybox"], .apply("mybox")),
             (["delete", "mybox"], .delete("mybox", false)),
@@ -143,7 +144,7 @@ private final class RecordingSandboxApplication: SandboxApplication {
 
     func doctor() throws -> CommandResult { calls.append(.doctor); return .success }
     func create(_ request: CreateRequest) throws -> CommandResult {
-        calls.append(.create(request.sandboxName.rawValue, request.authoredSpecText, request.image.reference, request.resourceProfile.cpus, request.resourceProfile.memory.megabytes)); return .success
+        calls.append(.create(request.sandboxName.rawValue, request.authoredSpecText, request.image.reference, request.guestOS.rawValue, request.resourceProfile.cpus, request.resourceProfile.memory.megabytes)); return .success
     }
     func list() throws -> CommandResult { calls.append(.list); return .success }
     func apply(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.apply(request.sandboxName.rawValue)); return .success }
@@ -162,7 +163,7 @@ private final class RecordingSandboxApplication: SandboxApplication {
 
 private enum AppCall: Equatable {
     case doctor
-    case create(String, String?, String, Int, Int)
+    case create(String, String?, String, String, Int, Int)
     case list
     case apply(String)
     case delete(String, Bool)

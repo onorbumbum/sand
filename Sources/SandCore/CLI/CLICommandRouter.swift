@@ -99,8 +99,10 @@ public struct CLICommandRouter {
         guard let firstArgument = arguments.first else { throw CLICommandError.missingSandboxName }
         var name: SandboxName?
         var image = SandboxImage.developerReadyDefault
+        var guestOS = GuestOS.linux
         var resourceProfile = ResourceProfile.default
         var authoredSpecText: String?
+        var fromValue: String?
         var index = 0
 
         if !firstArgument.hasPrefix("--") {
@@ -113,13 +115,7 @@ public struct CLICommandRouter {
             case "--from":
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--from") }
-                let text = try readTextFile(arguments[index])
-                let spec = try SandboxSpec.parseYAML(text)
-                if let explicitName = name, explicitName != spec.name {
-                    throw CLICommandError.specNameMismatch(expected: explicitName.rawValue, actual: spec.name.rawValue)
-                }
-                name = spec.name
-                authoredSpecText = text
+                fromValue = arguments[index]
             case "--cpus":
                 index += 1
                 guard index < arguments.count, let cpus = Int(arguments[index]) else { throw CLICommandError.missingOptionValue("--cpus") }
@@ -132,6 +128,10 @@ public struct CLICommandRouter {
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--image") }
                 image = SandboxImage(reference: arguments[index])
+            case "--os":
+                index += 1
+                guard index < arguments.count else { throw CLICommandError.missingOptionValue("--os") }
+                guestOS = try GuestOS.parse(arguments[index])
             case "--inbound", "--port", "--publish":
                 throw CLICommandError.unsupportedOption(arguments[index])
             default:
@@ -140,8 +140,22 @@ public struct CLICommandRouter {
             index += 1
         }
 
+        if let fromValue {
+            if guestOS == .linux && (FileManager.default.fileExists(atPath: fromValue) || fromValue.hasSuffix(".yaml") || fromValue.hasSuffix(".yml")) {
+                let text = try readTextFile(fromValue)
+                let spec = try SandboxSpec.parseYAML(text)
+                if let explicitName = name, explicitName != spec.name {
+                    throw CLICommandError.specNameMismatch(expected: explicitName.rawValue, actual: spec.name.rawValue)
+                }
+                name = spec.name
+                authoredSpecText = text
+            } else {
+                image = SandboxImage(reference: fromValue)
+            }
+        }
+
         guard let name else { throw CLICommandError.missingSandboxName }
-        return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, resourceProfile: resourceProfile))
+        return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, guestOS: guestOS, resourceProfile: resourceProfile))
     }
 
     // Parses and dispatches the `delete` command with its options.
@@ -244,9 +258,9 @@ private enum CLIHelp {
     """
 
     static let create = """
-    Usage: sand create <name> [--image <image>] [--cpus <count>] [--memory <size>] [--from <spec.yaml>]
+    Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image>] [--cpus <count>] [--memory <size>]
 
-    Creates a Sandbox VM from generated defaults or from an authored spec.
+    Creates a Sandbox VM from generated defaults, an authored Linux spec, or a backend image.
     """
 
     static let apply = """
