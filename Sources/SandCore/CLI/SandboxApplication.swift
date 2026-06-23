@@ -12,6 +12,7 @@ public protocol SandboxApplication {
     func stop(_ request: NamedSandboxRequest) throws -> CommandResult
     func shell(_ request: ShellRequest) throws -> CommandResult
     func run(_ request: RunRequest) throws -> CommandResult
+    func gui(_ request: GUIRequest) throws -> CommandResult
     func logs(_ request: NamedSandboxRequest) throws -> CommandResult
     func spec(_ request: NamedSandboxRequest) throws -> CommandResult
     func addFolder(_ request: AddFolderRequest) throws -> CommandResult
@@ -87,6 +88,18 @@ public struct ShellRequest: Equatable {
     }
 }
 
+/// Errors raised when opening a graphical desktop session.
+public enum SandboxGUIError: Error, Equatable, CustomStringConvertible {
+    case unsupportedGuestOS(String)
+
+    public var description: String {
+        switch self {
+        case .unsupportedGuestOS(let guestOS):
+            return "gui is macOS-only; Sandbox VM uses \(guestOS)."
+        }
+    }
+}
+
 /// A request to run a command in a sandbox VM.
 public struct RunRequest: Equatable {
     public var sandboxName: SandboxName
@@ -95,6 +108,15 @@ public struct RunRequest: Equatable {
     public init(sandboxName: SandboxName, command: WorkloadCommand) {
         self.sandboxName = sandboxName
         self.command = command
+    }
+}
+
+/// A request to open a graphical desktop session in a sandbox VM.
+public struct GUIRequest: Equatable {
+    public var sandboxName: SandboxName
+
+    public init(sandboxName: SandboxName) {
+        self.sandboxName = sandboxName
     }
 }
 

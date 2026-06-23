@@ -6,6 +6,7 @@ public struct TartCLIBackend: SandboxBackend {
     private let sshRunner: any BackendCommandRunner
     private let starter: any TartVMStarter
     private let keyStore: any TartSSHKeyStore
+    private let screenSharing: any TartScreenSharingOpener
     private let sleeper: (TimeInterval) -> Void
     private let maxIPAttempts: Int
 
@@ -14,6 +15,7 @@ public struct TartCLIBackend: SandboxBackend {
         sshRunner: any BackendCommandRunner = ProcessBackendCommandRunner(executable: "ssh"),
         starter: any TartVMStarter = ProcessTartVMStarter(),
         keyStore: any TartSSHKeyStore = FileTartSSHKeyStore(),
+        screenSharing: any TartScreenSharingOpener = ProcessTartScreenSharingOpener(),
         sleeper: @escaping (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) },
         maxIPAttempts: Int = 60
     ) {
@@ -21,6 +23,7 @@ public struct TartCLIBackend: SandboxBackend {
         self.sshRunner = sshRunner
         self.starter = starter
         self.keyStore = keyStore
+        self.screenSharing = screenSharing
         self.sleeper = sleeper
         self.maxIPAttempts = maxIPAttempts
     }
@@ -77,7 +80,15 @@ public struct TartCLIBackend: SandboxBackend {
     }
 
     private func runArguments(for spec: SandboxSpec) -> [String] {
-        var arguments = ["run", "--no-graphics", "--root-disk-opts", "sync=full"]
+        tartRunArguments(for: spec, graphicsMode: "--no-graphics")
+    }
+
+    private func vncRunArguments(for spec: SandboxSpec) -> [String] {
+        tartRunArguments(for: spec, graphicsMode: "--vnc")
+    }
+
+    private func tartRunArguments(for spec: SandboxSpec, graphicsMode: String) -> [String] {
+        var arguments = ["run", graphicsMode, "--root-disk-opts", "sync=full"]
         for folder in spec.sharedFolders {
             arguments += ["--dir", dirArgument(for: folder)]
         }
@@ -123,6 +134,14 @@ public struct TartCLIBackend: SandboxBackend {
             io: .inherited
         )
         return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
+    }
+
+    public func gui(_ request: BackendGUIRequest) throws -> CommandResult {
+        let logPath = try keyStore.logPath(for: request.spec.name, kind: "gui")
+        try starter.start(arguments: vncRunArguments(for: request.spec), logPath: logPath)
+        let ipAddress = try waitForIPAddress(request.spec.name)
+        try screenSharing.open(url: "vnc://admin@\(ipAddress)")
+        return .success
     }
 
     public func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus {
@@ -402,6 +421,25 @@ public struct ProcessTartVMStarter: TartVMStarter {
         process.standardOutput = logHandle
         process.standardError = logHandle
         try process.run()
+    }
+}
+
+public protocol TartScreenSharingOpener {
+    func open(url: String) throws
+}
+
+public struct ProcessTartScreenSharingOpener: TartScreenSharingOpener {
+    public init() {}
+
+    public func open(url: String) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = [url]
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw BackendTranslatedError.commandFailed("Could not open the host Screen Sharing app for the macOS Sandbox VM.")
+        }
     }
 }
 

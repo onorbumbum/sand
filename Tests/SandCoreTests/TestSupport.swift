@@ -129,6 +129,11 @@ final class RecordingSandboxBackend: SandboxBackend {
         return .success
     }
 
+    func gui(_ request: BackendGUIRequest) throws -> CommandResult {
+        calls.append(.gui(request.spec.name.rawValue))
+        return .success
+    }
+
     func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus {
         calls.append(.status(sandboxName.rawValue))
         return runtimeStatus
@@ -182,6 +187,7 @@ enum BackendCall: Equatable {
     case stop(String)
     case run(String, [String], String)
     case shell(String, String)
+    case gui(String)
     case status(String)
     case logs(String)
     case delete(String)

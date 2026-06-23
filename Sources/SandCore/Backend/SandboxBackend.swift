@@ -10,6 +10,7 @@ public protocol SandboxBackend {
     func stop(_ sandboxName: SandboxName) throws
     func run(_ request: BackendRunRequest) throws -> CommandResult
     func shell(_ request: BackendShellRequest) throws -> CommandResult
+    func gui(_ request: BackendGUIRequest) throws -> CommandResult
     func status(_ sandboxName: SandboxName) throws -> SandboxRuntimeStatus
     func logs(_ sandboxName: SandboxName) throws -> SandboxLogs
     func delete(_ sandboxName: SandboxName) throws
@@ -42,6 +43,15 @@ public struct BackendShellRequest: Equatable {
     public init(sandboxName: SandboxName, workingDirectory: GuestPath) {
         self.sandboxName = sandboxName
         self.workingDirectory = workingDirectory
+    }
+}
+
+/// A request to open a graphical desktop session for a sandbox VM.
+public struct BackendGUIRequest: Equatable {
+    public var spec: SandboxSpec
+
+    public init(spec: SandboxSpec) {
+        self.spec = spec
     }
 }
 

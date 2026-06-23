@@ -71,6 +71,7 @@ final class CLICommandRouterTests: XCTestCase {
             (["stop", "mybox"], .stop("mybox")),
             (["shell", "mybox"], .shell("mybox")),
             (["run", "mybox", "echo", "hello"], .run("mybox", ["echo", "hello"])),
+            (["mybox", "gui"], .gui("mybox")),
             (["logs", "mybox"], .logs("mybox")),
             (["spec", "mybox"], .spec("mybox")),
             (["folders", "add", "mybox", "~/Projects", "rw"], .addFolder("mybox", "~/Projects", "rw", nil)),
@@ -156,6 +157,7 @@ private final class RecordingSandboxApplication: SandboxApplication {
     func stop(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.stop(request.sandboxName.rawValue)); return .success }
     func shell(_ request: ShellRequest) throws -> CommandResult { calls.append(.shell(request.sandboxName.rawValue)); return .success }
     func run(_ request: RunRequest) throws -> CommandResult { calls.append(.run(request.sandboxName.rawValue, request.command.arguments)); return .success }
+    func gui(_ request: GUIRequest) throws -> CommandResult { calls.append(.gui(request.sandboxName.rawValue)); return .success }
     func logs(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.logs(request.sandboxName.rawValue)); return .success }
     func spec(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.spec(request.sandboxName.rawValue)); return .success }
     func addFolder(_ request: AddFolderRequest) throws -> CommandResult { calls.append(.addFolder(request.sandboxName.rawValue, request.displayHostPath, request.accessMode, request.guestPath?.rawValue)); return .success }
@@ -174,6 +176,7 @@ private enum AppCall: Equatable {
     case stop(String)
     case shell(String)
     case run(String, [String])
+    case gui(String)
     case logs(String)
     case spec(String)
     case addFolder(String, String, String, String?)

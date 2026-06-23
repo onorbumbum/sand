@@ -145,6 +145,11 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         return output.exitCode == 0 ? .success : .failure(exitCode: output.exitCode)
     }
 
+    /// Linux sandboxes do not expose graphical desktop sessions.
+    public func gui(_ request: BackendGUIRequest) throws -> CommandResult {
+        throw SandboxGUIError.unsupportedGuestOS(request.spec.guestOS.rawValue)
+    }
+
     // Builds exec arguments, adding --tty if stdin/stdout are terminals.
     private func execArguments(sandboxName: SandboxName, workingDirectory: GuestPath, command: [String]) -> [String] {
         var arguments = ["exec", "--interactive"]

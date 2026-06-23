@@ -188,6 +188,32 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(sshRunner.ioModes, [.captured, .inherited])
     }
 
+    func testGUIStartsTartVNCAndOpensHostScreenSharingAtVMAddress() throws {
+        let name = try SandboxName("macbox")
+        let starter = RecordingTartVMStarter()
+        let screenSharing = RecordingTartScreenSharingOpener()
+        let runner = ScriptedTartRunner(results: [
+            ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0))
+        ])
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: StaticTartKeyStore(), screenSharing: screenSharing, sleeper: { _ in }, maxIPAttempts: 1)
+        let spec = SandboxSpec(
+            name: name,
+            image: SandboxImage(reference: "ghcr.io/example/macos:latest"),
+            guestOS: .macOS,
+            sharedFolders: [
+                SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)
+            ]
+        )
+
+        XCTAssertEqual(try backend.gui(BackendGUIRequest(spec: spec)), .success)
+
+        XCTAssertEqual(starter.calls, [
+            TartStartCall(arguments: ["run", "--vnc", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-gui.log")
+        ])
+        XCTAssertEqual(runner.calls, [["ip", "macbox"]])
+        XCTAssertEqual(screenSharing.openedURLs, ["vnc://admin@192.168.65.2"])
+    }
+
     func testStatusReadsOnlyTheRequestedVMFromActualTartJSON() throws {
         let runner = ScriptedTartRunner(results: [
             ["list", "--format", "json"]: .success(.init(stdout: """
@@ -256,6 +282,14 @@ private final class RecordingTartVMStarter: TartVMStarter {
 
     func start(arguments: [String], logPath: String) throws {
         calls.append(TartStartCall(arguments: arguments, logPath: logPath))
+    }
+}
+
+private final class RecordingTartScreenSharingOpener: TartScreenSharingOpener {
+    var openedURLs: [String] = []
+
+    func open(url: String) throws {
+        openedURLs.append(url)
     }
 }
 

@@ -27,6 +27,10 @@ public struct CLICommandRouter {
             return .success
         }
 
+        if arguments.count == 2, arguments[1] == "gui" {
+            return try application.gui(GUIRequest(sandboxName: try SandboxName(first)))
+        }
+
         switch first {
         case "--help", "-h":
             try requireExactCount(arguments, 1)
@@ -249,6 +253,7 @@ private enum CLIHelp {
       stop <name>                    Stop a Sandbox VM
       shell <name>                   Open a shell
       run <name> <command> [args...] Run a Workload Command
+      <name> gui                     Open a graphical desktop session
       logs <name>                    Show logs
       spec <name>                    Print the sandbox spec
 

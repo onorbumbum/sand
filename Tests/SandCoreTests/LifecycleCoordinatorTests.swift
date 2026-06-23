@@ -394,6 +394,31 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(backend.calls, [.status("mybox"), .shell("mybox", "/workspace")])
     }
 
+    func testGUIRejectsLinuxSandboxWithMacOSOnlyMessage() throws {
+        let spec = SandboxSpec.generated(name: try SandboxName("linuxbox"))
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [spec]), backend: backend)
+
+        XCTAssertThrowsError(try coordinator.gui(GUIRequest(sandboxName: spec.name))) { error in
+            XCTAssertEqual(String(describing: error), "gui is macOS-only; Sandbox VM uses linux.")
+        }
+        XCTAssertEqual(backend.calls, [])
+    }
+
+    func testGUIDelegatesMacOSSandboxThroughResolvedBackend() throws {
+        let spec = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS)
+        let linuxBackend = RecordingSandboxBackend(status: .running)
+        let macOSBackend = RecordingSandboxBackend(status: .stopped)
+        let resolver = RecordingBackendResolver(linuxBackend: linuxBackend, macOSBackend: macOSBackend)
+        let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [spec]), backendResolver: resolver)
+
+        XCTAssertEqual(try coordinator.gui(GUIRequest(sandboxName: spec.name)), .success)
+
+        XCTAssertEqual(resolver.requestedGuestOS, [.macOS])
+        XCTAssertEqual(linuxBackend.calls, [])
+        XCTAssertEqual(macOSBackend.calls, [.gui("macbox")])
+    }
+
     func testStartStopAndDeleteAreLifecycleMutationsAndUpdateBackendState() throws {
         let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
         let metadataStore = MemoryMetadataStore(specs: [spec])

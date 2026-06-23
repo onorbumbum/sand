@@ -4,7 +4,7 @@ import Foundation
 /// starting, stopping, and shell access.
 ///
 /// Orchestrates between the metadata store, backend, and user prompts.
-/// Handles: create, apply, delete, start, stop, shell, run, and status.
+/// Handles: create, apply, delete, start, stop, shell, run, gui, and status.
 ///
 /// - Note: All mutations are protected by lifecycle locks.
 public struct LifecycleCoordinator: SandboxApplication {
@@ -207,6 +207,15 @@ public struct LifecycleCoordinator: SandboxApplication {
                 workingDirectory: mapping.guestPath
             )
         )
+    }
+
+    /// Opens a graphical desktop session for a macOS sandbox VM.
+    public func gui(_ request: GUIRequest) throws -> CommandResult {
+        let spec = try metadataStore.readSpec(named: request.sandboxName)
+        guard spec.guestOS == .macOS else {
+            throw SandboxGUIError.unsupportedGuestOS(spec.guestOS.rawValue)
+        }
+        return try backend(for: spec).gui(BackendGUIRequest(spec: spec))
     }
 
     /// Retrieves and displays logs from the sandbox VM.
