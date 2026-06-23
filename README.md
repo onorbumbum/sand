@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: 7f022acc9b4aae7476723c6e67756f13766d6e726a6bf6d42ea9406620b1053b -->
+<!-- docs-input-hash: d423445febdaed9019d045042030464047c07d640c5ec6d274d8efe4e7956ae3 -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -122,6 +122,14 @@ Create an Xcode-ready macOS Sandbox VM when you need iOS Simulator builds or dis
 sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-sequoia-xcode:latest
 sand run iosbox /usr/bin/xcodebuild -version
 ```
+
+Open the VM desktop when you need GUI setup or Apple-ID-gated work:
+
+```sh
+sand gui macbase
+```
+
+Screen Sharing may ask for credentials. For Cirrus Tart registry images such as `macos-sequoia-base` and `macos-sequoia-xcode`, use username `admin` and password `admin`. For self-built IPSW VMs, use the Sandbox User credentials created during first boot. This password is only for GUI access; `sand shell` and `sand run` use sand's injected SSH key.
 
 Build a macOS VM from an Apple IPSW only when you want your own fresh base image:
 
@@ -343,7 +351,7 @@ sand run macbase /bin/zsh -lc 'ls -la /workspace && cat /workspace/from-host.txt
 cat ~/sand-macos-test/from-guest.txt
 ```
 
-macOS Shared Folders use the same chosen Guest Path as Linux. Tart mounts at macOS's fixed `/Volumes/My Shared Files/<tag>` location, and `sand` hides that backend detail behind a guest-side symlink. `sand gui <name>` opens the VM desktop through Tart VNC and Host Mac Screen Sharing.
+macOS Shared Folders use the same chosen Guest Path as Linux. Tart mounts at macOS's fixed `/Volumes/My Shared Files/<tag>` location, and `sand` hides that backend detail behind a guest-side symlink. `sand gui <name>` opens the VM desktop through Tart VNC and Host Mac Screen Sharing. Screen Sharing may ask for credentials: use `admin` / `admin` for Cirrus Tart registry images, or the Sandbox User credentials you created during first boot for self-built IPSW VMs.
 
 macOS signing:
 

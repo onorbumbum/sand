@@ -220,7 +220,13 @@ public struct LifecycleCoordinator: SandboxApplication {
     public func start(_ request: NamedSandboxRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             let spec = try metadataStore.readSpec(named: request.sandboxName)
-            try backend(for: spec).start(spec)
+            let backend = try backend(for: spec)
+            if try backend.status(request.sandboxName) == .running {
+                writeOutput("Sandbox VM \(request.sandboxName.rawValue) is already running.")
+                return
+            }
+            try backend.start(spec)
+            writeOutput("Started Sandbox VM \(request.sandboxName.rawValue).")
         }
         return .success
     }

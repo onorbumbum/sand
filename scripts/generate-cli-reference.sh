@@ -82,7 +82,7 @@ macOS guests are first-class Sandbox VMs backed by Tart. Use \`sand create <name
 
 \`--disk <size>\` is a macOS-only create-time Disk Size field. The default macOS disk is about 100GB, clone disk size is grow-only, and in-place disk resize is not part of the v1 command surface.
 
-\`sand gui <name>\` opens a macOS GUI Session through Tart VNC and the Host Mac Screen Sharing app. \`gui\` is for VM desktop setup and Apple-ID-gated work; it does not forward a host-connected physical iPhone or iPad into the Sandbox Guest.
+\`sand gui <name>\` opens a macOS GUI Session through Tart VNC and the Host Mac Screen Sharing app. Screen Sharing may ask for credentials. For Cirrus Tart registry images, use username \`admin\` and password \`admin\`; for self-built IPSW VMs, use the Sandbox User credentials created during first boot. \`gui\` is for VM desktop setup and Apple-ID-gated work; it does not forward a host-connected physical iPhone or iPad into the Sandbox Guest.
 
 macOS support requires the Tart CLI on \`PATH\` (\`brew install cirruslabs/cli/tart\`). \`sand\` itself remains an unsigned, entitlement-free CLI because Tart carries the Virtualization Framework entitlement.
 

@@ -180,7 +180,7 @@ public struct TartCLIBackend: SandboxBackend {
         let ipAddress = try waitForIPAddress(request.sandboxName)
         try waitForSSH(sandboxName: request.sandboxName, ipAddress: ipAddress)
         let output = try sshRunner.run(
-            arguments: sshArguments(
+            arguments: interactiveSSHArguments(
                 sandboxName: request.sandboxName,
                 ipAddress: ipAddress,
                 remoteCommand: "cd \(shellQuoted(request.workingDirectory.rawValue)) && exec /bin/zsh -l"
@@ -258,13 +258,12 @@ public struct TartCLIBackend: SandboxBackend {
     }
 
     private func syntheticRootLinks(for folders: [SharedFolder]) -> [SyntheticRootLink] {
-        let existingWritableRoots: Set<String> = ["Users", "Volumes", "tmp", "private", "var"]
         var links: [SyntheticRootLink] = []
         var seen: Set<String> = []
         for folder in folders {
             let components = folder.guestPath.rawValue.split(separator: "/").map(String.init)
-            guard let root = components.first, !existingWritableRoots.contains(root), seen.insert(root).inserted else { continue }
-            links.append(SyntheticRootLink(name: root, target: "Users/admin/.sand/synthetic/\(root)"))
+            guard let root = components.first, !existingWritableRootNames().contains(root), seen.insert(root).inserted else { continue }
+            links.append(SyntheticRootLink(name: root, target: syntheticTargetRelativePath(forRoot: root)))
         }
         return links
     }
@@ -336,14 +335,35 @@ public struct TartCLIBackend: SandboxBackend {
         var lines = ["set -e"]
         for folder in folders {
             let guestPath = folder.guestPath.rawValue
-            let parent = parentDirectory(of: guestPath)
+            let symlinkPath = sharedFolderSymlinkPath(for: folder.guestPath)
+            let parent = parentDirectory(of: symlinkPath)
             let mountedPath = "/Volumes/My Shared Files/\(virtiofsTag(for: folder.guestPath))"
             lines.append("sudo -n mkdir -p \(shellQuoted(parent))")
-            lines.append("if [ -e \(shellQuoted(guestPath)) ] && [ ! -L \(shellQuoted(guestPath)) ]; then echo \(shellQuoted("Guest Path exists and is not a symlink: \(guestPath)")) >&2; exit 1; fi")
-            lines.append("sudo -n rm -f \(shellQuoted(guestPath))")
-            lines.append("sudo -n ln -s \(shellQuoted(mountedPath)) \(shellQuoted(guestPath))")
+            if symlinkPath == guestPath {
+                lines.append("if [ -e \(shellQuoted(symlinkPath)) ] && [ ! -L \(shellQuoted(symlinkPath)) ]; then echo \(shellQuoted("Guest Path exists and is not a symlink: \(guestPath)")) >&2; exit 1; fi")
+            } else {
+                lines.append("if [ -e \(shellQuoted(symlinkPath)) ] && [ ! -L \(shellQuoted(symlinkPath)) ]; then sudo -n rm -rf \(shellQuoted(symlinkPath)); fi")
+            }
+            lines.append("sudo -n rm -f \(shellQuoted(symlinkPath))")
+            lines.append("sudo -n ln -s \(shellQuoted(mountedPath)) \(shellQuoted(symlinkPath))")
         }
         return lines.joined(separator: "\n")
+    }
+
+    private func sharedFolderSymlinkPath(for guestPath: GuestPath) -> String {
+        let components = guestPath.rawValue.split(separator: "/").map(String.init)
+        guard components.count == 1, let root = components.first, !existingWritableRootNames().contains(root) else {
+            return guestPath.rawValue
+        }
+        return "/\(syntheticTargetRelativePath(forRoot: root))"
+    }
+
+    private func syntheticTargetRelativePath(forRoot root: String) -> String {
+        "Users/admin/.sand/synthetic/\(root)"
+    }
+
+    private func existingWritableRootNames() -> Set<String> {
+        ["Users", "Volumes", "tmp", "private", "var"]
     }
 
     private func parentDirectory(of path: String) -> String {
@@ -486,6 +506,10 @@ public struct TartCLIBackend: SandboxBackend {
             "admin@\(ipAddress)",
             remoteCommand
         ]
+    }
+
+    private func interactiveSSHArguments(sandboxName: SandboxName, ipAddress: String, remoteCommand: String) throws -> [String] {
+        ["-tt"] + (try sshArguments(sandboxName: sandboxName, ipAddress: ipAddress, remoteCommand: remoteCommand))
     }
 
     private func sshKeyAlreadyInjected(sandboxName: SandboxName, ipAddress: String) -> Bool {

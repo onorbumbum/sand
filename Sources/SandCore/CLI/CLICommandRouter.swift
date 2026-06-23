@@ -2,7 +2,7 @@ import Foundation
 
 /// Parses and dispatches CLI commands to the application layer.
 public struct CLICommandRouter {
-    public static let productVersion = "0.2.1-dev"
+    public static let productVersion = "0.2.3-dev"
 
     private let application: any SandboxApplication
     private let readTextFile: (String) throws -> String
@@ -491,6 +491,8 @@ private enum CLIHelp {
     Usage: sand gui <name>
 
     Opens a macOS graphical desktop session through Tart VNC and Host Mac Screen Sharing.
+
+    Screen Sharing may ask for credentials. For Cirrus Tart registry images, use username `admin` and password `admin`. For self-built IPSW VMs, use the Sandbox User credentials created during first boot. This password is only for GUI access; `sand shell` and `sand run` use sand's injected SSH key.
     """
 
     static let logs = """

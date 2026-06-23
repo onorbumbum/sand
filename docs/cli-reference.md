@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: 7f022acc9b4aae7476723c6e67756f13766d6e726a6bf6d42ea9406620b1053b -->
+<!-- docs-input-hash: d423445febdaed9019d045042030464047c07d640c5ec6d274d8efe4e7956ae3 -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **API Surface** for managing Linux and macOS **Sa
 
 ## Generation source
 
-- Docs input hash: `7f022acc9b4aae7476723c6e67756f13766d6e726a6bf6d42ea9406620b1053b`
+- Docs input hash: `e4afc81ac714b6a9dbf3d50dd299046c1e92b5eb4fc6eb9727d753e26bbe9261`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `.build/debug/sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, and `sand --version` output.
@@ -35,7 +35,7 @@ macOS guests are first-class Sandbox VMs backed by Tart. Use `sand create <name>
 
 `--disk <size>` is a macOS-only create-time Disk Size field. The default macOS disk is about 100GB, clone disk size is grow-only, and in-place disk resize is not part of the v1 command surface.
 
-`sand gui <name>` opens a macOS GUI Session through Tart VNC and the Host Mac Screen Sharing app. `gui` is for VM desktop setup and Apple-ID-gated work; it does not forward a host-connected physical iPhone or iPad into the Sandbox Guest.
+`sand gui <name>` opens a macOS GUI Session through Tart VNC and the Host Mac Screen Sharing app. Screen Sharing may ask for credentials. For Cirrus Tart registry images, use username `admin` and password `admin`; for self-built IPSW VMs, use the Sandbox User credentials created during first boot. `gui` is for VM desktop setup and Apple-ID-gated work; it does not forward a host-connected physical iPhone or iPad into the Sandbox Guest.
 
 macOS support requires the Tart CLI on `PATH` (`brew install cirruslabs/cli/tart`). `sand` itself remains an unsigned, entitlement-free CLI because Tart carries the Virtualization Framework entitlement.
 
@@ -44,7 +44,7 @@ Plan macOS Sandbox VMs as a handful, not dozens: Apple's macOS guest license all
 ## `sand --version`
 
 ```text
-sand 0.2.1-dev
+sand 0.2.3-dev
 ```
 
 ## `sand --help`
@@ -210,6 +210,8 @@ Runs a command inside the Sandbox VM.
 Usage: sand gui <name>
 
 Opens a macOS graphical desktop session through Tart VNC and Host Mac Screen Sharing.
+
+Screen Sharing may ask for credentials. For Cirrus Tart registry images, use username `admin` and password `admin`. For self-built IPSW VMs, use the Sandbox User credentials created during first boot. This password is only for GUI access; `sand shell` and `sand run` use sand's injected SSH key.
 ```
 
 ## `sand logs`

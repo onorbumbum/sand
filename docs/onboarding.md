@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 7f022acc9b4aae7476723c6e67756f13766d6e726a6bf6d42ea9406620b1053b -->
+<!-- docs-input-hash: d423445febdaed9019d045042030464047c07d640c5ec6d274d8efe4e7956ae3 -->
 
 # sand Onboarding Guide
 
@@ -27,7 +27,7 @@ sand doctor
 
 `sand` stays unsigned and entitlement-free because Tart carries the Virtualization Framework entitlement. macOS Shared Folders preserve the chosen Guest Path; Tart's fixed `/Volumes/My Shared Files/<tag>` mount location is hidden behind a guest-side symlink. `disk:` / `--disk <size>` is macOS-only, defaults to about 100GB, and is a create-time/grow-only concern.
 
-macOS platform limits are part of the product contract: expect roughly two concurrent macOS Sandbox VMs per Host Mac, about 100GB per VM, slower boot than Linux, and no physical-device deploy/debug because macOS guests do not get USB passthrough. `sand gui <name>` opens the VM desktop; it does not forward a host-connected iPhone or iPad.
+macOS platform limits are part of the product contract: expect roughly two concurrent macOS Sandbox VMs per Host Mac, about 100GB per VM, slower boot than Linux, and no physical-device deploy/debug because macOS guests do not get USB passthrough. `sand gui <name>` opens the VM desktop; it does not forward a host-connected iPhone or iPad. If Host Mac Screen Sharing asks for credentials, use `admin` / `admin` for Cirrus Tart registry images, or the Sandbox User credentials created during first boot for self-built IPSW VMs.
 
 ## Start here: humans
 

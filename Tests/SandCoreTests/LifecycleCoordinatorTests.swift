@@ -525,18 +525,34 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit"])
     }
 
+    func testStartReportsAlreadyRunningSandboxWithoutStartingAgain() throws {
+        let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
+        let metadataStore = MemoryMetadataStore(specs: [spec])
+        let backend = RecordingSandboxBackend(status: .running)
+        var output: [String] = []
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, writeOutput: { output.append($0) })
+
+        XCTAssertEqual(try coordinator.start(NamedSandboxRequest(sandboxName: spec.name)), .success)
+
+        XCTAssertEqual(backend.calls, [.status("mybox")])
+        XCTAssertEqual(output, ["Sandbox VM mybox is already running."])
+        XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit"])
+    }
+
     func testStartStopAndDeleteAreLifecycleMutationsAndUpdateBackendState() throws {
         let spec = SandboxSpec.generated(name: try SandboxName("mybox"))
         let metadataStore = MemoryMetadataStore(specs: [spec])
         let backend = RecordingSandboxBackend(status: .stopped)
         let prompt = RecordingPromptConfirmation(decisions: [.proceed])
-        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, prompt: prompt)
+        var output: [String] = []
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend, prompt: prompt, writeOutput: { output.append($0) })
 
         XCTAssertEqual(try coordinator.start(NamedSandboxRequest(sandboxName: spec.name)), .success)
         XCTAssertEqual(try coordinator.stop(NamedSandboxRequest(sandboxName: spec.name)), .success)
         XCTAssertEqual(try coordinator.delete(DeleteRequest(sandboxName: spec.name)), .success)
 
-        XCTAssertEqual(backend.calls, [.start("mybox"), .stop("mybox"), .delete("mybox")])
+        XCTAssertEqual(backend.calls, [.status("mybox"), .start("mybox"), .stop("mybox"), .delete("mybox")])
+        XCTAssertEqual(output, ["Started Sandbox VM mybox."])
         XCTAssertEqual(prompt.requests, [ConfirmationRequest(message: "Delete Sandbox VM mybox?", destructive: true)])
         XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit", "enter", "exit", "enter", "exit"])
         XCTAssertThrowsError(try metadataStore.readSpec(named: spec.name))

@@ -196,6 +196,47 @@ final class TartCLIBackendTests: XCTestCase {
         ])
     }
 
+    func testStartMountsMacOSSharedFolderWhenGuestPathIsSyntheticRoot() throws {
+        let name = try SandboxName("macbox")
+        let starter = RecordingTartVMStarter()
+        let syntheticScript = "set -e\nsudo -n mkdir -p /etc/synthetic.d\nmkdir -p '/Users/admin/.sand/synthetic/workspace'\ncurrent=$(cat /etc/synthetic.d/sand 2>/dev/null || true)\ndesired='workspace\tUsers/admin/.sand/synthetic/workspace\n'\nneeds_restart=0\nif [ \"$current\" != \"$desired\" ]; then printf '%s' \"$desired\" | sudo -n tee /etc/synthetic.d/sand >/dev/null; needs_restart=1; fi\nif [ ! -e '/workspace' ]; then needs_restart=1; fi\nif [ \"$needs_restart\" = 1 ]; then sync; echo SAND_SYNTHETIC_CHANGED; fi"
+        let symlinkScript = """
+        set -e
+        sudo -n mkdir -p '/Users/admin/.sand/synthetic'
+        if [ -e '/Users/admin/.sand/synthetic/workspace' ] && [ ! -L '/Users/admin/.sand/synthetic/workspace' ]; then sudo -n rm -rf '/Users/admin/.sand/synthetic/workspace'; fi
+        sudo -n rm -f '/Users/admin/.sand/synthetic/workspace'
+        sudo -n ln -s '/Volumes/My Shared Files/sand-L3dvcmtzcGFjZQ' '/Users/admin/.sand/synthetic/workspace'
+        """
+        let runner = ScriptedTartRunner(results: [
+            ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
+            ["exec", "macbox", "/bin/zsh", "-lc", syntheticScript]: .success(.init(stdout: "SAND_SYNTHETIC_CHANGED\n", stderr: "", exitCode: 0)),
+            ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: StaticTartKeyStore(), sleeper: { _ in }, maxIPAttempts: 1)
+        let spec = SandboxSpec(
+            name: name,
+            image: SandboxImage(reference: "ghcr.io/example/macos:latest"),
+            guestOS: .macOS,
+            sharedFolders: [
+                SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace"), accessMode: .readWrite)
+            ]
+        )
+
+        try backend.start(spec)
+
+        XCTAssertEqual(starter.calls, [
+            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZQ:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log"),
+            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZQ:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log")
+        ])
+        XCTAssertEqual(runner.calls, [
+            ["--version"],
+            ["exec", "macbox", "/bin/zsh", "-lc", syntheticScript],
+            ["stop", "macbox", "--timeout", "120"],
+            ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]
+        ])
+    }
+
     func testApplyRestartsRunningMacOSVMWithSharedFoldersWithoutDeletingDisk() throws {
         let name = try SandboxName("macbox")
         let starter = RecordingTartVMStarter()
@@ -282,6 +323,27 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(sshRunner.calls, [
             ["-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "true"],
             ["-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "cd '/workspace/project' && exec 'xcodebuild' '-scheme' 'App'"]
+        ])
+        XCTAssertEqual(sshRunner.ioModes, [.captured, .inherited])
+    }
+
+    func testShellAllocatesTTYForInteractiveMacOSShell() throws {
+        let name = try SandboxName("macbox")
+        let tartRunner = ScriptedTartRunner(results: [
+            ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0))
+        ])
+        let sshRunner = ScriptedTartRunner(results: [
+            ["-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "true"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["-tt", "-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "cd '/Users/admin' && exec /bin/zsh -l"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = TartCLIBackend(runner: tartRunner, sshRunner: sshRunner, starter: RecordingTartVMStarter(), keyStore: StaticTartKeyStore(), sleeper: { _ in }, maxIPAttempts: 1)
+
+        let result = try backend.shell(BackendShellRequest(sandboxName: name, workingDirectory: try GuestPath("/Users/admin")))
+
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(sshRunner.calls, [
+            ["-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "true"],
+            ["-tt", "-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "cd '/Users/admin' && exec /bin/zsh -l"]
         ])
         XCTAssertEqual(sshRunner.ioModes, [.captured, .inherited])
     }
