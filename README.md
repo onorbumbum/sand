@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: 6ea1a93fa7711c4c6a16b9f8ed578515396c109369c1162fe145662863c518f1 -->
+<!-- docs-input-hash: dcda9fc55be2ed1b1292a6eda2087e2da695acc449f775abbf41f0578c62aeb2 -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -65,15 +65,11 @@ This alpha is intentionally focused on the daily loop:
 
 In this version, access is intentionally simple: choose folders, run commands, keep guest state. Host credentials and Host Mac Pi config are not shared automatically. macOS Signing Credentials are injected into the Sandbox Guest keychain as Guest Secrets; the Host Mac keychain is not mounted or shared. Simulator builds do not need signing or Apple ID. Physical-device deploy/debug is unsupported because macOS guests do not get USB passthrough; `gui` gives desktop access to the VM, not a forwarded host device. Inbound port publishing is not part of the first release, so browser callback logins need the handoff flow described below.
 
-## Documentation
+## More docs
 
-Start with the docs when onboarding humans or AI agents to work on the project:
-
-- [`docs/onboarding.md`](docs/onboarding.md) teaches the repo map, first files to read, working loop, and local verification flow.
-- [`docs/cli-reference.md`](docs/cli-reference.md) is generated from current `sand` help output and is the detailed command reference.
-- [`docs/developer-guide.md`](docs/developer-guide.md) explains architecture, testing strategy, command-change workflow, and Definition of Done.
-
-The documentation refresh workflow is a guardrail for changes with Documentation Impact. It is not the default work mode for agents; agents should start from the task, product language, code, and tests.
+- [`docs/cli-reference.md`](docs/cli-reference.md) lists every command and option.
+- [`docs/onboarding.md`](docs/onboarding.md) maps the repository for contributors.
+- [`docs/developer-guide.md`](docs/developer-guide.md) explains the architecture, tests, and release checks.
 
 ## Delete cleanup behavior
 
@@ -87,6 +83,55 @@ The documentation refresh workflow is a guardrail for changes with Documentation
 - Apple `container` backend service running or startable by `container system start` for Linux Sandbox VMs.
 - Tart CLI installed and available on `PATH` for macOS Sandbox VMs.
 - The developer-ready image built locally: `sand/developer-ready:ubuntu-lts`.
+
+## Getting started
+
+From a cloned checkout:
+
+```sh
+PREFIX=$HOME/.local make install
+export PATH="$HOME/.local/bin:$PATH"
+sand doctor
+```
+
+Create a Linux Sandbox VM for regular coding-agent work:
+
+```sh
+sand create demo
+sand folders add demo "$HOME/Projects/my-project" rw --as /workspace
+cd "$HOME/Projects/my-project"
+sand run demo pwd
+sand shell demo
+```
+
+Create a lightweight macOS Sandbox VM for shell, GUI, and Shared Folder checks:
+
+```sh
+brew install cirruslabs/cli/tart
+sand create macbase --os macos --from ghcr.io/cirruslabs/macos-sequoia-base:latest
+mkdir -p ~/sand-macos-test
+echo "hello from host" > ~/sand-macos-test/from-host.txt
+sand folders add macbase ~/sand-macos-test rw --as /workspace
+sand run macbase /bin/zsh -lc 'cat /workspace/from-host.txt && echo "hello from guest" > /workspace/from-guest.txt'
+cat ~/sand-macos-test/from-guest.txt
+```
+
+Create an Xcode-ready macOS Sandbox VM when you need iOS Simulator builds or distribution signing:
+
+```sh
+sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-sequoia-xcode:latest
+sand run iosbox /usr/bin/xcodebuild -version
+```
+
+Build a macOS VM from an Apple IPSW only when you want your own fresh base image:
+
+```sh
+sand create cleanmac --os macos --from-ipsw latest
+sand cleanmac gui
+sand bootstrap cleanmac
+```
+
+`bootstrap` is only for the IPSW path. The first GUI boot creates the macOS user and enables the basics; `sand bootstrap` then installs sand's SSH key and finishes the guest setup so `sand shell` and `sand run` work without passwords. Cloned Tart registry images such as `macos-sequoia-base` and `macos-sequoia-xcode` are already ready for normal `sand` commands.
 
 ## Build and smoke-test the developer-ready image
 
@@ -272,7 +317,7 @@ sand doctor
 macOS sources are explicit and open-ended. Choose the smallest image that fits the job:
 
 ```sh
-# Lightweight macOS base, no Xcode. Good for testing shell/run/Shared Folders.
+# Lightweight macOS base, no Xcode: shell, GUI, and Shared Folders.
 sand create macbase --os macos --from ghcr.io/cirruslabs/macos-sequoia-base:latest
 
 # Xcode-ready macOS image. Use this for iOS Simulator builds or distribution signing tests.
@@ -281,13 +326,14 @@ sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-sequoia-xcode:late
 # Size the macOS VM disk at create time. Disk Size is macOS-only and grow-only for clones.
 sand create iosbig --os macos --disk 150GB --from ghcr.io/cirruslabs/macos-sequoia-base:latest
 
-# Or build a self-made macOS base from an IPSW, finish first boot in GUI, then bootstrap.
+# Or build a self-made macOS base from an IPSW.
+# First boot happens in the GUI; bootstrap then enables normal sand shell/run access.
 sand create cleanmac --os macos --from-ipsw latest
 sand cleanmac gui
 sand bootstrap cleanmac
 ```
 
-A quick Shared Folder smoke test for the lightweight base image:
+Shared Folder check for the lightweight base image:
 
 ```sh
 mkdir -p ~/sand-macos-test
@@ -350,6 +396,3 @@ sharedFolders:
 
 v1 rejects unsupported spec fields for features outside the accepted scope, including inbound networking / port publishing.
 
-## Notes on example verification
-
-The command shapes in this README are aligned with `sand --help` and covered by CLI parser tests where practical. Examples that depend on machine-specific paths, an installed Apple `container` runtime, or a locally built image are illustrative until run on a prepared Host Mac.

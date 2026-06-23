@@ -427,9 +427,11 @@ private enum CLIHelp {
     static let bootstrap = """
     Usage: sand bootstrap <name>
 
-    Finishes the second stage of a self-built macOS base created with `--from-ipsw`.
+    Prepares a self-built macOS Sandbox VM for normal `sand shell` and `sand run` access.
 
-    After completing interactive first-boot macOS setup in `sand <name> gui` (create/enable the Sandbox User, enable Remote Login, configure passwordless sudo), this injects the Sand SSH key, verifies SSH and passwordless sudo, runs backend configuration, and marks the Sandbox VM ready for `sand <name> shell`.
+    Use this only after `sand create <name> --from-ipsw <latest|path|url>` and first-boot setup in `sand <name> gui`. A fresh IPSW install needs one manual macOS setup pass before `sand` can connect without passwords.
+
+    `bootstrap` installs sand's SSH key, verifies SSH and passwordless sudo, finishes guest configuration, and marks the Sandbox VM ready. Cloned Tart registry images such as `macos-sequoia-base` and `macos-sequoia-xcode` do not need this step.
     """
 
     static let delete = """
