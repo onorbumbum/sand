@@ -73,7 +73,7 @@ public struct TartCLIBackend: SandboxBackend {
     }
 
     private func runArguments(for spec: SandboxSpec) -> [String] {
-        var arguments = ["run", "--no-graphics"]
+        var arguments = ["run", "--no-graphics", "--root-disk-opts", "sync=full"]
         for folder in spec.sharedFolders {
             arguments += ["--dir", dirArgument(for: folder)]
         }
@@ -90,7 +90,7 @@ public struct TartCLIBackend: SandboxBackend {
     }
 
     public func stop(_ sandboxName: SandboxName) throws {
-        _ = try runRequired(["stop", sandboxName.rawValue])
+        _ = try runRequired(stopArguments(for: sandboxName))
     }
 
     public func run(_ request: BackendRunRequest) throws -> CommandResult {
@@ -145,7 +145,7 @@ public struct TartCLIBackend: SandboxBackend {
 
     public func delete(_ sandboxName: SandboxName) throws {
         if try status(sandboxName) != .missing {
-            _ = try? runner.run(arguments: ["stop", sandboxName.rawValue])
+            _ = try? runner.run(arguments: stopArguments(for: sandboxName))
             _ = try runRequired(["delete", sandboxName.rawValue])
         }
         try keyStore.deleteKeyPair(for: sandboxName)
@@ -273,6 +273,10 @@ public struct TartCLIBackend: SandboxBackend {
 
     private func boolValue(_ row: [String: Any], _ key: String) -> Bool? {
         (row[key] as? Bool) ?? (row[key.capitalized] as? Bool)
+    }
+
+    private func stopArguments(for sandboxName: SandboxName) -> [String] {
+        ["stop", sandboxName.rawValue, "--timeout", "120"]
     }
 
     private func runRequiredLogged(_ arguments: [String], sandboxName: SandboxName, logKind: String) throws {

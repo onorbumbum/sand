@@ -9,10 +9,10 @@ final class TartCLIBackendTests: XCTestCase {
         let runner = ScriptedTartRunner(results: [
             ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
             ["clone", "ghcr.io/example/macos:latest", "macbox"]: .success(.init(stdout: "cloned\n", stderr: "", exitCode: 0)),
-            ["set", "macbox", "--cpu", "4", "--memory", "8192"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["set", "macbox", "--cpu", "4", "--memory", "16384"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
             ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
-            ["stop", "macbox"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+            ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
         ])
         let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: keyStore, sleeper: { _ in }, maxIPAttempts: 1)
 
@@ -21,12 +21,12 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(runner.calls, [
             ["--version"],
             ["clone", "ghcr.io/example/macos:latest", "macbox"],
-            ["set", "macbox", "--cpu", "4", "--memory", "8192"],
+            ["set", "macbox", "--cpu", "4", "--memory", "16384"],
             ["ip", "macbox"],
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"],
-            ["stop", "macbox"]
+            ["stop", "macbox", "--timeout", "120"]
         ])
-        XCTAssertEqual(starter.calls, [TartStartCall(arguments: ["run", "--no-graphics", "macbox"], logPath: "/tmp/macbox-start.log")])
+        XCTAssertEqual(starter.calls, [TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "macbox"], logPath: "/tmp/macbox-start.log")])
         XCTAssertEqual(keyStore.created, ["macbox"])
         XCTAssertTrue(keyStore.logs["macbox:clone"]?.contains("cloned") == true)
     }
@@ -49,7 +49,7 @@ final class TartCLIBackendTests: XCTestCase {
         let runner = ScriptedTartRunner(results: [
             ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
             ["exec", "macbox", "/bin/zsh", "-lc", syntheticScript]: .success(.init(stdout: "SAND_SYNTHETIC_CHANGED\n", stderr: "", exitCode: 0)),
-            ["stop", "macbox"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
             ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]: .success(.init(stdout: "", stderr: "", exitCode: 0))
         ])
         let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: StaticTartKeyStore(), sleeper: { _ in }, maxIPAttempts: 1)
@@ -66,13 +66,13 @@ final class TartCLIBackendTests: XCTestCase {
         try backend.start(spec)
 
         XCTAssertEqual(starter.calls, [
-            TartStartCall(arguments: ["run", "--no-graphics", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "--dir", "sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ:/Users/onur/Reference:ro", "macbox"], logPath: "/tmp/macbox-start.log"),
-            TartStartCall(arguments: ["run", "--no-graphics", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "--dir", "sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ:/Users/onur/Reference:ro", "macbox"], logPath: "/tmp/macbox-start.log")
+            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "--dir", "sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ:/Users/onur/Reference:ro", "macbox"], logPath: "/tmp/macbox-start.log"),
+            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "--dir", "sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ:/Users/onur/Reference:ro", "macbox"], logPath: "/tmp/macbox-start.log")
         ])
         XCTAssertEqual(runner.calls, [
             ["--version"],
             ["exec", "macbox", "/bin/zsh", "-lc", syntheticScript],
-            ["stop", "macbox"],
+            ["stop", "macbox", "--timeout", "120"],
             ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]
         ])
     }
@@ -92,7 +92,7 @@ final class TartCLIBackendTests: XCTestCase {
             ["list", "--format", "json"]: .success(.init(stdout: """
             [{"Name":"macbox","State":"running","Running":true}]
             """, stderr: "", exitCode: 0)),
-            ["stop", "macbox"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
             ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
             ["exec", "macbox", "/bin/zsh", "-lc", syntheticScript]: .success(.init(stdout: "SAND_SYNTHETIC_CHANGED\n", stderr: "", exitCode: 0)),
             ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]: .success(.init(stdout: "", stderr: "", exitCode: 0))
@@ -111,16 +111,38 @@ final class TartCLIBackendTests: XCTestCase {
 
         XCTAssertEqual(runner.calls, [
             ["list", "--format", "json"],
-            ["stop", "macbox"],
+            ["stop", "macbox", "--timeout", "120"],
             ["--version"],
             ["exec", "macbox", "/bin/zsh", "-lc", syntheticScript],
-            ["stop", "macbox"],
+            ["stop", "macbox", "--timeout", "120"],
             ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]
         ])
         XCTAssertEqual(starter.calls, [
-            TartStartCall(arguments: ["run", "--no-graphics", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log"),
-            TartStartCall(arguments: ["run", "--no-graphics", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log")
+            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log"),
+            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log")
         ])
+    }
+
+    func testDeleteStopsDeletesMacOSVMAndRemovesInjectedKeyPair() throws {
+        let name = try SandboxName("macbox")
+        let keyStore = StaticTartKeyStore()
+        let runner = ScriptedTartRunner(results: [
+            ["list", "--format", "json"]: .success(.init(stdout: """
+            [{"Name":"macbox","State":"running","Running":true}]
+            """, stderr: "", exitCode: 0)),
+            ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["delete", "macbox"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: RecordingTartVMStarter(), keyStore: keyStore)
+
+        try backend.delete(name)
+
+        XCTAssertEqual(runner.calls, [
+            ["list", "--format", "json"],
+            ["stop", "macbox", "--timeout", "120"],
+            ["delete", "macbox"]
+        ])
+        XCTAssertEqual(keyStore.deleted, ["macbox"])
     }
 
     func testRunUsesTartIPThenHiddenSSHWithInjectedPrivateKey() throws {

@@ -100,7 +100,8 @@ public struct CLICommandRouter {
         var name: SandboxName?
         var image = SandboxImage.developerReadyDefault
         var guestOS = GuestOS.linux
-        var resourceProfile = ResourceProfile.default
+        var cpus: Int?
+        var memory: MemorySize?
         var authoredSpecText: String?
         var fromValue: String?
         var index = 0
@@ -118,12 +119,12 @@ public struct CLICommandRouter {
                 fromValue = arguments[index]
             case "--cpus":
                 index += 1
-                guard index < arguments.count, let cpus = Int(arguments[index]) else { throw CLICommandError.missingOptionValue("--cpus") }
-                resourceProfile.cpus = cpus
+                guard index < arguments.count, let parsedCPUs = Int(arguments[index]) else { throw CLICommandError.missingOptionValue("--cpus") }
+                cpus = parsedCPUs
             case "--memory":
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--memory") }
-                resourceProfile.memory = try MemorySize.parse(arguments[index])
+                memory = try MemorySize.parse(arguments[index])
             case "--image":
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--image") }
@@ -155,6 +156,8 @@ public struct CLICommandRouter {
         }
 
         guard let name else { throw CLICommandError.missingSandboxName }
+        let defaults = ResourceProfile.default(for: guestOS)
+        let resourceProfile = ResourceProfile(cpus: cpus ?? defaults.cpus, memory: memory ?? defaults.memory)
         return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, guestOS: guestOS, resourceProfile: resourceProfile))
     }
 

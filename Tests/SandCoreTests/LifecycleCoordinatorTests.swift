@@ -79,7 +79,9 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(resolver.requestedGuestOS, [.linux, .macOS])
         XCTAssertEqual(linuxBackend.calls, [.provision("linuxbox")])
         XCTAssertEqual(macBackend.calls, [.provision("macbox")])
-        XCTAssertEqual(try metadataStore.readSpec(named: try SandboxName("macbox")).guestOS, .macOS)
+        let macSpec = try metadataStore.readSpec(named: try SandboxName("macbox"))
+        XCTAssertEqual(macSpec.guestOS, .macOS)
+        XCTAssertEqual(macSpec.resourceProfile, ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 16)))
     }
 
     func testCreateRollsBackHostMetadataWhenBackendProvisioningFails() throws {
@@ -123,6 +125,40 @@ final class LifecycleCoordinatorTests: XCTestCase {
         XCTAssertEqual(prompt.requests, [ConfirmationRequest(message: "Apply changes to running Sandbox VM mybox?", destructive: false)])
         XCTAssertEqual(backend.calls, [.status("mybox")])
         XCTAssertEqual(metadataStore.lockEvents, ["enter", "exit"])
+    }
+
+    func testApplyRejectsManualImageEditsAgainstCreatedSpecBeforeTouchingBackend() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let metadataStore = FileHostMetadataStore(root: root)
+        let name = try SandboxName("mybox")
+        let created = SandboxSpec.generated(name: name)
+        try metadataStore.createSpec(created)
+        let manuallyEdited = SandboxSpec(name: name, image: SandboxImage(reference: "custom:latest"))
+        try manuallyEdited.renderedYAML().write(to: root.appendingPathComponent("specs/mybox.yaml"), atomically: true, encoding: .utf8)
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
+
+        XCTAssertThrowsError(try coordinator.apply(NamedSandboxRequest(sandboxName: name))) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .imageImmutable)
+        }
+        XCTAssertEqual(backend.calls, [])
+    }
+
+    func testApplyRejectsManualOSEditsAgainstCreatedSpecBeforeTouchingBackend() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let metadataStore = FileHostMetadataStore(root: root)
+        let name = try SandboxName("mybox")
+        let created = SandboxSpec.generated(name: name)
+        try metadataStore.createSpec(created)
+        let manuallyEdited = SandboxSpec(name: name, guestOS: .macOS)
+        try manuallyEdited.renderedYAML().write(to: root.appendingPathComponent("specs/mybox.yaml"), atomically: true, encoding: .utf8)
+        let backend = RecordingSandboxBackend(status: .stopped)
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: backend)
+
+        XCTAssertThrowsError(try coordinator.apply(NamedSandboxRequest(sandboxName: name))) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .guestOSImmutable)
+        }
+        XCTAssertEqual(backend.calls, [])
     }
 
     func testApplyRejectsManualCpuEditsAgainstCreatedSpecBeforeTouchingBackend() throws {

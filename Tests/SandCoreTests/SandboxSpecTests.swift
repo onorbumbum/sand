@@ -14,6 +14,12 @@ final class SandboxSpecTests: XCTestCase {
         XCTAssertFalse(spec.renderedYAML().contains("ports"))
     }
 
+    func testMacOSSpecsDefaultToFourCPUsAndSixteenGB() throws {
+        let spec = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS)
+
+        XCTAssertEqual(spec.resourceProfile, ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 16)))
+    }
+
     func testGeneratedSpecRendersAndParsesBackToSameContract() throws {
         let spec = SandboxSpec(
             name: try SandboxName("mybox"),
@@ -112,11 +118,19 @@ final class SandboxSpecTests: XCTestCase {
         }
     }
 
-    func testCpuAndMemoryEditsAfterCreationAreRejectedAtSpecContractLevel() throws {
+    func testImmutableFieldsAfterCreationAreRejectedAtSpecContractLevel() throws {
         let original = SandboxSpec.generated(name: try SandboxName("mybox"))
+        let imageEdited = SandboxSpec(name: original.name, image: SandboxImage(reference: "custom:latest"))
+        let osEdited = SandboxSpec(name: original.name, guestOS: .macOS)
         let cpuEdited = SandboxSpec(name: original.name, resourceProfile: ResourceProfile(cpus: 8, memory: .init(gigabytes: 8)))
         let memoryEdited = SandboxSpec(name: original.name, resourceProfile: ResourceProfile(cpus: 4, memory: .init(gigabytes: 16)))
 
+        XCTAssertThrowsError(try imageEdited.validateUpdate(from: original)) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .imageImmutable)
+        }
+        XCTAssertThrowsError(try osEdited.validateUpdate(from: original)) { error in
+            XCTAssertEqual(error as? SandboxSpecError, .guestOSImmutable)
+        }
         XCTAssertThrowsError(try cpuEdited.validateUpdate(from: original)) { error in
             XCTAssertEqual(error as? SandboxSpecError, .resourceProfileImmutable(field: "cpus"))
         }

@@ -19,20 +19,20 @@ public struct SandboxSpec: Equatable, Sendable {
         name: SandboxName,
         image: SandboxImage = .developerReadyDefault,
         guestOS: GuestOS = .linux,
-        resourceProfile: ResourceProfile = .default,
+        resourceProfile: ResourceProfile? = nil,
         sharedFolders: [SharedFolder] = []
     ) {
         self.schemaVersion = schemaVersion
         self.name = name
         self.image = image
         self.guestOS = guestOS
-        self.resourceProfile = resourceProfile
+        self.resourceProfile = resourceProfile ?? ResourceProfile.default(for: guestOS)
         self.sharedFolders = sharedFolders
     }
 
     /// Creates a spec with default settings.
-    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile = .default) -> SandboxSpec {
-        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile, sharedFolders: [])
+    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile? = nil) -> SandboxSpec {
+        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile ?? ResourceProfile.default(for: guestOS), sharedFolders: [])
     }
 
     public func validateV1() throws {
@@ -42,6 +42,12 @@ public struct SandboxSpec: Equatable, Sendable {
     }
 
     public func validateUpdate(from existing: SandboxSpec) throws {
+        if image != existing.image {
+            throw SandboxSpecError.imageImmutable
+        }
+        if guestOS != existing.guestOS {
+            throw SandboxSpecError.guestOSImmutable
+        }
         if resourceProfile.cpus != existing.resourceProfile.cpus {
             throw SandboxSpecError.resourceProfileImmutable(field: "cpus")
         }
@@ -218,6 +224,8 @@ public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
     case unsupportedField(String)
     case missingField(String)
     case malformedLine(String)
+    case imageImmutable
+    case guestOSImmutable
     case resourceProfileImmutable(field: String)
 
     public var description: String {
@@ -226,6 +234,8 @@ public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
         case .unsupportedField(let field): return "unsupported v1 sandbox spec field: \(field)"
         case .missingField(let field): return "missing sandbox spec field: \(field)"
         case .malformedLine(let line): return "malformed sandbox spec line: \(line)"
+        case .imageImmutable: return "image cannot be edited after creation"
+        case .guestOSImmutable: return "guest OS cannot be edited after creation"
         case .resourceProfileImmutable(let field): return "resource profile field cannot be edited after creation: \(field)"
         }
     }
@@ -267,6 +277,14 @@ public struct ResourceProfile: Equatable, Sendable {
     }
 
     public static let `default` = ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 8))
+    public static let macOSDefault = ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 16))
+
+    public static func `default`(for guestOS: GuestOS) -> ResourceProfile {
+        switch guestOS {
+        case .linux: return .default
+        case .macOS: return .macOSDefault
+        }
+    }
 }
 
 /// A memory size value.

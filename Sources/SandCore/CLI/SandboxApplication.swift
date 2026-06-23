@@ -41,13 +41,13 @@ public struct CreateRequest: Equatable {
         authoredSpecText: String? = nil,
         image: SandboxImage = .developerReadyDefault,
         guestOS: GuestOS = .linux,
-        resourceProfile: ResourceProfile = .default
+        resourceProfile: ResourceProfile? = nil
     ) {
         self.sandboxName = sandboxName
         self.authoredSpecText = authoredSpecText
         self.image = image
         self.guestOS = guestOS
-        self.resourceProfile = resourceProfile
+        self.resourceProfile = resourceProfile ?? ResourceProfile.default(for: guestOS)
     }
 }
 
