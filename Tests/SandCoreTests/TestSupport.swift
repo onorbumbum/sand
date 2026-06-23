@@ -109,8 +109,8 @@ final class RecordingSandboxBackend: SandboxBackend {
         calls.append(.apply(spec.name.rawValue))
     }
 
-    func start(_ sandboxName: SandboxName) throws {
-        calls.append(.start(sandboxName.rawValue))
+    func start(_ spec: SandboxSpec) throws {
+        calls.append(.start(spec.name.rawValue))
         runtimeStatus = .running
     }
 

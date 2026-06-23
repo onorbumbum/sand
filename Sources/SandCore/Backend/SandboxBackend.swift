@@ -6,7 +6,7 @@ public protocol SandboxBackend {
     func checkReadiness() throws -> BackendReadiness
     func provision(_ spec: SandboxSpec) throws
     func apply(_ spec: SandboxSpec) throws
-    func start(_ sandboxName: SandboxName) throws
+    func start(_ spec: SandboxSpec) throws
     func stop(_ sandboxName: SandboxName) throws
     func run(_ request: BackendRunRequest) throws -> CommandResult
     func shell(_ request: BackendShellRequest) throws -> CommandResult

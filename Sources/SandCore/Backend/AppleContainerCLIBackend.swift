@@ -105,13 +105,13 @@ public struct AppleContainerCLIBackend: SandboxBackend {
         try ensureGuestStateVolume(for: spec.name)
         try createRuntime(from: spec)
         if currentStatus == .running {
-            try start(spec.name)
+            try start(spec)
         }
     }
 
     /// Starts a stopped sandbox VM.
-    public func start(_ sandboxName: SandboxName) throws {
-        _ = try runRequired(arguments: ["start", sandboxName.rawValue])
+    public func start(_ spec: SandboxSpec) throws {
+        _ = try runRequired(arguments: ["start", spec.name.rawValue])
     }
 
     /// Stops a running sandbox VM.

@@ -42,21 +42,51 @@ public struct TartCLIBackend: SandboxBackend {
         try keyStore.createKeyPair(for: spec.name)
         try runRequiredLogged(["clone", spec.image.reference, spec.name.rawValue], sandboxName: spec.name, logKind: "clone")
         _ = try runRequired(["set", spec.name.rawValue, "--cpu", String(spec.resourceProfile.cpus), "--memory", String(spec.resourceProfile.memory.megabytes)])
-        try start(spec.name)
+        try startVM(spec)
         _ = try waitForIPAddress(spec.name)
         try injectPublicKey(for: spec.name)
+        try configureSharedFolderSymlinks(for: spec)
         try stop(spec.name)
     }
 
     public func apply(_ spec: SandboxSpec) throws {
-        try delete(spec.name)
-        try provision(spec)
+        let wasRunning = try status(spec.name) == .running
+        if wasRunning {
+            try stop(spec.name)
+            try start(spec)
+        }
     }
 
-    public func start(_ sandboxName: SandboxName) throws {
+    public func start(_ spec: SandboxSpec) throws {
         try ensureInstalled()
-        let logPath = try keyStore.logPath(for: sandboxName, kind: "start")
-        try starter.start(arguments: ["run", "--no-graphics", sandboxName.rawValue], logPath: logPath)
+        try startVM(spec)
+        if try ensureSyntheticRootLinks(for: spec) {
+            try stop(spec.name)
+            try startVM(spec)
+        }
+        try configureSharedFolderSymlinks(for: spec)
+    }
+
+    private func startVM(_ spec: SandboxSpec) throws {
+        let logPath = try keyStore.logPath(for: spec.name, kind: "start")
+        try starter.start(arguments: runArguments(for: spec), logPath: logPath)
+    }
+
+    private func runArguments(for spec: SandboxSpec) -> [String] {
+        var arguments = ["run", "--no-graphics"]
+        for folder in spec.sharedFolders {
+            arguments += ["--dir", dirArgument(for: folder)]
+        }
+        arguments.append(spec.name.rawValue)
+        return arguments
+    }
+
+    private func dirArgument(for folder: SharedFolder) -> String {
+        var argument = "\(virtiofsTag(for: folder.guestPath)):\(folder.resolvedHostPath)"
+        if folder.accessMode == .readOnly {
+            argument += ":ro"
+        }
+        return argument
     }
 
     public func stop(_ sandboxName: SandboxName) throws {
@@ -131,6 +161,76 @@ public struct TartCLIBackend: SandboxBackend {
         let publicKey = try keyStore.publicKey(for: sandboxName).trimmingCharacters(in: .whitespacesAndNewlines)
         let script = "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF \(shellQuoted(publicKey)) ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' \(shellQuoted(publicKey)) >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"
         _ = try runRequiredRetried(["exec", sandboxName.rawValue, "/bin/zsh", "-lc", script])
+    }
+
+    private func ensureSyntheticRootLinks(for spec: SandboxSpec) throws -> Bool {
+        let roots = syntheticRootLinks(for: spec.sharedFolders)
+        guard !roots.isEmpty else { return false }
+        let output = try runRequiredRetried(["exec", spec.name.rawValue, "/bin/zsh", "-lc", syntheticRootLinkScript(for: roots)])
+        return output.stdout.contains("SAND_SYNTHETIC_CHANGED")
+    }
+
+    private func syntheticRootLinks(for folders: [SharedFolder]) -> [SyntheticRootLink] {
+        let existingWritableRoots: Set<String> = ["Users", "Volumes", "tmp", "private", "var"]
+        var links: [SyntheticRootLink] = []
+        var seen: Set<String> = []
+        for folder in folders {
+            let components = folder.guestPath.rawValue.split(separator: "/").map(String.init)
+            guard let root = components.first, !existingWritableRoots.contains(root), seen.insert(root).inserted else { continue }
+            links.append(SyntheticRootLink(name: root, target: "Users/admin/.sand/synthetic/\(root)"))
+        }
+        return links
+    }
+
+    private func syntheticRootLinkScript(for links: [SyntheticRootLink]) -> String {
+        var lines = ["set -e", "sudo -n mkdir -p /etc/synthetic.d"]
+        for link in links {
+            lines.append("mkdir -p \(shellQuoted("/\(link.target)"))")
+        }
+        let manifest = links.map { "\($0.name)\t\($0.target)" }.joined(separator: "\n") + "\n"
+        lines.append("current=$(cat /etc/synthetic.d/sand 2>/dev/null || true)")
+        lines.append("desired=\(shellQuoted(manifest))")
+        lines.append("needs_restart=0")
+        lines.append("if [ \"$current\" != \"$desired\" ]; then printf '%s' \"$desired\" | sudo -n tee /etc/synthetic.d/sand >/dev/null; needs_restart=1; fi")
+        for link in links {
+            lines.append("if [ ! -e \(shellQuoted("/\(link.name)")) ]; then needs_restart=1; fi")
+        }
+        lines.append("if [ \"$needs_restart\" = 1 ]; then sync; echo SAND_SYNTHETIC_CHANGED; fi")
+        return lines.joined(separator: "\n")
+    }
+
+    private func configureSharedFolderSymlinks(for spec: SandboxSpec) throws {
+        guard !spec.sharedFolders.isEmpty else { return }
+        _ = try runRequiredRetried(["exec", spec.name.rawValue, "/bin/zsh", "-lc", sharedFolderSymlinkScript(for: spec.sharedFolders)])
+    }
+
+    private func sharedFolderSymlinkScript(for folders: [SharedFolder]) -> String {
+        var lines = ["set -e"]
+        for folder in folders {
+            let guestPath = folder.guestPath.rawValue
+            let parent = parentDirectory(of: guestPath)
+            let mountedPath = "/Volumes/My Shared Files/\(virtiofsTag(for: folder.guestPath))"
+            lines.append("sudo -n mkdir -p \(shellQuoted(parent))")
+            lines.append("if [ -e \(shellQuoted(guestPath)) ] && [ ! -L \(shellQuoted(guestPath)) ]; then echo \(shellQuoted("Guest Path exists and is not a symlink: \(guestPath)")) >&2; exit 1; fi")
+            lines.append("sudo -n rm -f \(shellQuoted(guestPath))")
+            lines.append("sudo -n ln -s \(shellQuoted(mountedPath)) \(shellQuoted(guestPath))")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func parentDirectory(of path: String) -> String {
+        let url = URL(fileURLWithPath: path)
+        let parent = url.deletingLastPathComponent().path
+        return parent.isEmpty ? "/" : parent
+    }
+
+    private func virtiofsTag(for guestPath: GuestPath) -> String {
+        let encoded = Data(guestPath.rawValue.utf8)
+            .base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "="))
+        return "sand-\(encoded)"
     }
 
     private func waitForIPAddress(_ sandboxName: SandboxName) throws -> String {
@@ -259,6 +359,11 @@ public struct TartCLIBackend: SandboxBackend {
     private func shellQuoted(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
+}
+
+private struct SyntheticRootLink: Equatable {
+    var name: String
+    var target: String
 }
 
 public enum TartCLIBackendError: Error, Equatable, CustomStringConvertible {

@@ -26,7 +26,7 @@ final class BackendErrorTranslationTests: XCTestCase {
         ])
         let backend = AppleContainerCLIBackend(runner: runner)
 
-        XCTAssertThrowsError(try backend.start(try SandboxName("mybox"))) { error in
+        XCTAssertThrowsError(try backend.start(SandboxSpec.generated(name: try SandboxName("mybox")))) { error in
             XCTAssertEqual(
                 error as? BackendTranslatedError,
                 .serviceUnavailable("Sandbox backend service is not available. Run `sand doctor` to repair prerequisites, then retry.")

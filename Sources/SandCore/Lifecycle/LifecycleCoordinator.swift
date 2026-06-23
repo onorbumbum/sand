@@ -151,7 +151,7 @@ public struct LifecycleCoordinator: SandboxApplication {
     public func start(_ request: NamedSandboxRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {
             let spec = try metadataStore.readSpec(named: request.sandboxName)
-            try backend(for: spec).start(request.sandboxName)
+            try backend(for: spec).start(spec)
         }
         return .success
     }
@@ -176,7 +176,7 @@ public struct LifecycleCoordinator: SandboxApplication {
 
         let backend = try backend(for: spec)
         if try backend.status(request.sandboxName) == .stopped {
-            try backend.start(request.sandboxName)
+            try backend.start(spec)
         }
 
         return try backend.shell(BackendShellRequest(sandboxName: request.sandboxName, workingDirectory: mapping.guestPath))
@@ -190,7 +190,7 @@ public struct LifecycleCoordinator: SandboxApplication {
 
         let backend = try backend(for: spec)
         if try backend.status(request.sandboxName) == .stopped {
-            try backend.start(request.sandboxName)
+            try backend.start(spec)
         }
 
         return try backend.run(

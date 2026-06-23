@@ -22,7 +22,6 @@ final class TartCLIBackendTests: XCTestCase {
             ["--version"],
             ["clone", "ghcr.io/example/macos:latest", "macbox"],
             ["set", "macbox", "--cpu", "4", "--memory", "8192"],
-            ["--version"],
             ["ip", "macbox"],
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"],
             ["stop", "macbox"]
@@ -30,6 +29,98 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(starter.calls, [TartStartCall(arguments: ["run", "--no-graphics", "macbox"], logPath: "/tmp/macbox-start.log")])
         XCTAssertEqual(keyStore.created, ["macbox"])
         XCTAssertTrue(keyStore.logs["macbox:clone"]?.contains("cloned") == true)
+    }
+
+    func testStartMountsMacOSSharedFoldersAndCreatesGuestPathSymlinks() throws {
+        let name = try SandboxName("macbox")
+        let starter = RecordingTartVMStarter()
+        let syntheticScript = "set -e\nsudo -n mkdir -p /etc/synthetic.d\nmkdir -p '/Users/admin/.sand/synthetic/workspace'\ncurrent=$(cat /etc/synthetic.d/sand 2>/dev/null || true)\ndesired='workspace\tUsers/admin/.sand/synthetic/workspace\n'\nneeds_restart=0\nif [ \"$current\" != \"$desired\" ]; then printf '%s' \"$desired\" | sudo -n tee /etc/synthetic.d/sand >/dev/null; needs_restart=1; fi\nif [ ! -e '/workspace' ]; then needs_restart=1; fi\nif [ \"$needs_restart\" = 1 ]; then sync; echo SAND_SYNTHETIC_CHANGED; fi"
+        let symlinkScript = """
+        set -e
+        sudo -n mkdir -p '/workspace'
+        if [ -e '/workspace/sand' ] && [ ! -L '/workspace/sand' ]; then echo 'Guest Path exists and is not a symlink: /workspace/sand' >&2; exit 1; fi
+        sudo -n rm -f '/workspace/sand'
+        sudo -n ln -s '/Volumes/My Shared Files/sand-L3dvcmtzcGFjZS9zYW5k' '/workspace/sand'
+        sudo -n mkdir -p '/Users/admin'
+        if [ -e '/Users/admin/reference' ] && [ ! -L '/Users/admin/reference' ]; then echo 'Guest Path exists and is not a symlink: /Users/admin/reference' >&2; exit 1; fi
+        sudo -n rm -f '/Users/admin/reference'
+        sudo -n ln -s '/Volumes/My Shared Files/sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ' '/Users/admin/reference'
+        """
+        let runner = ScriptedTartRunner(results: [
+            ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
+            ["exec", "macbox", "/bin/zsh", "-lc", syntheticScript]: .success(.init(stdout: "SAND_SYNTHETIC_CHANGED\n", stderr: "", exitCode: 0)),
+            ["stop", "macbox"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: StaticTartKeyStore(), sleeper: { _ in }, maxIPAttempts: 1)
+        let spec = SandboxSpec(
+            name: name,
+            image: SandboxImage(reference: "ghcr.io/example/macos:latest"),
+            guestOS: .macOS,
+            sharedFolders: [
+                SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite),
+                SharedFolder(displayHostPath: "~/Reference", resolvedHostPath: "/Users/onur/Reference", guestPath: try GuestPath("/Users/admin/reference"), accessMode: .readOnly)
+            ]
+        )
+
+        try backend.start(spec)
+
+        XCTAssertEqual(starter.calls, [
+            TartStartCall(arguments: ["run", "--no-graphics", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "--dir", "sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ:/Users/onur/Reference:ro", "macbox"], logPath: "/tmp/macbox-start.log"),
+            TartStartCall(arguments: ["run", "--no-graphics", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "--dir", "sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ:/Users/onur/Reference:ro", "macbox"], logPath: "/tmp/macbox-start.log")
+        ])
+        XCTAssertEqual(runner.calls, [
+            ["--version"],
+            ["exec", "macbox", "/bin/zsh", "-lc", syntheticScript],
+            ["stop", "macbox"],
+            ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]
+        ])
+    }
+
+    func testApplyRestartsRunningMacOSVMWithSharedFoldersWithoutDeletingDisk() throws {
+        let name = try SandboxName("macbox")
+        let starter = RecordingTartVMStarter()
+        let syntheticScript = "set -e\nsudo -n mkdir -p /etc/synthetic.d\nmkdir -p '/Users/admin/.sand/synthetic/workspace'\ncurrent=$(cat /etc/synthetic.d/sand 2>/dev/null || true)\ndesired='workspace\tUsers/admin/.sand/synthetic/workspace\n'\nneeds_restart=0\nif [ \"$current\" != \"$desired\" ]; then printf '%s' \"$desired\" | sudo -n tee /etc/synthetic.d/sand >/dev/null; needs_restart=1; fi\nif [ ! -e '/workspace' ]; then needs_restart=1; fi\nif [ \"$needs_restart\" = 1 ]; then sync; echo SAND_SYNTHETIC_CHANGED; fi"
+        let symlinkScript = """
+        set -e
+        sudo -n mkdir -p '/workspace'
+        if [ -e '/workspace/sand' ] && [ ! -L '/workspace/sand' ]; then echo 'Guest Path exists and is not a symlink: /workspace/sand' >&2; exit 1; fi
+        sudo -n rm -f '/workspace/sand'
+        sudo -n ln -s '/Volumes/My Shared Files/sand-L3dvcmtzcGFjZS9zYW5k' '/workspace/sand'
+        """
+        let runner = ScriptedTartRunner(results: [
+            ["list", "--format", "json"]: .success(.init(stdout: """
+            [{"Name":"macbox","State":"running","Running":true}]
+            """, stderr: "", exitCode: 0)),
+            ["stop", "macbox"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
+            ["exec", "macbox", "/bin/zsh", "-lc", syntheticScript]: .success(.init(stdout: "SAND_SYNTHETIC_CHANGED\n", stderr: "", exitCode: 0)),
+            ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]: .success(.init(stdout: "", stderr: "", exitCode: 0))
+        ])
+        let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: StaticTartKeyStore(), sleeper: { _ in }, maxIPAttempts: 1)
+        let spec = SandboxSpec(
+            name: name,
+            image: SandboxImage(reference: "ghcr.io/example/macos:latest"),
+            guestOS: .macOS,
+            sharedFolders: [
+                SharedFolder(displayHostPath: "~/Projects/sand", resolvedHostPath: "/Users/onur/Projects/sand", guestPath: try GuestPath("/workspace/sand"), accessMode: .readWrite)
+            ]
+        )
+
+        try backend.apply(spec)
+
+        XCTAssertEqual(runner.calls, [
+            ["list", "--format", "json"],
+            ["stop", "macbox"],
+            ["--version"],
+            ["exec", "macbox", "/bin/zsh", "-lc", syntheticScript],
+            ["stop", "macbox"],
+            ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]
+        ])
+        XCTAssertEqual(starter.calls, [
+            TartStartCall(arguments: ["run", "--no-graphics", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log"),
+            TartStartCall(arguments: ["run", "--no-graphics", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log")
+        ])
     }
 
     func testRunUsesTartIPThenHiddenSSHWithInjectedPrivateKey() throws {
