@@ -269,19 +269,32 @@ sand doctor
 
 `sand` itself stays unsigned and entitlement-free; Tart carries the Virtualization Framework entitlement.
 
-macOS sources are explicit and open-ended:
+macOS sources are explicit and open-ended. Choose the smallest image that fits the job:
 
 ```sh
-# Clone any Tart-compatible image/local sandbox, including Tahoe, Sequoia, or a pinned digest.
-sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-tahoe-xcode:latest
+# Lightweight macOS base, no Xcode. Good for testing shell/run/Shared Folders.
+sand create macbase --os macos --from ghcr.io/cirruslabs/macos-sequoia-base:latest
+
+# Xcode-ready macOS image. Use this for iOS Simulator builds or distribution signing tests.
+sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-sequoia-xcode:latest
 
 # Size the macOS VM disk at create time. Disk Size is macOS-only and grow-only for clones.
-sand create iosbig --os macos --disk 150GB --from ghcr.io/cirruslabs/macos-sequoia-xcode:latest
+sand create iosbig --os macos --disk 150GB --from ghcr.io/cirruslabs/macos-sequoia-base:latest
 
 # Or build a self-made macOS base from an IPSW, finish first boot in GUI, then bootstrap.
 sand create cleanmac --os macos --from-ipsw latest
 sand cleanmac gui
 sand bootstrap cleanmac
+```
+
+A quick Shared Folder smoke test for the lightweight base image:
+
+```sh
+mkdir -p ~/sand-macos-test
+echo "hello from host" > ~/sand-macos-test/from-host.txt
+sand folders add macbase ~/sand-macos-test rw --as /workspace
+sand run macbase /bin/zsh -lc 'ls -la /workspace && cat /workspace/from-host.txt && echo "hello from guest" > /workspace/from-guest.txt'
+cat ~/sand-macos-test/from-guest.txt
 ```
 
 macOS Shared Folders use the same chosen Guest Path as Linux. Tart mounts at macOS's fixed `/Volumes/My Shared Files/<tag>` location, and `sand` hides that backend detail behind a guest-side symlink. `sand <name> gui` opens the VM desktop through Tart VNC and Host Mac Screen Sharing.
