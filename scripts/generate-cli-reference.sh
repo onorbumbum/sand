@@ -30,7 +30,7 @@ create_help="$(capture_sand create --help)"
 list_help="$(capture_sand list --help)"
 apply_help="$(capture_sand apply --help)"
 bootstrap_help="$(capture_sand bootstrap --help)"
-delete_help="$(capture_sand delete --help)"},{
+delete_help="$(capture_sand delete --help)"
 folders_help="$(capture_sand folders --help)"
 signing_help="$(capture_sand signing --help)"
 status_help="$(capture_sand status --help)"
@@ -52,7 +52,7 @@ cat > "$output_path" <<EOF
 
 > Fully generated documentation. Do not hand-edit this file outside the Documentation Refresh Workflow. Regenerate it with \`scripts/generate-cli-reference.sh\` so usage stays aligned with actual \`sand\` help output.
 
-This reference captures the v1 **API Surface** for managing **Sandbox VMs**, **Allowed Folders**, **Sandbox Sessions**, and generic **Workload Commands**.
+This reference captures the v1 **API Surface** for managing Linux and macOS **Sandbox VMs**, **Shared Folders**, **Sandbox Sessions**, and generic **Workload Commands**.
 
 ## Generation source
 
@@ -74,6 +74,18 @@ The v1 command surface is intentionally explicit and small:
 - To run Pi, use the same command shape as any other tool: \`sand run <name> pi [args...]\`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need a handoff flow outside the command surface.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
+
+## macOS Sandbox VMs
+
+macOS guests are first-class Sandbox VMs backed by Tart. Use \`sand create <name> --os macos --from <registry-image-or-local-sandbox>\` to clone an existing Tart-compatible image or stopped local sandbox. Use \`sand create <name> --from-ipsw <latest|path|url>\` for the macOS Install Flow, then complete first boot in \`sand <name> gui\` and run \`sand bootstrap <name>\`.
+
+\`--disk <size>\` is a macOS-only create-time Disk Size field. The default macOS disk is about 100GB, clone disk size is grow-only, and in-place disk resize is not part of the v1 command surface.
+
+\`sand <name> gui\` opens a macOS GUI Session through Tart VNC and the Host Mac Screen Sharing app. \`gui\` is for VM desktop setup and Apple-ID-gated work; it does not forward a host-connected physical iPhone or iPad into the Sandbox Guest.
+
+macOS support requires the Tart CLI on \`PATH\` (\`brew install cirruslabs/cli/tart\`). \`sand\` itself remains an unsigned, entitlement-free CLI because Tart carries the Virtualization Framework entitlement.
+
+Plan macOS Sandbox VMs as a handful, not dozens: Apple's macOS guest license allows roughly two concurrent macOS VMs per Host Mac, and each VM is heavy compared with a Linux Sandbox VM.
 
 ## \`sand --version\`
 

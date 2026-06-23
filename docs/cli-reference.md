@@ -1,16 +1,16 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: b12e514476abbe1833bc24124ce90c714876ad9530bc2084267e4829c48c3fca -->
+<!-- docs-input-hash: cf73295742e49ac61abc5883eed29af6d5023d55211e41bff00b93aaa12f6db4 -->
 
 # sand CLI Reference
 
 > Fully generated documentation. Do not hand-edit this file outside the Documentation Refresh Workflow. Regenerate it with `scripts/generate-cli-reference.sh` so usage stays aligned with actual `sand` help output.
 
-This reference captures the v1 **API Surface** for managing **Sandbox VMs**, **Allowed Folders**, **Sandbox Sessions**, and generic **Workload Commands**.
+This reference captures the v1 **API Surface** for managing Linux and macOS **Sandbox VMs**, **Shared Folders**, **Sandbox Sessions**, and generic **Workload Commands**.
 
 ## Generation source
 
-- Docs input hash: `b12e514476abbe1833bc24124ce90c714876ad9530bc2084267e4829c48c3fca`
+- Docs input hash: `cf73295742e49ac61abc5883eed29af6d5023d55211e41bff00b93aaa12f6db4`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, and `sand --version` output.
@@ -28,6 +28,18 @@ The v1 command surface is intentionally explicit and small:
 - To run Pi, use the same command shape as any other tool: `sand run <name> pi [args...]`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need a handoff flow outside the command surface.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
+
+## macOS Sandbox VMs
+
+macOS guests are first-class Sandbox VMs backed by Tart. Use `sand create <name> --os macos --from <registry-image-or-local-sandbox>` to clone an existing Tart-compatible image or stopped local sandbox. Use `sand create <name> --from-ipsw <latest|path|url>` for the macOS Install Flow, then complete first boot in `sand <name> gui` and run `sand bootstrap <name>`.
+
+`--disk <size>` is a macOS-only create-time Disk Size field. The default macOS disk is about 100GB, clone disk size is grow-only, and in-place disk resize is not part of the v1 command surface.
+
+`sand <name> gui` opens a macOS GUI Session through Tart VNC and the Host Mac Screen Sharing app. `gui` is for VM desktop setup and Apple-ID-gated work; it does not forward a host-connected physical iPhone or iPad into the Sandbox Guest.
+
+macOS support requires the Tart CLI on `PATH` (`brew install cirruslabs/cli/tart`). `sand` itself remains an unsigned, entitlement-free CLI because Tart carries the Virtualization Framework entitlement.
+
+Plan macOS Sandbox VMs as a handful, not dozens: Apple's macOS guest license allows roughly two concurrent macOS VMs per Host Mac, and each VM is heavy compared with a Linux Sandbox VM.
 
 ## `sand --version`
 
@@ -76,10 +88,18 @@ Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.y
 
 Creates a Sandbox VM from generated defaults, an authored Linux spec, a backend image, or a stopped local macOS sandbox.
 
+Options:
+  --os <linux|macos>                Choose the guest OS; linux is the default, macos uses the Tart backend.
+  --disk <size>                     macOS-only create-time Disk Size, defaulting to about 100GB.
+  --from <image-or-local-sandbox>   Clone a backend image or stopped local macOS sandbox.
+  --from-ipsw <latest|path|url>     Build a self-made macOS base via the macOS Install Flow.
+
 macOS sources are open-ended and must be explicit:
   --from <image-or-local-sandbox>   Clone any Tart-compatible macOS image (Sequoia, Tahoe, pinned digest) or a stopped local sandbox.
   --from-ipsw <latest|path|url>     Build a self-made macOS base via `tart create --from-ipsw`. Creates a setup-required VM;
                                     run `sand <name> gui` to complete first boot, then `sand bootstrap <name>`.
+
+Use `sand <name> gui` to open a macOS graphical desktop session for first boot or Apple-ID-gated setup.
 ```
 
 ## `sand list`
@@ -113,7 +133,7 @@ After completing interactive first-boot macOS setup in `sand <name> gui` (create
 ```text
 Usage: sand delete <name> [--force]
 
-Deletes the Sandbox VM runtime, guest state volume, and host metadata spec.},{
+Deletes the Sandbox VM runtime, guest state volume, and host metadata spec.
 ```
 
 ## `sand folders`

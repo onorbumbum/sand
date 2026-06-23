@@ -36,6 +36,9 @@ final class CLICommandRouterTests: XCTestCase {
 
         XCTAssertTrue(output[0].contains("Usage: sand create <name>"))
         XCTAssertTrue(output[0].contains("--os <linux|macos>"))
+        XCTAssertTrue(output[0].contains("--disk <size>"))
+        XCTAssertTrue(output[0].contains("macOS-only create-time Disk Size"))
+        XCTAssertTrue(output[0].contains("sand <name> gui"))
         XCTAssertTrue(output[1].contains("Usage: sand delete <name>"))
         XCTAssertTrue(output[1].contains("--force"))
         XCTAssertTrue(output[2].contains("Usage: sand apply <name>"))

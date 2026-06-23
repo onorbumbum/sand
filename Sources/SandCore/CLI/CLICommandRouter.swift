@@ -404,10 +404,18 @@ private enum CLIHelp {
 
     Creates a Sandbox VM from generated defaults, an authored Linux spec, a backend image, or a stopped local macOS sandbox.
 
+    Options:
+      --os <linux|macos>                Choose the guest OS; linux is the default, macos uses the Tart backend.
+      --disk <size>                     macOS-only create-time Disk Size, defaulting to about 100GB.
+      --from <image-or-local-sandbox>   Clone a backend image or stopped local macOS sandbox.
+      --from-ipsw <latest|path|url>     Build a self-made macOS base via the macOS Install Flow.
+
     macOS sources are open-ended and must be explicit:
       --from <image-or-local-sandbox>   Clone any Tart-compatible macOS image (Sequoia, Tahoe, pinned digest) or a stopped local sandbox.
       --from-ipsw <latest|path|url>     Build a self-made macOS base via `tart create --from-ipsw`. Creates a setup-required VM;
                                         run `sand <name> gui` to complete first boot, then `sand bootstrap <name>`.
+
+    Use `sand <name> gui` to open a macOS graphical desktop session for first boot or Apple-ID-gated setup.
     """
 
     static let apply = """

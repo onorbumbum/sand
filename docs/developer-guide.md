@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: b12e514476abbe1833bc24124ce90c714876ad9530bc2084267e4829c48c3fca -->
+<!-- docs-input-hash: cf73295742e49ac61abc5883eed29af6d5023d55211e41bff00b93aaa12f6db4 -->
 
 # sand Developer Guide
 
@@ -11,6 +11,8 @@
 Use [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md) as the source of truth for user-facing language. The product is a **Sandbox VM** tool for a **Host Mac** with explicit **Shared Folders**, persistent **Guest State**, **Sandbox Sessions**, and generic **Workload Commands**. Pi is a workload, not a special `sand` command.
 
 Keep backend-specific wording inside backend implementation and tests. User-facing docs, errors, help, and specs should describe the Sandbox VM domain, not the underlying adapter.
+
+macOS Sandbox VMs are first-class but heavier than Linux Sandbox VMs. They require Tart on `PATH` (`brew install cirruslabs/cli/tart`), while `sand` itself remains unsigned and entitlement-free because Tart carries the Virtualization Framework entitlement. Document the honest platform limits whenever macOS behavior is user-facing: roughly two concurrent macOS Sandbox VMs per Host Mac, about 100GB per VM with slower boot, and no physical-device deploy/debug because macOS guests do not get USB passthrough.
 
 ## Public repository stance
 
@@ -32,7 +34,17 @@ Keep backend-specific wording inside backend implementation and tests. User-faci
 | Sandbox Backend | `Sources/SandCore/Backend/SandboxBackend.swift`, `Sources/SandCore/Backend/AppleContainerCLIBackend.swift`, `Sources/SandCore/Backend/TartCLIBackend.swift`, `Sources/SandCore/Backend/BackendErrorTranslation.swift` | Hide backend operations behind a narrow interface and translate backend failures into Sandbox VM language. |
 | Status and prompts | `Sources/SandCore/Status/StatusPresenter.swift`, `Sources/SandCore/Prompt/PromptConfirmation.swift` | Present concise Sandbox Status and ask before destructive or interrupting Lifecycle Mutations. |
 
-The intended dependency direction is CLI → application boundary → domain/policy/backend interfaces. Backend adapter details should not spread into CLI help, Sandbox Specs, or general domain modules.
+The intended dependency direction is CLI → application boundary → domain/policy/backend interfaces. Backend adapter details should not spread into general domain modules.
+
+The split-backend decision is recorded in [`docs/adr/0001-split-backends-linux-container-macos-tart.md`](adr/0001-split-backends-linux-container-macos-tart.md): Linux shells out to Apple `container`; macOS shells out to Tart; both pull or clone OCI-backed images and run with sand-controlled Shared Folders. The user-facing API stays stable across both backends, but CLI help may name `--os macos`, `--disk`, Tart installation, or `gui` when those are direct user obligations.
+
+macOS-specific implementation constraints:
+
+- `disk:` / `--disk <size>` is macOS-only, create-time, and grow-only for clones.
+- Shared Folders must preserve the chosen Guest Path even though Tart exposes them at `/Volumes/My Shared Files/<tag>`; the Tart backend owns the guest-side symlink.
+- `sand <name> gui` is macOS-only and opens a GUI Session through Tart VNC plus Host Mac Screen Sharing.
+- Signing Credentials are Guest Secrets injected into the Sandbox Guest keychain; the Host Mac keychain is never mounted.
+- Simulator work does not need signing or Apple ID. Distribution signing is supported through injected Signing Credentials. Physical-device deploy/debug is unsupported.
 
 ## Testing strategy
 

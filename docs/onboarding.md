@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: b12e514476abbe1833bc24124ce90c714876ad9530bc2084267e4829c48c3fca -->
+<!-- docs-input-hash: cf73295742e49ac61abc5883eed29af6d5023d55211e41bff00b93aaa12f6db4 -->
 
 # sand Onboarding Guide
 
@@ -13,6 +13,21 @@
 `sand` is experimental alpha software released under the Apache License 2.0. Public issues are welcome, but there is no support guarantee or response SLA, and external pull requests are not accepted yet.
 
 Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbumbum/sand/blob/main/issues/sand/CONTEXT.md). Prefer terms like **Sandbox VM**, **Shared Folder**, **Guest Path**, **Sandbox Session**, and **Workload Command**.
+
+## macOS Sandbox VMs
+
+macOS guests are first-class Sandbox VMs for Xcode/iOS work. Linux remains the default guest OS; use `sand create <name> --os macos --from <registry-image-or-local-sandbox>` to clone a Tart-compatible macOS image or stopped local sandbox, or `sand create <name> --from-ipsw <latest|path|url>` for the self-built macOS Install Flow followed by `sand <name> gui` and `sand bootstrap <name>`.
+
+The architecture is split by guest OS: Linux uses Apple's `container` CLI backend, macOS uses the Tart CLI backend, and `SandboxBackend` hides both behind one lifecycle interface. Tart must be on `PATH` for macOS support:
+
+```sh
+brew install cirruslabs/cli/tart
+sand doctor
+```
+
+`sand` stays unsigned and entitlement-free because Tart carries the Virtualization Framework entitlement. macOS Shared Folders preserve the chosen Guest Path; Tart's fixed `/Volumes/My Shared Files/<tag>` mount location is hidden behind a guest-side symlink. `disk:` / `--disk <size>` is macOS-only, defaults to about 100GB, and is a create-time/grow-only concern.
+
+macOS platform limits are part of the product contract: expect roughly two concurrent macOS Sandbox VMs per Host Mac, about 100GB per VM, slower boot than Linux, and no physical-device deploy/debug because macOS guests do not get USB passthrough. `sand <name> gui` opens the VM desktop; it does not forward a host-connected iPhone or iPad.
 
 ## Start here: humans
 
@@ -74,6 +89,7 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 | `docs/docs-input-manifest.txt` | Curated Documentation Input Manifest used to compute freshness. |
 | `docs/generated-docs-manifest.txt` | Registry of generated/managed docs checked by the freshness gate. |
 | `docs/prompts/refresh-docs.md` | Only for refreshing generated/managed docs when a change has Documentation Impact. |
+| `docs/adr/0001-split-backends-linux-container-macos-tart.md` | Decision record for the Linux Apple `container` backend, macOS Tart backend, and why `sand` stays unsigned and entitlement-free. |
 | `docs/validation/` | Backend and behavior validation evidence that supports implementation decisions. |
 | `scripts/build-developer-ready-image.sh` | Builds the Developer-Ready Sandbox Image. |
 | `scripts/smoke-developer-ready-image.sh` | Smoke-tests the Developer-Ready Sandbox Image. |

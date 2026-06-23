@@ -17,6 +17,7 @@ required Package.swift
 required Makefile
 required README.md managed-markdown
 required issues/sand/CONTEXT.md managed-markdown
+required docs/adr/0001-split-backends-linux-container-macos-tart.md full
 
 # CLI command surface and public behavior sources.
 required Sources/sand/main.swift

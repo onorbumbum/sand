@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: b12e514476abbe1833bc24124ce90c714876ad9530bc2084267e4829c48c3fca -->
+<!-- docs-input-hash: cf73295742e49ac61abc5883eed29af6d5023d55211e41bff00b93aaa12f6db4 -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -258,17 +258,33 @@ sand folders list demo
 sand folders remove demo "$HOME/Reference"
 ```
 
+macOS Sandbox VMs use a split-backend architecture: Linux guests run through Apple's `container` CLI, while macOS guests run through Tart. Both backends stay behind the same Sandbox Backend interface, so `shell`, `run`, Shared Folders, Working Directory Mapping, Guest State, and Sandbox Specs keep one user-facing model.
+
+macOS support needs the Tart CLI on `PATH`:
+
+```sh
+brew install cirruslabs/cli/tart
+sand doctor
+```
+
+`sand` itself stays unsigned and entitlement-free; Tart carries the Virtualization Framework entitlement.
+
 macOS sources are explicit and open-ended:
 
 ```sh
 # Clone any Tart-compatible image/local sandbox, including Tahoe, Sequoia, or a pinned digest.
 sand create iosbox --os macos --from ghcr.io/cirruslabs/macos-tahoe-xcode:latest
 
+# Size the macOS VM disk at create time. Disk Size is macOS-only and grow-only for clones.
+sand create iosbig --os macos --disk 150GB --from ghcr.io/cirruslabs/macos-sequoia-xcode:latest
+
 # Or build a self-made macOS base from an IPSW, finish first boot in GUI, then bootstrap.
 sand create cleanmac --os macos --from-ipsw latest
 sand cleanmac gui
 sand bootstrap cleanmac
 ```
+
+macOS Shared Folders use the same chosen Guest Path as Linux. Tart mounts at macOS's fixed `/Volumes/My Shared Files/<tag>` location, and `sand` hides that backend detail behind a guest-side symlink. `sand <name> gui` opens the VM desktop through Tart VNC and Host Mac Screen Sharing.
 
 macOS signing:
 
@@ -289,6 +305,9 @@ Current v1 boundaries:
 - To run Pi, use the same command shape as any other tool: `sand run <name> pi [args...]`.
 - Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need the handoff flow described above.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
+- macOS Sandbox VMs are heavy: expect about 100GB per VM and slower boot than Linux Sandbox VMs.
+- Apple's macOS guest licensing caps practical concurrent macOS Sandbox VMs at roughly two per Host Mac, so plan for a handful of macOS sandboxes, not dozens.
+- Physical-device deploy/debug is unsupported because macOS guests do not get USB passthrough; `gui` shows the VM desktop, not a host-connected iPhone or iPad.
 <!-- docs:managed:end -->
 
 ## Specs
