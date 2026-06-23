@@ -1,0 +1,37 @@
+
+[2026-06-22 22:17:16 PDT] Slice 1 Tart validation started
+
+$ uname -m
+arm64
+
+$ sw_vers
+ProductName:		macOS
+ProductVersion:		26.3
+BuildVersion:		25D125
+
+$ tart --version
+2.32.1
+
+$ ssh-keygen -q -t ed25519 -N  -f /var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn
+/T//sand-tart-slice1-key.mpHEnl/id_ed25519 -C sand-tart-validation-slice1@bumbum
+-9.local
+
+[2026-06-22 22:17:16 PDT] Generated ephemeral SSH keypair at /var/folders/2j/x_d
+kb6812t18xndtjb8k5xyc0000gn/T//sand-tart-slice1-key.mpHEnl (private key not logg
+ed).
+
+$ tart clone ghcr.io/cirruslabs/macos-sequoia-xcode:latest sand-tart-validation-
+slice1
+pulling manifest...
+pulling disk (64.6 GB compressed)...
+99%
+pulling NVRAM...
+
+[2026-06-22 22:38:34 PDT] Starting VM 'sand-tart-validation-slice1' headless; Ta
+rt run log: /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/tart-r
+un-20260622-221716.log
+
+[2026-06-22 22:38:34 PDT] tart run PID: 55070
+Error: RPC timed out before completing
+VALIDATION_EXIT:1
+

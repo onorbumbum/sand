@@ -1,0 +1,557 @@
+$ tart exec sand-tart-validation-slice1 whoami
+admin
+$ tart exec sand-tart-validation-slice1 id
+uid=501(admin) gid=20(staff) groups=20(staff),12(everyone),61(localaccounts),79(_appserverusr),80(admin),81(_appserveradm),264(_webdeveloper),33(_appstore),98(_lpadmin),100(_lpoperator),204(_developer),250(_analyticsusers),395(com.apple.access_ftp),398(com.apple.access_screensharing),399(com.apple.access_ssh),400(com.apple.access_remote_ae),701(com.apple.sharepoint.group.1)
+$ tart exec sand-tart-validation-slice1 hostname
+Manageds-Virtual-Machine.local
+
+[2026-06-22 22:40:18 PDT] Manual continuation: inject generated SSH key and verify non-interactive shell
+$ ssh-keygen -q -t ed25519 -N <empty> -f /var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-key.lFuIlT/id_ed25519 -C sand-tart-validation-manual
+$ tart exec sand-tart-validation-slice1 /bin/zsh -lc <append public key to ~/.ssh/authorized_keys>
+$ tart ip sand-tart-validation-slice1
+192.168.65.2
+$ ssh -i /var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-key.lFuIlT/id_ed25519 -o BatchMode=yes -o PasswordAuthentication=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@192.168.65.2 /bin/zsh -lc 'whoami; pwd; sw_vers -productVersion'
+Warning: Permanently added '192.168.65.2' (ED25519) to the list of known hosts.
+admin
+/Users/admin
+15.7.3
+KEYDIR=/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-key.lFuIlT
+
+[2026-06-22 22:41:10 PDT] Shared-folder/Xcode/resource validation
+SHARE_ROOT=/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-shares.301Ypz
+$ tart stop sand-tart-validation-slice1
+$ tart set sand-tart-validation-slice1 --cpu 4 --memory 16384
+$ tart run --no-graphics --dir=rw:/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-shares.301Ypz/rw --dir=ro:/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-shares.301Ypz/roo sand-tart-validation-slice1 > docs/validation/tart-backend/tart-run-dirs-20260622.log 2>&1 &
+tart run PID: 65560
+$ tart ip sand-tart-validation-slice1
+192.168.65.2
+$ ssh ... admin@192.168.65.2 xcodebuild -version
+ssh: connect to host 192.168.65.2 port 22: Operation timed out
+$ ssh ... create Guest Path symlink, write through rw, attempt ro write, xcodebuild via symlink
+ssh: connect to host 192.168.65.2 port 22: Operation timed out
+$ ls -l /var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-shares.301Ypz/rw/guest-created.txt
+ls: /var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-shares.301Ypz/rw/guest-created.txt: No such file or directory
+$ test -w /var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-shares.301Ypz/rw/guest-created.txt && rm /var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-shares.301Ypz/rw/guest-created.txt && echo HOST_EDIT_DELETE_OK
+$ test ! -e /var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-shares.301Ypz/ro/guest-should-fail.txt && echo RO_HOST_NO_FILE
+RO_HOST_NO_FILE
+$ tart get sand-tart-validation-slice1 --format json
+{
+  "DiskFormat" : "raw",
+  "Memory" : 16384,
+  "Display" : "1024x768",
+  "OS" : "darwin",
+  "CPU" : 4,
+  "State" : "stopped",
+  "Size" : "82.063",
+  "Disk" : 140,
+  "Running" : false
+}
+
+[2026-06-22 22:45:11 PDT] Retry shared-folder/Xcode validation with realpaths
+SHARE_ROOT=/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T//sand-tart-shares2.B9xRzg
+$ tart get sand-tart-validation-slice1 --format json
+{
+  "Size" : "82.063",
+  "DiskFormat" : "raw",
+  "Running" : false,
+  "Disk" : 140,
+  "State" : "stopped",
+  "CPU" : 4,
+  "Display" : "1024x768",
+  "Memory" : 16384,
+  "OS" : "darwin"
+}
+$ tart run --no-graphics --dir=rw:/private/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/sand-tart-shares2.B9xRzg/rw --dir=ro:/private/var/folders/2j/x_dkb6812t18xndtjb8k5xyc0000gn/T/sand-tart-shares2.B9xRzg/roo sand-tart-validation-slice1 > docs/validation/tart-backend/tart-run-dirs-retry-20260622.log 2>&1 &
+tart run PID: 82030
+
+[2026-06-22 22:50:01 PDT] Retry shared-folder/Xcode validation with project-local host paths
+SHARE_ROOT=/Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622
+$ tart run --no-graphics --dir=rw:/Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622/rw --dir=ro:/Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622/roo sand-tart-validation-slice1 > docs/validation/tart-backend/tart-run-dirs-projectpath-20260622.log 2>&1 &
+tart run PID: 1785
+
+[2026-06-22 22:54:56 PDT] Retry shared-folder/Xcode validation with zsh-braced RO variable
+SHARE_ROOT=/Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed
+$ tart run --no-graphics --dir=rw:/Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw --dir=ro:/Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/ro:ro sand-tart-validation-slice1 > docs/validation/tart-backend/tart-run-dirs-fixed-20260622.log 2>&1 &
+tart run PID: 21331
+$ tart ip sand-tart-validation-slice1
+192.168.65.2
+$ ssh -i <generated-key> -o BatchMode=yes ... admin@192.168.65.2 xcodebuild -version
+Warning: Permanently added '192.168.65.2' (ED25519) to the list of known hosts.
+Xcode 26.4.1
+Build version 17E202
+$ ssh ... /bin/zsh -s < docs/validation/tart-backend/remote-shared-xcode-probe.sh
+Warning: Permanently added '192.168.65.2' (ED25519) to the list of known hosts.
+total 0
+lrwxr-xr-x  1 admin  staff  44 Jun 23 05:55 TartSymlinkProbe -> /Volumes/My Shared Files/rw/TartSymlinkProbe
+RO_WRITE_BLOCKED
+zsh: operation not permitted: /Volumes/My Shared Files/ro/guest-should-fail.txt
+cat: /tmp/ro-write.err: No such file or directory
+$ ls -l /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw/guest-created.txt
+ls: /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw/guest-created.txt: No such file or directory
+$ test -w /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw/guest-created.txt && printf host-edit >> /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw/guest-created.txt && rm /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw/guest-created.txt && echo HOST_EDIT_DELETE_OK
+$ test ! -e /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/ro/guest-should-fail.txt && echo RO_HOST_NO_FILE
+RO_HOST_NO_FILE
+$ tart get sand-tart-validation-slice1 --format json
+{
+  "State" : "running",
+  "OS" : "darwin",
+  "Disk" : 140,
+  "Display" : "1024x768",
+  "Running" : true,
+  "Size" : "82.006",
+  "CPU" : 4,
+  "Memory" : 16384,
+  "DiskFormat" : "raw"
+}
+
+[2026-06-22 22:58:41 PDT] Rerun remote shared-folder probe after stderr handling fix
+$ ssh ... /bin/zsh -s < docs/validation/tart-backend/remote-shared-xcode-probe.sh
+Warning: Permanently added '192.168.65.2' (ED25519) to the list of known hosts.
+total 0
+lrwxr-xr-x  1 admin  staff  44 Jun 23 05:58 TartSymlinkProbe -> /Volumes/My Shared Files/rw/TartSymlinkProbe
+RO_WRITE_BLOCKED
+zsh: operation not permitted: /Volumes/My Shared Files/ro/guest-should-fail.txt
+Command line invocation:
+    /Applications/Xcode_26.4.1.app/Contents/Developer/usr/bin/xcodebuild -scheme TartSymlinkProbe -derivedDataPath /Users/admin/DerivedDataTartProbe -destination generic/platform=macOS build
+
+Resolve Package Graph
+2026-06-23 05:58:49.820 xcodebuild[712:6803] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+
+
+Resolved source packages:
+  TartSymlinkProbe: /Volumes/My Shared Files/rw/TartSymlinkProbe
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, name:Any Mac }
+{ platform:macOS, variant:Mac Catalyst, name:Any Mac }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'TartSymlinkProbe' in project 'TartSymlinkProbe' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: eafd3cd8ea18e2bacf310bc8c88adf77
+Build description path: /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/XCBuildData/eafd3cd8ea18e2bacf310bc8c88adf77.xcbuilddata
+CreateBuildDirectory /Users/admin/DerivedDataTartProbe/Build/Products
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-create-build-directory /Users/admin/DerivedDataTartProbe/Build/Products
+
+CreateBuildDirectory /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-create-build-directory /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex
+
+ClangStatCache /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk /Users/admin/DerivedDataTartProbe/SDKStatCaches.noindex/macosx26.4-25E251-688ef53f1462e2c8f657fdc38a81448f5f67018755ecaf50f85fcd527f9620fa.sdkstatcache
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk -o /Users/admin/DerivedDataTartProbe/SDKStatCaches.noindex/macosx26.4-25E251-688ef53f1462e2c8f657fdc38a81448f5f67018755ecaf50f85fcd527f9620fa.sdkstatcache
+
+CreateBuildDirectory /Users/admin/DerivedDataTartProbe/Build/Products/Debug
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-create-build-directory /Users/admin/DerivedDataTartProbe/Build/Products/Debug
+
+CreateBuildDirectory /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-create-build-directory /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/ExplicitPrecompiledModules
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-create-build-directory /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/EagerLinkingTBDs/Debug
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-create-build-directory /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/EagerLinkingTBDs/Debug
+
+CreateBuildDirectory /Users/admin/DerivedDataTartProbe/Build/Products/Debug/PackageFrameworks
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-create-build-directory /Users/admin/DerivedDataTartProbe/Build/Products/Debug/PackageFrameworks
+
+WriteAuxiliaryFile /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/TartSymlinkProbe.DependencyStaticMetadataFileList (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    write-file /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/TartSymlinkProbe.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/TartSymlinkProbe.DependencyMetadataFileList (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    write-file /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/TartSymlinkProbe.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe_const_extract_protocols.json (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    write-file /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.SwiftFileList (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    write-file /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.SwiftFileList
+
+WriteAuxiliaryFile /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.LinkFileList (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    write-file /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.LinkFileList
+
+WriteAuxiliaryFile /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe-OutputFileMap.json (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    write-file /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe_const_extract_protocols.json (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    write-file /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.SwiftFileList (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    write-file /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.SwiftFileList
+
+WriteAuxiliaryFile /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.LinkFileList (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    write-file /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.LinkFileList
+
+WriteAuxiliaryFile /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe-OutputFileMap.json (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    write-file /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe-OutputFileMap.json
+
+SwiftDriver TartSymlinkProbe normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-SwiftDriver -- /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name TartSymlinkProbe -Onone @/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DXcode -plugin-path /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk -target x86_64-apple-macos14.0 -g -module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/admin/DerivedDataTartProbe/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/admin/DerivedDataTartProbe/Build/Products/Debug -Isystem /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/admin/DerivedDataTartProbe/Build/Products/Debug -F /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j4 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/admin/DerivedDataTartProbe/SDKStatCaches.noindex/macosx26.4-25E251-688ef53f1462e2c8f657fdc38a81448f5f67018755ecaf50f85fcd527f9620fa.sdkstatcache -output-file-map /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -sdk-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/admin/DerivedDataTartProbe/ModuleCache.noindex/Session.modulevalidation -package-name tartsymlinkprobe -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe_const_extract_protocols.json -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Products/Debug/include -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources-normal/x86_64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources/x86_64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -working-directory /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver TartSymlinkProbe normal arm64 com.apple.xcode.tools.swift.compiler (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-SwiftDriver -- /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name TartSymlinkProbe -Onone @/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DXcode -plugin-path /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk -target arm64-apple-macos14.0 -g -module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/admin/DerivedDataTartProbe/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/admin/DerivedDataTartProbe/Build/Products/Debug -Isystem /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/admin/DerivedDataTartProbe/Build/Products/Debug -F /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j4 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/admin/DerivedDataTartProbe/SDKStatCaches.noindex/macosx26.4-25E251-688ef53f1462e2c8f657fdc38a81448f5f67018755ecaf50f85fcd527f9620fa.sdkstatcache -output-file-map /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -sdk-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/admin/DerivedDataTartProbe/ModuleCache.noindex/Session.modulevalidation -package-name tartsymlinkprobe -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe_const_extract_protocols.json -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Products/Debug/include -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources-normal/arm64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources/arm64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -working-directory /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/admin/DerivedDataTartProbe/ModuleCache.noindex/SwiftShims-32HR79ISA1PFJ9ADSQ404XC94.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/admin/DerivedDataTartProbe/ModuleCache.noindex/_SwiftConcurrencyShims-4TCC42F7PAB4JL3SVHSONGFRK.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/admin/DerivedDataTartProbe/ModuleCache.noindex/_SwiftConcurrencyShims-9LTSNKDOQP4PCDKA1PVIRIE3H.pcm
+
+SwiftExplicitDependencyGeneratePcm x86_64 /Users/admin/DerivedDataTartProbe/ModuleCache.noindex/SwiftShims-A8HT788F0J86Y6NW3VAKIDOI9.pcm
+
+SwiftEmitModule normal x86_64 Emitting\ module\ for\ TartSymlinkProbe (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+
+SwiftCompile normal x86_64 /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/Sources/TartSymlinkProbe/main.swift (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ TartSymlinkProbe (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+SwiftCompile normal arm64 /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/Sources/TartSymlinkProbe/main.swift (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    
+
+SwiftCompile normal x86_64 Compiling\ main.swift /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/Sources/TartSymlinkProbe/main.swift (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+SwiftCompile normal x86_64 /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/Sources/TartSymlinkProbe/main.swift (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    
+
+SwiftCompile normal arm64 Compiling\ main.swift /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/Sources/TartSymlinkProbe/main.swift (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+
+SwiftCompile normal arm64 /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/Sources/TartSymlinkProbe/main.swift (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    
+
+SwiftDriverJobDiscovery normal x86_64 Emitting module for TartSymlinkProbe (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for TartSymlinkProbe (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+
+SwiftDriver\ Compilation\ Requirements TartSymlinkProbe normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name TartSymlinkProbe -Onone @/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DXcode -plugin-path /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk -target x86_64-apple-macos14.0 -g -module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/admin/DerivedDataTartProbe/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/admin/DerivedDataTartProbe/Build/Products/Debug -Isystem /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/admin/DerivedDataTartProbe/Build/Products/Debug -F /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j4 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/admin/DerivedDataTartProbe/SDKStatCaches.noindex/macosx26.4-25E251-688ef53f1462e2c8f657fdc38a81448f5f67018755ecaf50f85fcd527f9620fa.sdkstatcache -output-file-map /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -sdk-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/admin/DerivedDataTartProbe/ModuleCache.noindex/Session.modulevalidation -package-name tartsymlinkprobe -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe_const_extract_protocols.json -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Products/Debug/include -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources-normal/x86_64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources/x86_64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -working-directory /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver\ Compilation\ Requirements TartSymlinkProbe normal arm64 com.apple.xcode.tools.swift.compiler (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name TartSymlinkProbe -Onone @/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DXcode -plugin-path /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk -target arm64-apple-macos14.0 -g -module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/admin/DerivedDataTartProbe/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/admin/DerivedDataTartProbe/Build/Products/Debug -Isystem /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/admin/DerivedDataTartProbe/Build/Products/Debug -F /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j4 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/admin/DerivedDataTartProbe/SDKStatCaches.noindex/macosx26.4-25E251-688ef53f1462e2c8f657fdc38a81448f5f67018755ecaf50f85fcd527f9620fa.sdkstatcache -output-file-map /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -sdk-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/admin/DerivedDataTartProbe/ModuleCache.noindex/Session.modulevalidation -package-name tartsymlinkprobe -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe_const_extract_protocols.json -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Products/Debug/include -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources-normal/arm64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources/arm64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -working-directory /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+Copy /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/x86_64-apple-macos.swiftdoc /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.swiftdoc (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.swiftdoc /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/x86_64-apple-macos.swiftdoc
+
+Copy /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/x86_64-apple-macos.swiftmodule /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.swiftmodule (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.swiftmodule /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/x86_64-apple-macos.swiftmodule
+
+Copy /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/x86_64-apple-macos.abi.json /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.abi.json (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.abi.json /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/x86_64-apple-macos.abi.json
+
+Copy /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/arm64-apple-macos.swiftmodule /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.swiftmodule (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.swiftmodule /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/arm64-apple-macos.swiftmodule
+
+Copy /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/arm64-apple-macos.swiftdoc /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.swiftdoc (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.swiftdoc /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/arm64-apple-macos.swiftdoc
+
+Copy /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/arm64-apple-macos.abi.json /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.abi.json (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.abi.json /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/arm64-apple-macos.abi.json
+
+Copy /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/Project/x86_64-apple-macos.swiftsourceinfo /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.swiftsourceinfo (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.swiftsourceinfo /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/Project/x86_64-apple-macos.swiftsourceinfo
+
+Copy /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.swiftsourceinfo (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.swiftsourceinfo /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo
+
+SwiftDriverJobDiscovery normal arm64 Compiling main.swift (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+
+SwiftDriver\ Compilation TartSymlinkProbe normal arm64 com.apple.xcode.tools.swift.compiler (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-Swift-Compilation -- /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name TartSymlinkProbe -Onone @/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DXcode -plugin-path /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk -target arm64-apple-macos14.0 -g -module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/admin/DerivedDataTartProbe/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/admin/DerivedDataTartProbe/Build/Products/Debug -Isystem /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/admin/DerivedDataTartProbe/Build/Products/Debug -F /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j4 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/admin/DerivedDataTartProbe/SDKStatCaches.noindex/macosx26.4-25E251-688ef53f1462e2c8f657fdc38a81448f5f67018755ecaf50f85fcd527f9620fa.sdkstatcache -output-file-map /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -sdk-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/admin/DerivedDataTartProbe/ModuleCache.noindex/Session.modulevalidation -package-name tartsymlinkprobe -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe_const_extract_protocols.json -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Products/Debug/include -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources-normal/arm64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources/arm64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -working-directory /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/Binary/TartSymlinkProbe normal arm64 (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos14.0 -isysroot /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk -O0 -L/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -L/Users/admin/DerivedDataTartProbe/Build/Products/Debug -L/Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -F/Users/admin/DerivedDataTartProbe/Build/Products/Debug -iframework /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -filelist /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @executable_path/../lib -Xlinker -object_path_lto -Xlinker /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe.swiftmodule @/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/TartSymlinkProbe-linker-args.resp -o /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/Binary/TartSymlinkProbe
+
+SwiftDriverJobDiscovery normal x86_64 Compiling main.swift (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+
+SwiftDriver\ Compilation TartSymlinkProbe normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode
+    builtin-Swift-Compilation -- /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name TartSymlinkProbe -Onone @/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DXcode -plugin-path /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk -target x86_64-apple-macos14.0 -g -module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/admin/DerivedDataTartProbe/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/admin/DerivedDataTartProbe/Build/Products/Debug -Isystem /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/admin/DerivedDataTartProbe/Build/Products/Debug -F /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j4 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/admin/DerivedDataTartProbe/SDKStatCaches.noindex/macosx26.4-25E251-688ef53f1462e2c8f657fdc38a81448f5f67018755ecaf50f85fcd527f9620fa.sdkstatcache -output-file-map /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -sdk-module-cache-path /Users/admin/DerivedDataTartProbe/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/admin/DerivedDataTartProbe/ModuleCache.noindex/Session.modulevalidation -package-name tartsymlinkprobe -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe_const_extract_protocols.json -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Products/Debug/include -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources-normal/x86_64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources/x86_64 -Xcc -I/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -working-directory /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/Binary/TartSymlinkProbe normal x86_64 (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target x86_64-apple-macos14.0 -isysroot /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk -O0 -L/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -L/Users/admin/DerivedDataTartProbe/Build/Products/Debug -L/Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -F/Users/admin/DerivedDataTartProbe/Build/Products/Debug -iframework /Applications/Xcode_26.4.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -filelist /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @executable_path/../lib -Xlinker -object_path_lto -Xlinker /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe.swiftmodule @/Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/TartSymlinkProbe-linker-args.resp -o /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/Binary/TartSymlinkProbe
+
+CreateUniversalBinary /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe normal arm64\ x86_64 (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    /Applications/Xcode_26.4.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo -create /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/arm64/Binary/TartSymlinkProbe /Users/admin/DerivedDataTartProbe/Build/Intermediates.noindex/TartSymlinkProbe.build/Debug/TartSymlinkProbe.build/Objects-normal/x86_64/Binary/TartSymlinkProbe -output /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe
+
+RegisterExecutionPolicyException /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe (in target 'TartSymlinkProbe' from project 'TartSymlinkProbe')
+    cd /Volumes/My\ Shared\ Files/rw/TartSymlinkProbe
+    builtin-RegisterExecutionPolicyException /Users/admin/DerivedDataTartProbe/Build/Products/Debug/TartSymlinkProbe
+
+** BUILD SUCCEEDED **
+
+real 12.64
+user 6.73
+sys 3.54
+DERIVED_DATA_OK
+Tart symlink probe
+$ ls -l /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw/TartSymlinkProbe/guest-created.txt
+-rw-r--r--  1 onorbumbum  staff  11 Jun 22 22:58 /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw/TartSymlinkProbe/guest-created.txt
+$ test -w /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw/TartSymlinkProbe/guest-created.txt && printf host-edit >> /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw/TartSymlinkProbe/guest-created.txt && rm /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/rw/TartSymlinkProbe/guest-created.txt && echo HOST_EDIT_DELETE_OK
+HOST_EDIT_DELETE_OK
+$ test ! -e /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/host-shares/run-20260622-fixed/ro/guest-should-fail.txt && echo RO_HOST_NO_FILE
+RO_HOST_NO_FILE
+
+[2026-06-22 23:02:33 PDT] Host-only networking checks
+$ tart ip sand-tart-validation-slice1
+192.168.65.2
+$ nc -vz -G 5 192.168.65.2 22
+
+[2026-06-22 23:03:17 PDT] Host-only networking checks rerun
+$ tart ip sand-tart-validation-slice1
+192.168.65.2
+$ nc -vz -w 5 192.168.65.2 22
+
+[2026-06-22 23:03:50 PDT] Host-only networking checks without nc
+$ tart ip sand-tart-validation-slice1
+192.168.65.2
+$ ssh -i <generated-key> -o ConnectTimeout=10 ... admin@192.168.65.2 hostname
+ssh: connect to host 192.168.65.2 port 22: Operation timed out
+$ route -n get 192.168.65.2
+   route to: 192.168.65.2
+destination: 192.168.65.2
+    gateway: 192.168.1.1
+  interface: en0
+      flags: <UP,GATEWAY,HOST,DONE,WASCLONED,IFSCOPE,IFREF,GLOBAL>
+ recvpipe  sendpipe  ssthresh  rtt,msec    rttvar  hopcount      mtu     expire
+       0         0         0         0         0         0      1500         0 
+$ sysctl net.inet.ip.forwarding
+net.inet.ip.forwarding: 1
+$ lsof -nP -iTCP -sTCP:LISTEN | grep -E '(22|5900)' || true
+rapportd    661 onorbumbum   22u  IPv6 0x17c21b4719489a9a      0t0  TCP *:57182 (LISTEN)
+syncthing  1479 onorbumbum   24u  IPv6 0xbb1219ddde60ee66      0t0  TCP *:22000 (LISTEN)
+Raycast   17320 onorbumbum   32u  IPv4 0x22df6aab40858b32      0t0  TCP 127.0.0.1:7265 (LISTEN)
+$ ifconfig bridge100 2>/dev/null || true
+bridge100: flags=8a63<UP,BROADCAST,SMART,RUNNING,ALLMULTI,SIMPLEX,MULTICAST> mtu 1500
+	options=63<RXCSUM,TXCSUM,TSO4,TSO6>
+	ether 72:8c:f2:6b:f5:64
+	inet 192.168.64.1 netmask 0xffffff00 broadcast 192.168.64.255
+	inet6 fe80::708c:f2ff:fe6b:f564%bridge100 prefixlen 64 scopeid 0x1e 
+	inet6 fd4a:239f:b063:7ff2:1800:9fd4:2bd5:47b2 prefixlen 64 autoconf secured 
+	Configuration:
+		id 0:0:0:0:0:0 priority 0 hellotime 0 fwddelay 0
+		maxage 0 holdcnt 0 proto stp maxaddr 100 timeout 1200
+		root id 0:0:0:0:0:0 priority 0 ifcost 0 port 0
+		ipfilter disabled flags 0x0
+	member: vmenet0 flags=20003<LEARNING,DISCOVER,VIRTIO>
+	        ifmaxaddr 0 port 29 priority 0 path cost 0
+	Address cache:
+		fa:b5:6e:fb:98:2f Vlan1 vmenet0 0 flags=0<>
+	nd6 options=201<PERFORMNUD,DAD>
+	media: autoselect
+	status: active
+
+[2026-06-22 23:05:12 PDT] Host-only networking checks on running VM
+$ tart ip sand-tart-validation-slice1
+192.168.65.2
+$ ssh -i <generated-key> -o ConnectTimeout=5 ... admin@192.168.65.2 hostname
+Warning: Permanently added '192.168.65.2' (ED25519) to the list of known hosts.
+Manageds-Virtual-Machine.local
+$ route -n get 192.168.65.2
+   route to: 192.168.65.2
+destination: 192.168.65.2
+  interface: bridge101
+      flags: <UP,HOST,DONE,LLINFO,WASCLONED,IFSCOPE,IFREF>
+ recvpipe  sendpipe  ssthresh  rtt,msec    rttvar  hopcount      mtu     expire
+       0         0         0         0         0         0      1500      1194 
+$ ifconfig bridge100 2>/dev/null || true
+bridge100: flags=8a63<UP,BROADCAST,SMART,RUNNING,ALLMULTI,SIMPLEX,MULTICAST> mtu 1500
+	options=63<RXCSUM,TXCSUM,TSO4,TSO6>
+	ether 72:8c:f2:6b:f5:64
+	inet 192.168.64.1 netmask 0xffffff00 broadcast 192.168.64.255
+	inet6 fe80::708c:f2ff:fe6b:f564%bridge100 prefixlen 64 scopeid 0x1e 
+	inet6 fd4a:239f:b063:7ff2:1800:9fd4:2bd5:47b2 prefixlen 64 autoconf secured 
+	Configuration:
+		id 0:0:0:0:0:0 priority 0 hellotime 0 fwddelay 0
+		maxage 0 holdcnt 0 proto stp maxaddr 100 timeout 1200
+		root id 0:0:0:0:0:0 priority 0 ifcost 0 port 0
+		ipfilter disabled flags 0x0
+	member: vmenet0 flags=20003<LEARNING,DISCOVER,VIRTIO>
+	        ifmaxaddr 0 port 29 priority 0 path cost 0
+	Address cache:
+		fa:b5:6e:fb:98:2f Vlan1 vmenet0 0 flags=0<>
+	nd6 options=201<PERFORMNUD,DAD>
+	media: autoselect
+	status: active
+$ sysctl net.inet.ip.forwarding
+net.inet.ip.forwarding: 1
+$ lsof -nP -iTCP -sTCP:LISTEN | grep -E '(22|5900)' || true
+rapportd    661 onorbumbum   22u  IPv6 0x17c21b4719489a9a      0t0  TCP *:57182 (LISTEN)
+syncthing  1479 onorbumbum   24u  IPv6 0xbb1219ddde60ee66      0t0  TCP *:22000 (LISTEN)
+Raycast   17320 onorbumbum   32u  IPv4 0x22df6aab40858b32      0t0  TCP 127.0.0.1:7265 (LISTEN)
+
+[2026-06-22 23:06:47 PDT] bridge101 details for Tart VM route
+$ ifconfig bridge101 2>/dev/null || true
+bridge101: flags=8a63<UP,BROADCAST,SMART,RUNNING,ALLMULTI,SIMPLEX,MULTICAST> mtu 1500
+	options=63<RXCSUM,TXCSUM,TSO4,TSO6>
+	ether 72:8c:f2:6b:f5:65
+	inet 192.168.65.1 netmask 0xffffff00 broadcast 192.168.65.255
+	inet6 fe80::708c:f2ff:fe6b:f565%bridge101 prefixlen 64 scopeid 0x25 
+	inet6 fdf4:988a:9a1e:e57b:c69:786b:455d:413c prefixlen 64 autoconf secured 
+	Configuration:
+		id 0:0:0:0:0:0 priority 0 hellotime 0 fwddelay 0
+		maxage 0 holdcnt 0 proto stp maxaddr 100 timeout 1200
+		root id 0:0:0:0:0:0 priority 0 ifcost 0 port 0
+		ipfilter disabled flags 0x0
+	member: vmenet1 flags=20803<LEARNING,DISCOVER,PRIVATE,VIRTIO>
+	        ifmaxaddr 0 port 31 priority 0 path cost 0
+	Address cache:
+		6:e8:a3:b0:23:b4 Vlan1 vmenet1 1167 flags=0<>
+	nd6 options=201<PERFORMNUD,DAD>
+	media: autoselect
+	status: active
+
+[2026-06-22 23:07:05 PDT] Concurrent macOS VM cap check
+$ tart stop sand-tart-validation-slice1
+VM "sand-tart-validation-slice1" is not running
+$ tart set sand-tart-validation-slice1 --memory 4096
+$ tart delete sand-tart-validation-cap2 2>/dev/null || true
+$ tart clone sand-tart-validation-slice1 sand-tart-validation-cap2
+$ tart set sand-tart-validation-cap2 --memory 4096
+$ tart delete sand-tart-validation-cap3 2>/dev/null || true
+$ tart clone sand-tart-validation-slice1 sand-tart-validation-cap3
+$ tart set sand-tart-validation-cap3 --memory 4096
+$ tart delete sand-tart-validation-cap4 2>/dev/null || true
+$ tart clone sand-tart-validation-slice1 sand-tart-validation-cap4
+$ tart set sand-tart-validation-cap4 --memory 4096
+$ tart list
+Source Name                        Disk Size Accessed     State  
+local  sand-tart-validation-cap2   140  82   1 second ago stopped
+local  sand-tart-validation-cap3   140  82   1 second ago stopped
+local  sand-tart-validation-cap4   140  82   in 0 seconds stopped
+local  sand-tart-validation-slice1 140  82   1 second ago stopped
+
+[2026-06-22 23:07:06 PDT] Starting sand-tart-validation-slice1 for cap check
+$ tart run --no-graphics sand-tart-validation-slice1 > docs/validation/tart-backend/tart-run-sand-tart-validation-slice1-cap.log 2>&1 &
+70296
+$ tart list
+Source Name                        Disk Size Accessed       State  
+local  sand-tart-validation-cap2   140  82   46 seconds ago stopped
+local  sand-tart-validation-cap3   140  82   46 seconds ago stopped
+local  sand-tart-validation-cap4   140  82   45 seconds ago stopped
+local  sand-tart-validation-slice1 140  82   45 seconds ago running
+$ tart ip sand-tart-validation-slice1
+192.168.65.2
+$ tail -20 docs/validation/tart-backend/tart-run-sand-tart-validation-slice1-cap.log
+
+[2026-06-22 23:07:51 PDT] Starting sand-tart-validation-cap2 for cap check
+$ tart run --no-graphics sand-tart-validation-cap2 > docs/validation/tart-backend/tart-run-sand-tart-validation-cap2-cap.log 2>&1 &
+73325
+$ tart list
+Source Name                        Disk Size Accessed       State  
+local  sand-tart-validation-cap2   140  82   45 seconds ago running
+local  sand-tart-validation-cap3   140  82   1 minute ago   stopped
+local  sand-tart-validation-cap4   140  82   1 minute ago   stopped
+local  sand-tart-validation-slice1 140  82   45 seconds ago running
+$ tart ip sand-tart-validation-cap2
+192.168.65.3
+$ tail -20 docs/validation/tart-backend/tart-run-sand-tart-validation-cap2-cap.log
+
+[2026-06-22 23:08:36 PDT] Starting sand-tart-validation-cap3 for cap check
+$ tart run --no-graphics sand-tart-validation-cap3 > docs/validation/tart-backend/tart-run-sand-tart-validation-cap3-cap.log 2>&1 &
+76369
+$ tart list
+Source Name                        Disk Size Accessed       State  
+local  sand-tart-validation-cap2   140  82   45 seconds ago running
+local  sand-tart-validation-cap3   140  82   45 seconds ago stopped
+local  sand-tart-validation-cap4   140  82   2 minutes ago  stopped
+local  sand-tart-validation-slice1 140  82   1 minute ago   running
+$ tart ip sand-tart-validation-cap3
+no IP address found, is your VM running?
+$ tail -20 docs/validation/tart-backend/tart-run-sand-tart-validation-cap3-cap.log
+The number of VMs exceeds the system limit (other running VMs: sand-tart-validation-cap2, sand-tart-validation-slice1)
+
+[2026-06-22 23:09:22 PDT] Starting sand-tart-validation-cap4 for cap check
+$ tart run --no-graphics sand-tart-validation-cap4 > docs/validation/tart-backend/tart-run-sand-tart-validation-cap4-cap.log 2>&1 &
+79436
+$ tart list
+Source Name                        Disk Size Accessed       State  
+local  sand-tart-validation-cap2   140  82   1 minute ago   running
+local  sand-tart-validation-cap3   140  82   46 seconds ago stopped
+local  sand-tart-validation-cap4   140  82   45 seconds ago stopped
+local  sand-tart-validation-slice1 140  82   2 minutes ago  running
+$ tart ip sand-tart-validation-cap4
+no IP address found, is your VM running?
+$ tail -20 docs/validation/tart-backend/tart-run-sand-tart-validation-cap4-cap.log
+The number of VMs exceeds the system limit (other running VMs: sand-tart-validation-cap2, sand-tart-validation-slice1)
+CAP_CHECK_DONE
+
+[2026-06-22 23:11:26 PDT] Cleanup validation VMs
+$ tart stop sand-tart-validation-cap4 || true
+VM "sand-tart-validation-cap4" is not running
+$ tart delete sand-tart-validation-cap4 || true
+$ tart stop sand-tart-validation-cap3 || true
+VM "sand-tart-validation-cap3" is not running
+$ tart delete sand-tart-validation-cap3 || true
+
+[2026-06-22 23:12:03 PDT] Cleanup validation VMs continuation
+$ tart stop sand-tart-validation-cap4 || true
+the specified VM "sand-tart-validation-cap4" does not exist
+$ tart delete sand-tart-validation-cap4 || true
+the specified VM "sand-tart-validation-cap4" does not exist
+$ tart stop sand-tart-validation-cap3 || true
+VM is missing some of its files (config.json, disk.img or nvram.bin)
+$ tart delete sand-tart-validation-cap3 || true
+$ tart stop sand-tart-validation-cap2 || true
+VM "sand-tart-validation-cap2" is not running
+$ tart delete sand-tart-validation-cap2 || true
+$ tart stop sand-tart-validation-slice1 || true
+VM "sand-tart-validation-slice1" is not running
+$ tart delete sand-tart-validation-slice1 || true
+$ tart list
+

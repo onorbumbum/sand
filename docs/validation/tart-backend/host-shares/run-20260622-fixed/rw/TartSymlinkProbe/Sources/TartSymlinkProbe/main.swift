@@ -1,0 +1,1 @@
+print("Tart symlink probe")
