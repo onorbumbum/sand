@@ -14,11 +14,11 @@ final class SandboxSpecTests: XCTestCase {
         XCTAssertFalse(spec.renderedYAML().contains("ports"))
     }
 
-    func testMacOSSpecsDefaultToFourCPUsAndSixteenGBAndOneHundredGBDisk() throws {
+    func testMacOSSpecsDefaultToFourCPUsAndSixteenGBAndSixtyFourGBDisk() throws {
         let spec = SandboxSpec(name: try SandboxName("macbox"), guestOS: .macOS)
 
         XCTAssertEqual(spec.resourceProfile, ResourceProfile(cpus: 4, memory: MemorySize(gigabytes: 16)))
-        XCTAssertEqual(spec.diskSize, DiskSize(gigabytes: 100))
+        XCTAssertEqual(spec.diskSize, DiskSize(gigabytes: 64))
     }
 
     func testMacOSSpecParsesAndRendersDiskSize() throws {

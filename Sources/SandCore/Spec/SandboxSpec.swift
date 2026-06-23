@@ -334,7 +334,7 @@ public struct DiskSize: Equatable, Sendable, CustomStringConvertible {
     public static func `default`(for guestOS: GuestOS) -> DiskSize? {
         switch guestOS {
         case .linux: return nil
-        case .macOS: return DiskSize(gigabytes: 100)
+        case .macOS: return DiskSize(gigabytes: 64)
         }
     }
 

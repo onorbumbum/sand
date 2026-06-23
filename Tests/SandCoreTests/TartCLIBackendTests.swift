@@ -9,7 +9,7 @@ final class TartCLIBackendTests: XCTestCase {
         let runner = ScriptedTartRunner(results: [
             ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
             ["clone", "ghcr.io/example/macos:latest", "macbox"]: .success(.init(stdout: "cloned\n", stderr: "", exitCode: 0)),
-            ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "100"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
+            ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
             ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
             ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
@@ -21,7 +21,7 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(runner.calls, [
             ["--version"],
             ["clone", "ghcr.io/example/macos:latest", "macbox"],
-            ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "100"],
+            ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64"],
             ["ip", "macbox"],
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"],
             ["stop", "macbox", "--timeout", "120"]
