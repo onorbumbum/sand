@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: cf73295742e49ac61abc5883eed29af6d5023d55211e41bff00b93aaa12f6db4 -->
+<!-- docs-input-hash: 6ea1a93fa7711c4c6a16b9f8ed578515396c109369c1162fe145662863c518f1 -->
 
 > A safer place to run Pi and other developer tools.
 
