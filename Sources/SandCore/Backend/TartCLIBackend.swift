@@ -168,7 +168,7 @@ public struct TartCLIBackend: SandboxBackend {
     }
 
     private func tartRunArguments(for spec: SandboxSpec, graphicsMode: String) -> [String] {
-        var arguments = ["run", graphicsMode, "--root-disk-opts", "sync=full"]
+        var arguments = ["run", graphicsMode, "--net-softnet", "--root-disk-opts", "sync=full"]
         for folder in spec.sharedFolders {
             arguments += ["--dir", dirArgument(for: folder)]
         }

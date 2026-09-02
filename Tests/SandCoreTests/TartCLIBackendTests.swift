@@ -26,7 +26,7 @@ final class TartCLIBackendTests: XCTestCase {
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"],
             ["stop", "macbox", "--timeout", "120"]
         ])
-        XCTAssertEqual(starter.calls, [TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "macbox"], logPath: "/tmp/macbox-start.log")])
+        XCTAssertEqual(starter.calls, [TartStartCall(arguments: ["run", "--no-graphics", "--net-softnet", "--root-disk-opts", "sync=full", "macbox"], logPath: "/tmp/macbox-start.log")])
         XCTAssertEqual(keyStore.created, ["macbox"])
         XCTAssertTrue(keyStore.logs["macbox:clone"]?.contains("cloned") == true)
     }
@@ -255,8 +255,8 @@ final class TartCLIBackendTests: XCTestCase {
         try backend.start(spec)
 
         XCTAssertEqual(starter.calls, [
-            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "--dir", "sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ:/Users/onur/Reference:ro", "macbox"], logPath: "/tmp/macbox-start.log"),
-            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "--dir", "sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ:/Users/onur/Reference:ro", "macbox"], logPath: "/tmp/macbox-start.log")
+            TartStartCall(arguments: ["run", "--no-graphics", "--net-softnet", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "--dir", "sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ:/Users/onur/Reference:ro", "macbox"], logPath: "/tmp/macbox-start.log"),
+            TartStartCall(arguments: ["run", "--no-graphics", "--net-softnet", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "--dir", "sand-L1VzZXJzL2FkbWluL3JlZmVyZW5jZQ:/Users/onur/Reference:ro", "macbox"], logPath: "/tmp/macbox-start.log")
         ])
         XCTAssertEqual(runner.calls, [
             ["--version"],
@@ -296,8 +296,8 @@ final class TartCLIBackendTests: XCTestCase {
         try backend.start(spec)
 
         XCTAssertEqual(starter.calls, [
-            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZQ:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log"),
-            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZQ:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log")
+            TartStartCall(arguments: ["run", "--no-graphics", "--net-softnet", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZQ:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log"),
+            TartStartCall(arguments: ["run", "--no-graphics", "--net-softnet", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZQ:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log")
         ])
         XCTAssertEqual(runner.calls, [
             ["--version"],
@@ -348,8 +348,8 @@ final class TartCLIBackendTests: XCTestCase {
             ["exec", "macbox", "/bin/zsh", "-lc", symlinkScript]
         ])
         XCTAssertEqual(starter.calls, [
-            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log"),
-            TartStartCall(arguments: ["run", "--no-graphics", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log")
+            TartStartCall(arguments: ["run", "--no-graphics", "--net-softnet", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log"),
+            TartStartCall(arguments: ["run", "--no-graphics", "--net-softnet", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-start.log")
         ])
     }
 
@@ -438,7 +438,7 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(try backend.gui(BackendGUIRequest(spec: spec)), .success)
 
         XCTAssertEqual(starter.calls, [
-            TartStartCall(arguments: ["run", "--vnc", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-gui.log")
+            TartStartCall(arguments: ["run", "--vnc", "--net-softnet", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-gui.log")
         ])
         XCTAssertEqual(runner.calls, [["ip", "macbox"]])
         XCTAssertEqual(screenSharing.openedURLs, ["vnc://admin@192.168.65.2"])
@@ -455,7 +455,7 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(try backend.gui(BackendGUIRequest(spec: spec)), .success)
 
         XCTAssertEqual(starter.calls, [
-            TartStartCall(arguments: ["run", "--vnc-experimental", "--root-disk-opts", "sync=full", "ipswbox"], logPath: "/tmp/ipswbox-gui.log")
+            TartStartCall(arguments: ["run", "--vnc-experimental", "--net-softnet", "--root-disk-opts", "sync=full", "ipswbox"], logPath: "/tmp/ipswbox-gui.log")
         ])
         XCTAssertEqual(runner.calls, [])
         XCTAssertEqual(screenSharing.openedURLs, [])
