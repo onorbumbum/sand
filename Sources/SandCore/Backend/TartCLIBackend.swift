@@ -411,19 +411,43 @@ public struct TartCLIBackend: SandboxBackend {
         var lastError: (any Error)?
         for attempt in 0..<maxIPAttempts {
             do {
-                let output = try runner.run(arguments: ["ip", sandboxName.rawValue])
-                let ipAddress = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-                if output.exitCode == 0 && !ipAddress.isEmpty { return ipAddress }
-                lastError = TartCLIBackendError.commandFailed(arguments: ["ip", sandboxName.rawValue], exitCode: output.exitCode, stderr: output.stderr)
+                let agentArguments = ["ip", sandboxName.rawValue, "--resolver", "agent"]
+                let agentOutput = try runner.run(arguments: agentArguments)
+                let agentIPAddress = agentOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                if agentOutput.exitCode == 0 && !agentIPAddress.isEmpty {
+                    return agentIPAddress
+                }
+                lastError = TartCLIBackendError.commandFailed(
+                    arguments: agentArguments,
+                    exitCode: agentOutput.exitCode,
+                    stderr: agentOutput.stderr
+                )
+            } catch {
+                lastError = error
+            }
+            do {
+                let dhcpArguments = ["ip", sandboxName.rawValue]
+                let dhcpOutput = try runner.run(arguments: dhcpArguments)
+                let dhcpIPAddress = dhcpOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                if dhcpOutput.exitCode == 0 && !dhcpIPAddress.isEmpty {
+                    return dhcpIPAddress
+                }
+                lastError = TartCLIBackendError.commandFailed(
+                    arguments: dhcpArguments,
+                    exitCode: dhcpOutput.exitCode,
+                    stderr: dhcpOutput.stderr
+                )
             } catch {
                 lastError = error
             }
             if attempt < maxIPAttempts - 1 { sleeper(1) }
         }
-        if let lastError { throw translate(lastError, arguments: ["ip", sandboxName.rawValue]) }
+        if let lastError {
+            throw translate(lastError, arguments: ["ip", sandboxName.rawValue])
+        }
         throw BackendTranslatedError.commandFailed("Could not find the macOS Sandbox VM IP address. Run `sand logs \(sandboxName.rawValue)` and retry.")
     }
-
+    
     private func waitForSSH(sandboxName: SandboxName, ipAddress: String) throws {
         for attempt in 0..<maxIPAttempts {
             do {

@@ -10,7 +10,7 @@ final class TartCLIBackendTests: XCTestCase {
             ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
             ["clone", "ghcr.io/example/macos:latest", "macbox"]: .success(.init(stdout: "cloned\n", stderr: "", exitCode: 0)),
             ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
-            ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
+            ["ip", "macbox", "--resolver", "agent"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
             ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
         ])
@@ -22,7 +22,7 @@ final class TartCLIBackendTests: XCTestCase {
             ["--version"],
             ["clone", "ghcr.io/example/macos:latest", "macbox"],
             ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64"],
-            ["ip", "macbox"],
+            ["ip", "macbox", "--resolver", "agent"],
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"],
             ["stop", "macbox", "--timeout", "120"]
         ])
@@ -37,7 +37,7 @@ final class TartCLIBackendTests: XCTestCase {
             ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
             ["clone", "ghcr.io/example/macos:latest", "macbox"]: .success(.init(stdout: "cloned\n", stderr: "", exitCode: 0)),
             ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64", "--display", "1920x1080px"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
-            ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
+            ["ip", "macbox", "--resolver", "agent"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
             ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
         ])
@@ -79,7 +79,7 @@ final class TartCLIBackendTests: XCTestCase {
             ["--version"]: .success(.init(stdout: "2.32.1\n", stderr: "", exitCode: 0)),
             ["clone", "ghcr.io/example/macos:latest", "macbox"]: .success(.init(stdout: "pulling manifest...\npulling disk (25.4 GB compressed)...\n42%\n", stderr: "", exitCode: 0)),
             ["set", "macbox", "--cpu", "4", "--memory", "16384", "--disk-size", "64"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
-            ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
+            ["ip", "macbox", "--resolver", "agent"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)),
             ["exec", "macbox", "/bin/zsh", "-lc", "mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF 'ssh-ed25519 TEST sand-macbox' ~/.ssh/authorized_keys 2>/dev/null || printf '%s\\n' 'ssh-ed25519 TEST sand-macbox' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && sync"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
             ["stop", "macbox", "--timeout", "120"]: .success(.init(stdout: "", stderr: "", exitCode: 0))
         ])
@@ -167,10 +167,11 @@ final class TartCLIBackendTests: XCTestCase {
         try backend.bootstrap(SandboxSpec(name: name, image: SandboxImage(reference: "ipsw:latest"), guestOS: .macOS, bootstrapState: .setupRequired))
 
         XCTAssertEqual(runner.calls, [
-            ["--version"],
-            ["list", "--format", "json"],
-            ["ip", "ipswbox"],
-            ["stop", "ipswbox", "--timeout", "120"]
+                ["--version"],
+                ["list", "--format", "json"],
+                ["ip", "ipswbox", "--resolver", "agent"],
+                ["ip", "ipswbox"],
+                ["stop", "ipswbox", "--timeout", "120"]
         ])
         XCTAssertEqual(passwordSSHRunner.calls, [TartPasswordSSHCall(ipAddress: "192.168.65.2", remoteCommand: injectScript)])
         XCTAssertEqual(sshRunner.calls, [keyReady, keyPrefix + ["true"], keyPrefix + ["sudo -n true"]])
@@ -378,7 +379,7 @@ final class TartCLIBackendTests: XCTestCase {
     func testRunUsesTartIPThenHiddenSSHWithInjectedPrivateKey() throws {
         let name = try SandboxName("macbox")
         let tartRunner = ScriptedTartRunner(results: [
-            ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0))
+            ["ip", "macbox", "--resolver", "agent"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0))
         ])
         let sshRunner = ScriptedTartRunner(results: [
             ["-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "true"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
@@ -389,7 +390,7 @@ final class TartCLIBackendTests: XCTestCase {
         let result = try backend.run(BackendRunRequest(sandboxName: name, command: try WorkloadCommand(arguments: ["xcodebuild", "-scheme", "App"]), workingDirectory: try GuestPath("/workspace/project")))
 
         XCTAssertEqual(result, .success)
-        XCTAssertEqual(tartRunner.calls, [["ip", "macbox"]])
+        XCTAssertEqual(tartRunner.calls, [["ip", "macbox", "--resolver", "agent"]])
         XCTAssertEqual(sshRunner.calls, [
             ["-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "true"],
             ["-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "cd '/workspace/project' && exec 'xcodebuild' '-scheme' 'App'"]
@@ -397,10 +398,53 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(sshRunner.ioModes, [.captured, .inherited])
     }
 
+    func testRunFallsBackToDHCPWhenTartAgentResolverFails() throws {
+        let name = try SandboxName("macbox")
+        let tartRunner = ScriptedTartRunner(results: [
+            ["ip", "macbox", "--resolver", "agent"]: .failure(
+                TartCLIBackendError.commandFailed(
+                    arguments: ["ip", "macbox", "--resolver", "agent"],
+                    exitCode: 1,
+                    stderr: "guest agent unavailable"
+                )
+            ),
+            ["ip", "macbox"]: .success(
+                .init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0)
+            )
+        ])
+        let sshRunner = ScriptedTartRunner(results: [
+            ["-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "true"]: .success(
+                .init(stdout: "", stderr: "", exitCode: 0)
+            ),
+            ["-tt", "-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "cd '/Users/admin' && exec /bin/zsh -l"]: .success(
+                .init(stdout: "", stderr: "", exitCode: 0)
+            )
+        ])
+        let backend = TartCLIBackend(
+            runner: tartRunner,
+            sshRunner: sshRunner,
+            starter: RecordingTartVMStarter(),
+            keyStore: StaticTartKeyStore(),
+            sleeper: { _ in },
+            maxIPAttempts: 1
+        )
+        let result = try backend.shell(
+            BackendShellRequest(
+                sandboxName: name,
+                workingDirectory: try GuestPath("/Users/admin")
+            )
+        )
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(tartRunner.calls, [
+            ["ip", "macbox", "--resolver", "agent"],
+            ["ip", "macbox"]
+        ])
+    }
+    
     func testShellAllocatesTTYForInteractiveMacOSShell() throws {
         let name = try SandboxName("macbox")
         let tartRunner = ScriptedTartRunner(results: [
-            ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0))
+            ["ip", "macbox", "--resolver", "agent"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0))
         ])
         let sshRunner = ScriptedTartRunner(results: [
             ["-i", "/tmp/macbox-id_ed25519", "-o", "BatchMode=yes", "-o", "PasswordAuthentication=no", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5", "admin@192.168.65.2", "true"]: .success(.init(stdout: "", stderr: "", exitCode: 0)),
@@ -423,7 +467,7 @@ final class TartCLIBackendTests: XCTestCase {
         let starter = RecordingTartVMStarter()
         let screenSharing = RecordingTartScreenSharingOpener()
         let runner = ScriptedTartRunner(results: [
-            ["ip", "macbox"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0))
+            ["ip", "macbox", "--resolver", "agent"]: .success(.init(stdout: "192.168.65.2\n", stderr: "", exitCode: 0))
         ])
         let backend = TartCLIBackend(runner: runner, sshRunner: ScriptedTartRunner(results: [:]), starter: starter, keyStore: StaticTartKeyStore(), screenSharing: screenSharing, sleeper: { _ in }, maxIPAttempts: 1)
         let spec = SandboxSpec(
@@ -440,7 +484,7 @@ final class TartCLIBackendTests: XCTestCase {
         XCTAssertEqual(starter.calls, [
             TartStartCall(arguments: ["run", "--vnc", "--net-softnet", "--root-disk-opts", "sync=full", "--dir", "sand-L3dvcmtzcGFjZS9zYW5k:/Users/onur/Projects/sand", "macbox"], logPath: "/tmp/macbox-gui.log")
         ])
-        XCTAssertEqual(runner.calls, [["ip", "macbox"]])
+        XCTAssertEqual(runner.calls, [["ip", "macbox", "--resolver", "agent"]])
         XCTAssertEqual(screenSharing.openedURLs, ["vnc://admin@192.168.65.2"])
     }
 
