@@ -28,7 +28,7 @@ pulling disk (64.6 GB compressed)...
 pulling NVRAM...
 
 [2026-06-22 22:38:34 PDT] Starting VM 'sand-tart-validation-slice1' headless; Ta
-rt run log: /Users/onorbumbum/_PROJECTS/sand/docs/validation/tart-backend/tart-r
+rt run log: ~/_PROJECTS/sand/docs/validation/tart-backend/tart-r
 un-20260622-221716.log
 
 [2026-06-22 22:38:34 PDT] tart run PID: 55070

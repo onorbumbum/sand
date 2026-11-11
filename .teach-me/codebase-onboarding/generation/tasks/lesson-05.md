@@ -6,7 +6,7 @@ You are a lesson writer subagent for a `teach-me` course.
 
 Write exactly one JSON file:
 
-`/Users/onorbumbum/_PROJECTS/sand/.teach-me/codebase-onboarding/generation/drafts/lesson-05.json`
+`~/_PROJECTS/sand/.teach-me/codebase-onboarding/generation/drafts/lesson-05.json`
 
 Do not modify any other file. Do not write HTML. Do not write Markdown as the deliverable.
 

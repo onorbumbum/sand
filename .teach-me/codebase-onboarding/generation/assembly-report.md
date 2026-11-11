@@ -2,7 +2,7 @@
 
 ## Inputs
 
-- Course directory: `/Users/onorbumbum/_PROJECTS/sand/.teach-me/codebase-onboarding`
+- Course directory: `~/_PROJECTS/sand/.teach-me/codebase-onboarding`
 - Plan: `plan.json`
 - Draft directory: `generation/drafts`
 - Drafts found: 10 JSON files

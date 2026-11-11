@@ -3,3 +3,24 @@
 .swiftpm/
 .env
 .env.*
+# Added by mini-migration Phase 2 (never commit these)
+venv/
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+!.env.example
+*.env
+.secrets
+.mailchimp*.env
+.netlify/
+.tmp/
+_WORK/**/dist/
+_WORK/**/node_modules/
+_WORK/**/venv/
+*.sync-conflict-*
+.lsp/.cache/
+.clj-kondo/.cache/
+.cpcache/
+*.app/
+dist/
