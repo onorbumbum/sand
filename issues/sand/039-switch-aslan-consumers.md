@@ -23,7 +23,7 @@ Move each consumer found in the PRD inventory: `looker-studio-report-fixer` (SKI
 
 - [x] `grep -r "aslan "` over skills, toolshed and dotfiles finds no live call outside `skills/aslan-browser`.
 - [ ] The Looker Studio fixer completes one real report fix in a Browser Sandbox.
-- [ ] The 032 log shows no calls from switched consumers.
+- [x] The 032 log shows no calls from switched consumers.
 
 ## Blocked by
 
@@ -39,7 +39,11 @@ Move each consumer found in the PRD inventory: `looker-studio-report-fixer` (SKI
 - `web-search` and `dotfiles/pi/AGENTS.md` already escalated to Browser Sandboxes (earlier commits). Google Business photo uploads: `knowledge/user.md` and the GBP playbooks use `upload-put` + `upload` (036). Aslan's user preferences are in `skills/sand-browser/knowledge/user.md`.
 - Grep over skills, toolshed and dotfiles: no live `aslan <command>` call outside `skills/aslan-browser` (the usage-logging wrapper and its test aside).
 
+### 2026-11-20 — Usage log checked after the switch
+
+`aslan-usage --since 2026-11-20` on the Mini: 12 calls, all with caller `zsh`, between 18:09Z and 18:16Z, from the parity comparison during 033–035 (before the consumers were switched). None from `looker-studio-report-fixer`, `web-search` or Pi, and no call at all after 18:16Z. They do not move the removal gate (`aslan-retire-check` counts only days after 2026-11-20). The quiet period keeps checking this (040).
+
 ## Waiting on Onur
 
-- One real Looker Studio fix in a client's sandbox, signed in to that client's Google account (037), to tick the second criterion. The third (no calls from switched consumers in the 032 log) is checked during the quiet period.
+- One real Looker Studio fix in a client's sandbox, signed in to that client's Google account (037), to tick the second criterion.
 
