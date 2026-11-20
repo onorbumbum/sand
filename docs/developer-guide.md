@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 5dbfe94dbf48a62edf7142da080a1bf7ded8f2fa9aeaa0d47029ffd52922206b -->
+<!-- docs-input-hash: 65d92d96ee415c04b2a076ab871d59b21301c129ea5ab7c37f6400af637380fb -->
 
 # sand Developer Guide
 
@@ -31,7 +31,7 @@ macOS Sandbox VMs are first-class but heavier than Linux Sandbox VMs. They requi
 | Working Directory Mapping | `Sources/SandCore/WorkingDirectory/WorkingDirectoryMapper.swift` | Map the Host Mac current directory into the matching Guest Path when it is inside an Shared Folder; otherwise warn and use `/workspace`. |
 | Host Metadata | `Sources/SandCore/Metadata/HostMetadataStore.swift` | Store active Sandbox Specs and creation-time specs under Host Metadata, and provide the lifecycle mutation lock. |
 | Doctor Checks | `Sources/SandCore/Doctor/DoctorChecks.swift` | Verify supported Host Mac platform, Sandbox Backend readiness, default Sandbox Image availability through the backend, and Host Metadata writability. |
-| Sandbox Backend | `Sources/SandCore/Backend/SandboxBackend.swift`, `Sources/SandCore/Backend/AppleContainerCLIBackend.swift`, `Sources/SandCore/Backend/TartCLIBackend.swift`, `Sources/SandCore/Backend/BackendErrorTranslation.swift` | Hide backend operations behind a narrow interface and translate backend failures into Sandbox VM language. |
+| Sandbox Backend | `Sources/SandCore/Backend/SandboxBackend.swift`, `Sources/SandCore/Backend/AppleContainerCLIBackend.swift`, `Sources/SandCore/Backend/DockerCLIBackend.swift`, `Sources/SandCore/Backend/LinuxGuestRuntime.swift`, `Sources/SandCore/Backend/TartCLIBackend.swift`, `Sources/SandCore/Backend/BackendErrorTranslation.swift` | Hide backend operations behind a narrow interface and translate backend failures into Sandbox VM language. |
 | Status and prompts | `Sources/SandCore/Status/StatusPresenter.swift`, `Sources/SandCore/Prompt/PromptConfirmation.swift` | Present concise Sandbox Status and ask before destructive or interrupting Lifecycle Mutations. |
 
 The intended dependency direction is CLI → application boundary → domain/policy/backend interfaces. Backend adapter details should not spread into general domain modules.
@@ -42,6 +42,8 @@ macOS-specific implementation constraints:
 
 - `disk:` / `--disk <size>` is macOS-only, create-time, and grow-only for clones.
 - `display:` / `--display <WIDTHxHEIGHT[px|pt]>` is macOS-only and maps to `tart set --display`.
+- Linux Sandbox VMs run on Apple `container` (Apple silicon, macOS 26) or Docker (elsewhere); `LinuxBackendKind` chooses, `SAND_LINUX_BACKEND` overrides, and `LinuxGuestRuntime` keeps the guest contract identical for both. See [`docs/adr/0002-browser-sandboxes-and-docker-backend.md`](adr/0002-browser-sandboxes-and-docker-backend.md).
+- Browser Sandboxes publish only the noVNC Live View, only on `127.0.0.1:<viewPort>`; DevTools stays guest-local. `scripts/smoke-browser-image.sh` proves both, plus cookie persistence across stop/start, against a real engine.
 - Shared Folders must preserve the chosen Guest Path even though Tart exposes them at `/Volumes/My Shared Files/<tag>`; the Tart backend owns the guest-side symlink.
 - `sand gui <name>` is macOS-only and opens a GUI Session through Tart VNC plus Host Mac Screen Sharing. Screen Sharing may ask for credentials: `admin` / `admin` for Cirrus Tart registry images, or the Sandbox User credentials created during first boot for self-built IPSW VMs.
 - Signing Credentials are Guest Secrets injected into the Sandbox Guest keychain; the Host Mac keychain is never mounted.
@@ -60,6 +62,7 @@ Behavior is specified with XCTest under `Tests/SandCoreTests/`. Start with the r
 | Lifecycle coordination | `Tests/SandCoreTests/LifecycleCoordinatorTests.swift` checks create rollback, IPSW setup-required bootstrap flow, apply prompts, status/list/spec/logs output, run/shell auto-start, folder mutation auto-apply, deletion prompts, lifecycle locks, and concurrent session boundaries. |
 | Doctor Checks | `Tests/SandCoreTests/DoctorChecksTests.swift` and `Tests/SandCoreTests/AppleContainerCLIBackendDoctorTests.swift` check platform gating, Host Metadata writability, backend readiness, default Sandbox Image checks, and backend command construction. |
 | Backend behavior and error translation | `Tests/SandCoreTests/TartCLIBackendTests.swift` checks macOS backend command construction, including Signing Credentials injection, and `Tests/SandCoreTests/BackendErrorTranslationTests.swift` checks that raw backend failures become actionable Sandbox VM messages without leaking adapter internals. |
+| Browser Sandboxes and Docker backend | `Tests/SandCoreTests/BrowserSpecTests.swift`, `BrowserBackendTests.swift` and `BrowserImageDefinitionTests.swift` check the spec section, loopback-only publish, Docker command construction and errors, backend selection, and the image's guest-only DevTools contract. |
 | Architecture boundaries | `Tests/SandCoreTests/ArchitectureBoundaryTests.swift` checks that fake backends stay out of product sources and backend-specific implementation wording stays inside the adapter. |
 | Pi workload and credential boundaries | `Tests/SandCoreTests/PiWorkloadCredentialBoundaryValidationTests.swift` checks validation evidence that Pi runs as an ordinary Workload Command and Host Mac credentials are not mounted by default. |
 

@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: 5dbfe94dbf48a62edf7142da080a1bf7ded8f2fa9aeaa0d47029ffd52922206b -->
+<!-- docs-input-hash: 65d92d96ee415c04b2a076ab871d59b21301c129ea5ab7c37f6400af637380fb -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **API Surface** for managing Linux and macOS **Sa
 
 ## Generation source
 
-- Docs input hash: `6f1147572af21e71a953e7287318f4fb9c3e797f24df4d603b3f0c0cc302896f`
+- Docs input hash: `65d92d96ee415c04b2a076ab871d59b21301c129ea5ab7c37f6400af637380fb`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, and `sand --version` output.
@@ -67,6 +67,7 @@ Commands:
   shell <name>                   Open a shell
   run <name> <command> [args...] Run a Workload Command
   gui <name>                     Open a graphical desktop session
+  browser <name>                 Print the live browser view URL
   logs <name>                    Show logs
   spec <name>                    Print the sandbox spec
 
@@ -84,7 +85,7 @@ Verifies host support, backend readiness, default image availability, and ~/.san
 ## `sand create`
 
 ```text
-Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--from-ipsw <latest|path|url>] [--cpus <count>] [--memory <size>] [--disk <size>] [--display <WIDTHxHEIGHT[px|pt]>]
+Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--from-ipsw <latest|path|url>] [--cpus <count>] [--memory <size>] [--disk <size>] [--display <WIDTHxHEIGHT[px|pt]>] [--browser] [--browser-port <port>]
 
 Creates a Sandbox VM from generated defaults, an authored Linux spec, a backend image, or a stopped local macOS sandbox.
 
@@ -94,6 +95,8 @@ Options:
   --display <WIDTHxHEIGHT[px|pt]>   macOS-only display resolution. Unsuffixed values are pixels, e.g. 1920x1080.
   --from <image-or-local-sandbox>   Clone a backend image or stopped local macOS sandbox.
   --from-ipsw <latest|path|url>     Build a self-made macOS base via the macOS Install Flow.
+  --browser                         Linux-only browser sandbox: Chromium on a virtual display, sand/browser image.
+  --browser-port <port>             Host Mac loopback port for the live view (implies --browser; default first free from 6080).
 
 macOS sources are open-ended and must be explicit:
   --from <image-or-local-sandbox>   Clone any Tart-compatible macOS image (Sequoia, Tahoe, pinned digest) or a stopped local sandbox.
@@ -106,9 +109,11 @@ Use `sand gui <name>` to open a macOS graphical desktop session for first boot o
 ## `sand list`
 
 ```text
-Usage: sand list
+Usage: sand list [--json]
 
 Lists known Sandbox VMs with runtime state, image, and shared folder count.
+--json prints one JSON array for tools: name, state, os, image, sharedFolders, and for browser
+sandboxes browserViewPort and browserViewURL.
 ```
 
 ## `sand apply`

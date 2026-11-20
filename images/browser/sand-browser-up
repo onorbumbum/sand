@@ -12,13 +12,17 @@ LOGS="${SAND_BROWSER_LOGS:-/tmp/sand-browser}"
 WIDTH="${SIZE%x*}"
 HEIGHT="${SIZE#*x}"
 
+DISPLAY_NUMBER="${DISPLAY#:}"
+
 mkdir -p "${PROFILE}" "${LOGS}"
+# Stop/start keeps /tmp: a stale X lock or socket makes Xvfb refuse to start.
+rm -f "/tmp/.X${DISPLAY_NUMBER}-lock" "/tmp/.X11-unix/X${DISPLAY_NUMBER}"
 # A stopped sandbox leaves Chromium's single-instance locks behind.
 rm -f "${PROFILE}"/Singleton*
 
 Xvfb "${DISPLAY}" -screen 0 "${SIZE}x24" -nolisten tcp >"${LOGS}/xvfb.log" 2>&1 &
 for _ in $(seq 1 50); do
-  [ -e "/tmp/.X11-unix/X${DISPLAY#:}" ] && break
+  [ -e "/tmp/.X11-unix/X${DISPLAY_NUMBER}" ] && break
   sleep 0.1
 done
 
@@ -29,8 +33,12 @@ websockify --web /usr/share/novnc 6080 localhost:5900 >"${LOGS}/novnc.log" 2>&1 
 # Chromium comes back if someone closes the window or it crashes.
 # --no-sandbox: the Sandbox VM is the isolation boundary; container seccomp
 # blocks the user namespaces Chromium's own sandbox needs.
-(
-  while true; do
+chromium_loop() {
+  local pid="" stopping=0
+  # Chromium skips its final cookie write on SIGTERM; a CDP Browser.close
+  # (sand-browser quit) shuts down cleanly. TERM is only the fallback.
+  trap 'stopping=1; [ -n "${pid}" ] && { timeout 6 sand-browser quit >/dev/null 2>&1 || kill -TERM "${pid}" 2>/dev/null; }' TERM
+  while [ "${stopping}" = 0 ]; do
     rm -f "${PROFILE}"/Singleton*
     chromium \
       --user-data-dir="${PROFILE}" \
@@ -45,10 +53,26 @@ websockify --web /usr/share/novnc 6080 localhost:5900 >"${LOGS}/novnc.log" 2>&1 
       --window-position=0,0 \
       --window-size="${WIDTH},${HEIGHT}" \
       --start-maximized \
-      about:blank >>"${LOGS}/chromium.log" 2>&1
-    sleep 1
+      about:blank >>"${LOGS}/chromium.log" 2>&1 &
+    pid=$!
+    wait "${pid}"
+    # A TERM interrupts the first wait; this one lasts until Chromium has
+    # written its profile (cookies, sign-ins) and exited.
+    wait "${pid}" 2>/dev/null
+    [ "${stopping}" = 0 ] && sleep 1
   done
-) &
+}
+
+chromium_loop &
+CHROMIUM_LOOP=$!
+
+# `sand stop` sends TERM: let Chromium shut down cleanly so sign-ins persist.
+shutdown() {
+  kill -TERM "${CHROMIUM_LOOP}" 2>/dev/null
+  wait "${CHROMIUM_LOOP}" 2>/dev/null
+  exit 0
+}
+trap shutdown TERM INT
 
 echo "sand browser up: view on :6080, CDP on 127.0.0.1:9222, profile ${PROFILE}"
 wait -n

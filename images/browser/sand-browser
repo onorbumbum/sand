@@ -19,6 +19,7 @@ const usage = `Usage: sand-browser <command> [args] [--tab N]
   press <key>                Press a key, e.g. Enter.
   eval <js>                  Evaluate a JS expression in the tab and print the JSON result.
   close                      Close the tab.
+  quit                       Shut Chromium down cleanly, saving sign-ins (the sandbox restarts it).
 
 The tab defaults to the most recently opened one. When a page needs a person
 (login, 2FA, captcha), stop and ask them to open the live view: on the Host Mac
@@ -105,6 +106,12 @@ async function main(argv) {
         need(1, 'expression');
         const result = await (await pick()).evaluate(rest[0]);
         console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      case 'quit': {
+        // Browser.close is a clean shutdown: Chromium writes its cookie store first.
+        const session = await browser.newBrowserCDPSession();
+        await session.send('Browser.close').catch(() => {});
         break;
       }
       case 'close':

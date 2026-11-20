@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: 5dbfe94dbf48a62edf7142da080a1bf7ded8f2fa9aeaa0d47029ffd52922206b -->
+<!-- docs-input-hash: 65d92d96ee415c04b2a076ab871d59b21301c129ea5ab7c37f6400af637380fb -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -60,10 +60,12 @@ This alpha is intentionally focused on the daily loop:
 - create macOS Sandbox VMs through Tart for Xcode/iOS work
 - open macOS GUI Sessions with `sand gui <name>`
 - install macOS Signing Credentials as Guest Secrets for headless distribution signing
+- create Browser Sandboxes with `--browser`: a real Chromium that agents drive inside the Sandbox VM and you watch or take over through a loopback Live View (`sand browser <name>`)
+- run Linux Sandbox VMs on Intel Macs and macOS 15 through a Docker engine such as colima
 
 ## Current boundaries
 
-In this version, access is intentionally simple: choose folders, run commands, keep guest state. Host credentials and Host Mac Pi config are not shared automatically. macOS Signing Credentials are injected into the Sandbox Guest keychain as Guest Secrets; the Host Mac keychain is not mounted or shared. Simulator builds do not need signing or Apple ID. Physical-device deploy/debug is unsupported because macOS guests do not get USB passthrough; `gui` gives desktop access to the VM, not a forwarded host device. Inbound port publishing is not part of the first release, so browser callback logins need the handoff flow described below.
+In this version, access is intentionally simple: choose folders, run commands, keep guest state. Host credentials and Host Mac Pi config are not shared automatically. macOS Signing Credentials are injected into the Sandbox Guest keychain as Guest Secrets; the Host Mac keychain is not mounted or shared. Simulator builds do not need signing or Apple ID. Physical-device deploy/debug is unsupported because macOS guests do not get USB passthrough; `gui` gives desktop access to the VM, not a forwarded host device. Inbound port publishing is not part of the first release, so browser callback logins need the handoff flow described below. The one exception is a Browser Sandbox's Live View, published on the Host Mac loopback only.
 
 ## More docs
 
@@ -77,12 +79,32 @@ In this version, access is intentionally simple: choose folders, run commands, k
 
 ## Prerequisites
 
-- Apple silicon Mac.
-- Swift toolchain compatible with this package (`Package.swift` uses Swift tools 6.2 and declares macOS v26).
-- Apple `container` CLI installed and available on `PATH` for Linux Sandbox VMs.
-- Apple `container` backend service running or startable by `container system start` for Linux Sandbox VMs.
-- Tart CLI installed and available on `PATH` for macOS Sandbox VMs.
+- A Mac. Apple silicon for Apple `container` and macOS Sandbox VMs; Intel Macs run Linux Sandbox VMs through Docker.
+- Swift toolchain compatible with this package (`Package.swift` uses Swift tools 6.2 and declares macOS v15).
+- For Linux Sandbox VMs, one Linux Backend Engine:
+  - Apple silicon with macOS 26: Apple `container` CLI on `PATH`, its backend service running or startable by `container system start`.
+  - Otherwise: the Docker CLI and a running engine, for example `brew install colima docker && colima start --cpu 4 --memory 4 --vm-type vz --mount-type virtiofs`. colima shares only your home folder with its VM, so Shared Folders must live under `~`.
+  - `SAND_LINUX_BACKEND=apple-container|docker` overrides the automatic choice.
+- Tart CLI installed and available on `PATH` for macOS Sandbox VMs (Apple silicon only).
 - The developer-ready image built locally: `sand/developer-ready:ubuntu-lts`.
+
+## Browser Sandboxes
+
+A Browser Sandbox gives an agent a real, headed Chromium inside its own Sandbox VM, and gives you a Live View of that same browser to watch or take over, for example to sign in or pass 2FA.
+
+```sh
+scripts/build-browser-image.sh        # after the developer-ready image
+sand create web --browser --cpus 2 --memory 2GB
+sand folders add web "$HOME/Projects/site" rw --as /workspace
+sand browser web                       # prints the Live View URL on 127.0.0.1
+sand run web sand-browser open https://example.com
+sand run web sand-browser text
+sand run web pi                        # Pi in the same Sandbox VM drives the same browser
+```
+
+Inside the Sandbox Guest, agents use `sand-browser` (open, text, screenshot, click, fill, press, eval, tabs) or Playwright with `chromium.connectOverCDP(process.env.SAND_BROWSER_CDP)`. DevTools listens on guest-local `127.0.0.1:9222` and is never published. The Chromium profile lives in Guest State, so sign-ins survive `sand stop` / `sand start` and stay inside that Sandbox VM; use one Browser Sandbox per client or account.
+
+The Live View is noVNC without a password, published only on the Host Mac loopback. To reach it from another machine, put an authenticating proxy in front of it rather than widening the publish. Ops does this at `/browser/<name>/` behind Tailscale with its own trusted viewer. See [ADR 0002](docs/adr/0002-browser-sandboxes-and-docker-backend.md).
 
 ## Getting started
 
@@ -144,18 +166,23 @@ sand bootstrap cleanmac
 ## Build and smoke-test the developer-ready image
 
 <!-- docs:managed:start id="build-and-test" source="Package.swift Makefile scripts/build-developer-ready-image.sh scripts/smoke-developer-ready-image.sh" -->
-Build and verify the default **Sandbox Image**:
+Build and verify the default **Sandbox Image**, then the Browser Sandbox image on top of it:
 
 ```sh
 scripts/build-developer-ready-image.sh
 scripts/smoke-developer-ready-image.sh
+scripts/build-browser-image.sh
+scripts/smoke-browser-image.sh
 ```
+
+The scripts build with Apple `container` when it is installed and with Docker otherwise (`SAND_LINUX_BACKEND` overrides). The browser smoke proves the Live View answers on the Host Mac loopback, DevTools is not reachable from the Host Mac, `sand-browser` drives the page, and sign-in cookies survive stop/start.
 
 Optional environment variables:
 
 ```sh
 SAND_DEVELOPER_READY_IMAGE=sand/developer-ready:ubuntu-lts scripts/build-developer-ready-image.sh
 PI_CLI_VERSION=0.73.1 scripts/build-developer-ready-image.sh
+SAND_BROWSER_IMAGE=sand/browser:ubuntu-lts PLAYWRIGHT_VERSION=1.64.1 scripts/build-browser-image.sh
 ```
 
 Run the local project checks:
@@ -287,7 +314,16 @@ Supported v1 commands:
 
 - Global: `sand --help`, `sand --version`
 - Top-level commands: `sand doctor`, `sand create <name> [options]`, `sand bootstrap <name>`, `sand list`, `sand apply <name>`, `sand delete <name> [--force]`, `sand folders <action> ...`, `sand signing <action> ...`
-- Sandbox actions: `sand status <name>`, `sand start <name>`, `sand stop <name>`, `sand shell <name>`, `sand run <name> <command> [args...]`, `sand gui <name>`, `sand logs <name>`, `sand spec <name>`
+- Sandbox actions: `sand status <name>`, `sand start <name>`, `sand stop <name>`, `sand shell <name>`, `sand run <name> <command> [args...]`, `sand gui <name>`, `sand browser <name>`, `sand logs <name>`, `sand spec <name>`
+- Tools: `sand list --json` prints one JSON array with each Sandbox VM's state and, for Browser Sandboxes, `browserViewPort` and `browserViewURL`.
+
+Browser Sandboxes:
+
+```sh
+sand create web --browser                 # Live View on the first free loopback port from 6080
+sand create shop --browser-port 6090      # or choose the port
+sand browser web                          # start if needed, print the Live View URL
+```
 
 Command help:
 
@@ -311,7 +347,7 @@ sand folders list demo
 sand folders remove demo "$HOME/Reference"
 ```
 
-macOS Sandbox VMs use a split-backend architecture: Linux guests run through Apple's `container` CLI, while macOS guests run through Tart. Both backends stay behind the same Sandbox Backend interface, so `shell`, `run`, Shared Folders, Working Directory Mapping, Guest State, and Sandbox Specs keep one user-facing model.
+macOS Sandbox VMs use a split-backend architecture: Linux guests run through Apple's `container` CLI (or Docker on Intel Macs and macOS 15), while macOS guests run through Tart. Both backends stay behind the same Sandbox Backend interface, so `shell`, `run`, Shared Folders, Working Directory Mapping, Guest State, and Sandbox Specs keep one user-facing model.
 
 macOS support needs the Tart CLI on `PATH`:
 
@@ -373,7 +409,7 @@ Current v1 boundaries:
 
 - To clear a Sandbox VM completely, delete it and create a new one.
 - To run Pi, use the same command shape as any other tool: `sand run <name> pi [args...]`.
-- Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need the handoff flow described above.
+- Network access is outbound-only from the Sandbox VM in v1; inbound browser/server callbacks need the handoff flow described above. A Browser Sandbox's Live View is the one loopback-only publish.
 - Commands name the target Sandbox VM explicitly, so it is always clear which environment you are operating.
 - macOS Sandbox VMs are heavy: expect about 100GB per VM and slower boot than Linux Sandbox VMs.
 - Apple's macOS guest licensing caps practical concurrent macOS Sandbox VMs at roughly two per Host Mac, so plan for a handful of macOS sandboxes, not dozens.
@@ -403,6 +439,13 @@ sharedFolders:
     resolvedHostPath: /Users/me/Projects/my-project
     guestPath: /workspace
     accessMode: read-write
+```
+
+Browser Sandboxes record their loopback Live View port:
+
+```yaml
+browser:
+  viewPort: 6080
 ```
 
 v1 rejects unsupported spec fields for features outside the accepted scope, including inbound networking / port publishing.

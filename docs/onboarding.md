@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 5dbfe94dbf48a62edf7142da080a1bf7ded8f2fa9aeaa0d47029ffd52922206b -->
+<!-- docs-input-hash: 65d92d96ee415c04b2a076ab871d59b21301c129ea5ab7c37f6400af637380fb -->
 
 # sand Onboarding Guide
 
@@ -18,7 +18,7 @@ Use the product language in [`issues/sand/CONTEXT.md`](https://github.com/onorbu
 
 macOS guests are first-class Sandbox VMs for Xcode/iOS work. Linux remains the default guest OS; use `sand create <name> --os macos --from <registry-image-or-local-sandbox>` to clone a Tart-compatible macOS image or stopped local sandbox, or `sand create <name> --from-ipsw <latest|path|url>` for the self-built macOS Install Flow followed by `sand gui <name>` and `sand bootstrap <name>`.
 
-The architecture is split by guest OS: Linux uses Apple's `container` CLI backend, macOS uses the Tart CLI backend, and `SandboxBackend` hides both behind one lifecycle interface. Tart must be on `PATH` for macOS support:
+The architecture is split by guest OS: Linux uses Apple's `container` CLI backend (or the Docker CLI backend on Intel Macs and macOS 15), macOS uses the Tart CLI backend, and `SandboxBackend` hides them behind one lifecycle interface. Browser Sandboxes (`sand create <name> --browser`) add a headed Chromium and a loopback-only Live View; see ADR 0002. Tart must be on `PATH` for macOS support:
 
 ```sh
 brew install cirruslabs/cli/tart
@@ -70,7 +70,8 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 | --- | --- |
 | `Sources/sand/main.swift` | CLI executable entry point. |
 | `Sources/SandCore/CLI/` | Command routing and application orchestration for the `sand` API Surface. |
-| `Sources/SandCore/Backend/` | Sandbox Backend interfaces plus Apple `container` and Tart backend plumbing. Backend details should not leak into user-facing language. |
+| `Sources/SandCore/Backend/` | Sandbox Backend interfaces plus Apple `container`, Docker and Tart backend plumbing; `LinuxGuestRuntime.swift` is the guest recipe both Linux backends share. Backend details should not leak into user-facing language. |
+| `images/browser/` | The Browser Sandbox image: Chromium, noVNC Live View, `sand-browser-up` (keeps the browser stack running) and the `sand-browser` agent CLI. |
 | `Sources/SandCore/Doctor/` | Doctor Checks for Host Mac support, backend readiness, default image availability, and Host Metadata writability. |
 | `Sources/SandCore/Domain/` | Small domain types such as Sandbox Name and Workload Command. |
 | `Sources/SandCore/FolderPolicy/` | Shared Folder validation, Access Mode handling, Guest Path rules, duplicate and overlap policy. |
@@ -90,6 +91,7 @@ Prefer source-backed claims. If docs and code disagree, treat that as a finding:
 | `docs/generated-docs-manifest.txt` | Registry of generated/managed docs checked by the freshness gate. |
 | `docs/prompts/refresh-docs.md` | Only for refreshing generated/managed docs when a change has Documentation Impact. |
 | `docs/adr/0001-split-backends-linux-container-macos-tart.md` | Decision record for the Linux Apple `container` backend, macOS Tart backend, and why `sand` stays unsigned and entitlement-free. |
+| `docs/adr/0002-browser-sandboxes-and-docker-backend.md` | Decision record for Browser Sandboxes, the loopback-only Live View, and the Docker backend for Intel Hosts. |
 | `docs/validation/` | Backend and behavior validation evidence that supports implementation decisions. |
 | `scripts/build-developer-ready-image.sh` | Builds the Developer-Ready Sandbox Image. |
 | `scripts/smoke-developer-ready-image.sh` | Smoke-tests the Developer-Ready Sandbox Image. |

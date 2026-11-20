@@ -62,5 +62,26 @@ echo "CDP not published to host -> ok"
   test -d /state/sandbox/chromium/Default
   echo "profile in Guest State -> ok"
   node -e "require(\"playwright\")" && echo "playwright importable -> ok"
+  (cd /tmp && nohup python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 &)
+  sleep 1
+  sand-browser open http://127.0.0.1:8765/ >/dev/null
+  sand-browser eval "document.cookie = \"sandlogin=yes; max-age=86400; path=/\"" >/dev/null
 '
+# Stop/start keeps the container filesystem, like `sand stop` / `sand start`.
+"${SAND_ENGINE}" stop "${CONTAINER}" >/dev/null
+"${SAND_ENGINE}" start "${CONTAINER}" >/dev/null
+for _ in $(seq 1 60); do
+  curl -fsS "http://127.0.0.1:${VIEW_PORT}/vnc.html" >/dev/null 2>&1 && break
+  sleep 1
+done
+curl -fsS "http://127.0.0.1:${VIEW_PORT}/vnc.html" | grep -qi novnc
+"${SAND_ENGINE}" exec --user sandbox "${CONTAINER}" bash -lc '
+  for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:9222/json/version >/dev/null 2>&1 && break; sleep 1; done
+  (cd /tmp && nohup python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 &)
+  sleep 1
+  sand-browser open http://127.0.0.1:8765/ >/dev/null
+  sand-browser eval "document.cookie" | grep -q sandlogin=yes || { echo "sign-in cookie lost across stop/start" >&2; exit 1; }
+  echo "cookies survive stop/start -> ok"
+'
+echo "live view after restart -> ok"
 echo "browser image smoke passed"

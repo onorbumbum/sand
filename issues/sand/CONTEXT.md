@@ -89,8 +89,20 @@ The requirement that files created or modified through read-write Shared Folders
 _Avoid_: Root-owned project files, UID surprises
 
 **Outbound-Only Networking**:
-The default networking rule that allows Sandbox Guest processes to reach the internet while exposing no inbound services to the external network or LAN. Host-local control channels are allowed and are how sand operates: the Linux backend's `container exec`, and the macOS backend's SSH and Screen Sharing, which are reachable only from the Host Mac over the backend's private NAT, never from other machines. The hard guarantee is that no other machine on the network can reach the Sandbox VM.
+The default networking rule that allows Sandbox Guest processes to reach the internet while exposing no inbound services to the external network or LAN. Host-local control channels are allowed and are how sand operates: the Linux backend's `container exec` / `docker exec`, the macOS backend's SSH and Screen Sharing, and a Browser Sandbox's Live View, which is published on the Host Mac loopback only. None is reachable from other machines. The hard guarantee is that no other machine on the network can reach the Sandbox VM.
 _Avoid_: Port forwarding to the LAN, localhost publishing, binding guest services to 0.0.0.0
+
+**Browser Sandbox**:
+A Linux Sandbox VM created with `--browser` that runs a headed Chromium on a virtual display. Agents in the Sandbox Guest drive it over DevTools on guest-local `127.0.0.1:9222`; its profile lives in Guest State so sign-ins persist.
+_Avoid_: Headless browser service, shared browser, browser on the Host Mac
+
+**Live View**:
+The noVNC view of a Browser Sandbox's screen, published only on the Host Mac loopback at the Sandbox Spec's `viewPort`, where a person watches or takes over (sign-ins, 2FA). `sand browser <name>` prints its URL. Remote access goes through an authenticating proxy, never a wider publish.
+_Avoid_: Port forwarding, exposing DevTools, remote desktop
+
+**Linux Backend Engine**:
+The engine behind Linux Sandbox VMs: Apple `container` on Apple silicon with macOS 26, otherwise a Docker engine such as colima. `SAND_LINUX_BACKEND=apple-container|docker` overrides the choice.
+_Avoid_: User-facing Docker concepts, per-sandbox engine choice
 
 **Pi Identity**:
 The sandbox-local Pi configuration and credentials that make Pi behave as if the Sandbox VM is its own computer.
@@ -185,7 +197,7 @@ The concise user-facing state of a Sandbox VM, including whether it is running o
 _Avoid_: Backend dump, raw inspect output
 
 **Doctor Check**:
-A diagnostic command that verifies host/backend prerequisites. For the Linux backend: Apple container availability, service status, default image availability. For the macOS backend: Apple Silicon host, supported macOS host version, and Tart CLI availability/version on PATH. Shared: platform support and Host Metadata writability.
+A diagnostic command that verifies host/backend prerequisites. For the Linux backend: engine availability (Apple container, or the Docker CLI and daemon), service status, default image availability. For the macOS backend: Apple Silicon host, supported macOS host version, and Tart CLI availability/version on PATH. Shared: platform support and Host Metadata writability.
 _Avoid_: Full health dashboard, generic troubleshooting wizard
 
 **Backend Service**:

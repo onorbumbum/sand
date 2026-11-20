@@ -18,6 +18,7 @@ required Makefile
 required README.md managed-markdown
 required issues/sand/CONTEXT.md managed-markdown
 required docs/adr/0001-split-backends-linux-container-macos-tart.md full
+required docs/adr/0002-browser-sandboxes-and-docker-backend.md full
 
 # CLI command surface and public behavior sources.
 required Sources/sand/main.swift
@@ -43,6 +44,8 @@ required Tests/SandCoreTests/WorkingDirectoryMapperTests.swift
 # Onboarding, installation, and documentation gate inputs.
 required scripts/build-developer-ready-image.sh
 required scripts/smoke-developer-ready-image.sh
+required scripts/build-browser-image.sh
+required scripts/smoke-browser-image.sh
 required scripts/docs-input-hash.sh
 required scripts/docs-check.sh
 required scripts/generate-cli-reference.sh
