@@ -19,6 +19,7 @@ final class BrowserImageDefinitionTests: XCTestCase {
         XCTAssertTrue(startup.contains("-localhost -rfbport 5900"), "raw VNC must stay guest-local; only noVNC is published")
         XCTAssertTrue(startup.contains("websockify --web /usr/share/novnc 6080"))
         XCTAssertTrue(startup.contains("trap shutdown TERM INT"), "stop must let Chromium flush its cookie store")
+        XCTAssertTrue(startup.contains("--restore-last-session"), "an idle stop must not lose the page an agent left for Onur")
         XCTAssertTrue(startup.contains("sand-browser quit"), "SIGTERM skips Chromium's cookie write; stop closes it over CDP")
         XCTAssertTrue(startup.contains("rm -f \"/tmp/.X${DISPLAY_NUMBER}-lock\""), "stop/start keeps /tmp; a stale X lock stops Xvfb from coming back")
     }
@@ -36,5 +37,11 @@ final class BrowserImageDefinitionTests: XCTestCase {
         XCTAssertTrue(smokeScript.contains("must stay guest-only"), "smoke must prove CDP is not reachable from the host")
         XCTAssertTrue(smokeScript.contains("live view after restart -> ok"), "smoke must prove the browser comes back after stop/start")
         XCTAssertTrue(smokeScript.contains("cookies survive stop/start -> ok"), "smoke must prove sign-ins persist")
+        XCTAssertTrue(smokeScript.contains("tabs come back after restart -> ok"))
+        XCTAssertTrue(smokeScript.contains("held browser refuses agent actions -> ok"), "smoke must prove Take control pauses the agent")
+        let agentCLI = try read("images/browser/sand-browser")
+        XCTAssertTrue(agentCLI.contains("/tmp/sand-browser-held"), "the flag Ops writes when Onur takes control")
+        XCTAssertTrue(agentCLI.contains("/tmp/sand-browser-last.json"), "agent actions are recorded so Ops can show who is using a browser")
+        XCTAssertTrue(smokeScript.contains("activity reports the last agent action -> ok"))
     }
 }

@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: docs/prompts/refresh-docs.md -->
-<!-- docs-input-hash: 65d92d96ee415c04b2a076ab871d59b21301c129ea5ab7c37f6400af637380fb -->
+<!-- docs-input-hash: a6174daa56f6cb675b17f8d24b7ec6aa734beef63534f6b3e89a9662645d4caa -->
 
 # sand Developer Guide
 

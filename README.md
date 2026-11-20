@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: 65d92d96ee415c04b2a076ab871d59b21301c129ea5ab7c37f6400af637380fb -->
+<!-- docs-input-hash: a6174daa56f6cb675b17f8d24b7ec6aa734beef63534f6b3e89a9662645d4caa -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -103,6 +103,8 @@ sand run web pi                        # Pi in the same Sandbox VM drives the sa
 ```
 
 Inside the Sandbox Guest, agents use `sand-browser` (open, text, screenshot, click, fill, press, eval, tabs) or Playwright with `chromium.connectOverCDP(process.env.SAND_BROWSER_CDP)`. DevTools listens on guest-local `127.0.0.1:9222` and is never published. The Chromium profile lives in Guest State, so sign-ins survive `sand stop` / `sand start` and stay inside that Sandbox VM; use one Browser Sandbox per client or account.
+
+While you have control in Ops's Live Browsers view, `sand-browser` actions in that sandbox exit 75 and change nothing (looking still works), so an agent cannot click under your hands; closing the view hands control back. Chromium reopens its last tabs on start, so a stopped Browser Sandbox loses nothing: Ops stops client Browser Sandboxes after 10 idle minutes to keep memory free.
 
 The Live View is noVNC without a password, published only on the Host Mac loopback. To reach it from another machine, put an authenticating proxy in front of it rather than widening the publish. Ops does this at `/browser/<name>/` behind Tailscale with its own trusted viewer. See [ADR 0002](docs/adr/0002-browser-sandboxes-and-docker-backend.md).
 

@@ -4,7 +4,28 @@
 // For anything richer, use Playwright directly:
 //   const { chromium } = require('playwright');
 //   const browser = await chromium.connectOverCDP(process.env.SAND_BROWSER_CDP);
+// Playwright used directly does not see the Live View's Take control; use
+// sand-browser for actions so Onur's control is respected.
+const fs = require('fs');
 const { chromium } = require('playwright');
+
+// Ops writes this file while Onur has control in the Live View. Looking
+// (status, tabs, text, html, screenshot) is fine; acting waits for him.
+const HELD_FLAG = '/tmp/sand-browser-held';
+const LOOKING = new Set(['status', 'tabs', 'text', 'html', 'screenshot', 'quit', 'activity']);
+// Each agent action is recorded here; Ops shows it as "Agent working".
+const LAST_ACTION = '/tmp/sand-browser-last.json';
+
+function recordAction(command, target) {
+  try {
+    fs.writeFileSync(LAST_ACTION, JSON.stringify({ at: new Date().toISOString(), command, target: String(target || '').slice(0, 200) }));
+  } catch (_) {}
+}
+
+function readLastAction() {
+  try { return JSON.parse(fs.readFileSync(LAST_ACTION, 'utf8')); } catch (_) { return null; }
+}
+const EX_TEMPFAIL = 75;
 
 const usage = `Usage: sand-browser <command> [args] [--tab N]
 
@@ -19,7 +40,11 @@ const usage = `Usage: sand-browser <command> [args] [--tab N]
   press <key>                Press a key, e.g. Enter.
   eval <js>                  Evaluate a JS expression in the tab and print the JSON result.
   close                      Close the tab.
+  activity                   JSON for Ops: held, last agent action, open tabs.
   quit                       Shut Chromium down cleanly, saving sign-ins (the sandbox restarts it).
+
+While Onur has control in the Live View, commands that act exit 75 and
+change nothing; looking (status, tabs, text, html, screenshot) still works.
 
 The tab defaults to the most recently opened one. When a page needs a person
 (login, 2FA, captcha), stop and ask them to open the live view: on the Host Mac
@@ -39,6 +64,13 @@ async function main(argv) {
     console.log(usage);
     return 0;
   }
+
+  if (!LOOKING.has(command) && fs.existsSync(HELD_FLAG)) {
+    console.error('sand-browser: Onur has control of this browser in the Live View. Do not act now: wait and retry later, or leave the task Waiting on Onur.');
+    return EX_TEMPFAIL;
+  }
+
+  if (!LOOKING.has(command)) recordAction(command, rest[0]);
 
   const endpoint = process.env.SAND_BROWSER_CDP || 'http://127.0.0.1:9222';
   let browser;
@@ -64,6 +96,12 @@ async function main(argv) {
     };
 
     switch (command) {
+      case 'activity': {
+        const tabs = [];
+        for (const page of pages()) tabs.push({ title: await page.title(), url: page.url() });
+        console.log(JSON.stringify({ held: fs.existsSync(HELD_FLAG), last: readLastAction(), tabs }));
+        break;
+      }
       case 'status':
       case 'tabs': {
         const all = pages();

@@ -66,6 +66,22 @@ echo "CDP not published to host -> ok"
   sleep 1
   sand-browser open http://127.0.0.1:8765/ >/dev/null
   sand-browser eval "document.cookie = \"sandlogin=yes; max-age=86400; path=/\"" >/dev/null
+  sand-browser activity > /tmp/activity.json
+  python3 -c "
+import json; a = json.load(open(\"/tmp/activity.json\"))
+assert a[\"held\"] is False, a
+assert a[\"last\"][\"command\"] == \"eval\", a
+assert any(t[\"url\"].startswith(\"http://127.0.0.1:8765\") for t in a[\"tabs\"]), a
+"
+  echo "activity reports the last agent action -> ok"
+  touch /tmp/sand-browser-held
+  set +e
+  sand-browser open http://127.0.0.1:8765/elsewhere >/tmp/held.out 2>&1; held_exit=$?
+  set -e
+  test "$held_exit" = 75 && grep -q "Onur has control" /tmp/held.out
+  sand-browser tabs | grep -q "127.0.0.1:8765/$"
+  rm -f /tmp/sand-browser-held
+  echo "held browser refuses agent actions -> ok"
 '
 # Stop/start keeps the container filesystem, like `sand stop` / `sand start`.
 "${SAND_ENGINE}" stop "${CONTAINER}" >/dev/null
@@ -77,6 +93,8 @@ done
 curl -fsS "http://127.0.0.1:${VIEW_PORT}/vnc.html" | grep -qi novnc
 "${SAND_ENGINE}" exec --user sandbox "${CONTAINER}" bash -lc '
   for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:9222/json/version >/dev/null 2>&1 && break; sleep 1; done
+  sand-browser tabs | grep -q "127.0.0.1:8765" || { echo "open tab not restored after restart" >&2; exit 1; }
+  echo "tabs come back after restart -> ok"
   (cd /tmp && nohup python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 &)
   sleep 1
   sand-browser open http://127.0.0.1:8765/ >/dev/null

@@ -1,6 +1,6 @@
 <!-- generated-doc: true -->
 <!-- generated-by: scripts/generate-cli-reference.sh -->
-<!-- docs-input-hash: 65d92d96ee415c04b2a076ab871d59b21301c129ea5ab7c37f6400af637380fb -->
+<!-- docs-input-hash: a6174daa56f6cb675b17f8d24b7ec6aa734beef63534f6b3e89a9662645d4caa -->
 
 # sand CLI Reference
 
@@ -10,7 +10,7 @@ This reference captures the v1 **API Surface** for managing Linux and macOS **Sa
 
 ## Generation source
 
-- Docs input hash: `65d92d96ee415c04b2a076ab871d59b21301c129ea5ab7c37f6400af637380fb`
+- Docs input hash: `a6174daa56f6cb675b17f8d24b7ec6aa734beef63534f6b3e89a9662645d4caa`
 - Generator: `scripts/generate-cli-reference.sh`
 - Help source command: `swift run --package-path <repo> sand`
 - Usage sections below are captured from actual `sand --help`, `sand <command> --help`, and `sand --version` output.

@@ -50,6 +50,7 @@ chromium_loop() {
       --no-default-browser-check \
       --disable-dev-shm-usage \
       --password-store=basic \
+      --restore-last-session \
       --window-position=0,0 \
       --window-size="${WIDTH},${HEIGHT}" \
       --start-maximized \
