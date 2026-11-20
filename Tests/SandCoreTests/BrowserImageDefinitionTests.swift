@@ -36,7 +36,7 @@ final class BrowserImageDefinitionTests: XCTestCase {
         let smokeScript = try read("scripts/smoke-browser-image.sh")
 
         XCTAssertTrue(dockerfile.contains("ARG BASE_IMAGE=sand/developer-ready:ubuntu-lts"))
-        XCTAssertTrue(dockerfile.contains("COPY sand-browser-up sand-browser /usr/local/bin/"))
+        XCTAssertTrue(dockerfile.contains("COPY sand-browser-up sand-browser xdg-open /usr/local/bin/"))
         XCTAssertTrue(dockerfile.contains("USER sandbox"))
         XCTAssertTrue(buildScript.contains("sand/browser:ubuntu-lts"))
         XCTAssertTrue(smokeScript.contains("--publish \"127.0.0.1:${VIEW_PORT}:6080\""))
@@ -55,6 +55,19 @@ final class BrowserImageDefinitionTests: XCTestCase {
             XCTAssertTrue(agentCLI.contains(command), "sand-browser owns the downloads folder: \(command)")
         }
         XCTAssertTrue(smokeScript.contains("agent downloads are kept -> ok"))
+        let opener = try read("images/browser/xdg-open")
+        XCTAssertTrue(opener.contains("chromium --user-data-dir="), "opening a file in the sandbox shows it in the same Chromium")
+        XCTAssertTrue(try read("images/browser/Dockerfile").contains("COPY sand-browser-up sand-browser xdg-open /usr/local/bin/"))
+        XCTAssertTrue(agentCLI.contains("'download-open'"))
+        for command in ["'uploads'", "'upload-put'", "'upload'"] {
+            XCTAssertTrue(agentCLI.contains(command), "sand-browser owns the uploads folder: \(command)")
+        }
+        XCTAssertTrue(agentCLI.contains("filechooser"), "buttons that open a file picker (Facebook-style) must work")
+        XCTAssertTrue(try read("images/browser/Dockerfile").contains("ln -s /state/sandbox/Uploads /home/sandbox/Uploads"))
+        XCTAssertTrue(smokeScript.contains("uploads reach the page -> ok"))
+        XCTAssertTrue(try read("images/browser/Dockerfile").contains("libgtk-3-0t64"), "Chromium on Linux draws its file picker with GTK; without it, clicking Choose File does nothing")
+        XCTAssertTrue(smokeScript.contains("file picker available -> ok"))
+        XCTAssertTrue(smokeScript.contains("downloads open in the sandbox Chromium -> ok"))
         XCTAssertTrue(smokeScript.contains("downloads survive a restart -> ok"))
     }
 }

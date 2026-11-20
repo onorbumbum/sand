@@ -25,6 +25,7 @@ RUN apt-get update \
         fonts-liberation \
         fonts-noto-color-emoji \
         fonts-noto-cjk \
+        libgtk-3-0t64 \
     && npm install -g "playwright@${PLAYWRIGHT_VERSION}" \
     && playwright install --with-deps chromium \
     && chrome="$(find /opt/ms-playwright -type f -name chrome -path '*chrome-linux*' | head -n 1)" \
@@ -34,11 +35,12 @@ RUN apt-get update \
     && npm cache clean --force \
     && rm -rf /var/lib/apt/lists/*
 
-COPY sand-browser-up sand-browser /usr/local/bin/
+COPY sand-browser-up sand-browser xdg-open /usr/local/bin/
 COPY openbox.xml /etc/sand-browser/openbox.xml
-RUN chmod 0755 /usr/local/bin/sand-browser-up /usr/local/bin/sand-browser \
+RUN chmod 0755 /usr/local/bin/sand-browser-up /usr/local/bin/sand-browser /usr/local/bin/xdg-open \
     && ln -s /state/sandbox/Downloads /home/sandbox/Downloads \
-    && chown -h sandbox:sandbox /home/sandbox/Downloads
+    && ln -s /state/sandbox/Uploads /home/sandbox/Uploads \
+    && chown -h sandbox:sandbox /home/sandbox/Downloads /home/sandbox/Uploads
 
 USER sandbox
 WORKDIR /workspace

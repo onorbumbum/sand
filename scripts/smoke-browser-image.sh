@@ -96,8 +96,25 @@ assert any(t[\"url\"].startswith(\"http://127.0.0.1:8765\") for t in a[\"tabs\"]
   sand-browser download-delete "invoice (2).txt"
   test ! -e "/state/sandbox/Downloads/invoice (2).txt"
   test -L "$HOME/Downloads"
+  sand-browser download-open invoice.txt
+  sleep 2
+  sand-browser tabs | grep -q "file:///state/sandbox/Downloads/invoice.txt"
+  sand-browser close >/dev/null
+  echo "downloads open in the sandbox Chromium -> ok"
   sand-browser open http://127.0.0.1:8765/ >/dev/null
   echo "agent downloads are kept -> ok"
+  printf "photo bytes" | sand-browser upload-put "post photo.jpg" | grep -q "^uploaded: /state/sandbox/Uploads/post photo.jpg$"
+  sand-browser uploads | grep -q "post photo.jpg"
+  sand-browser eval "document.body.innerHTML = \"<input type=file id=f><button id=b>Add photo</button><input type=file id=hidden style=display:none>\"; document.getElementById(\"b\").onclick = () => document.getElementById(\"hidden\").click()" >/dev/null
+  sand-browser upload "#f" "post photo.jpg" >/dev/null
+  test "$(sand-browser eval "document.getElementById(\"f\").files[0].text()")" = "\"photo bytes\""
+  sand-browser upload "#b" "post photo.jpg" >/dev/null
+  test "$(sand-browser eval "document.getElementById(\"hidden\").files[0].name")" = "\"post photo.jpg\""
+  test -L "$HOME/Uploads"
+  sand-browser open http://127.0.0.1:8765/ >/dev/null
+  echo "uploads reach the page -> ok"
+  ldconfig -p | grep -q "libgtk-3.so.0"
+  echo "file picker available -> ok"
 '
 # Stop/start keeps the container filesystem, like `sand stop` / `sand start`.
 "${SAND_ENGINE}" stop "${CONTAINER}" >/dev/null

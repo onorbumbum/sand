@@ -15,7 +15,7 @@ HEIGHT="${SIZE#*x}"
 
 DISPLAY_NUMBER="${DISPLAY#:}"
 
-mkdir -p "${PROFILE}" "${LOGS}" /state/sandbox/Downloads
+mkdir -p "${PROFILE}" "${LOGS}" /state/sandbox/Downloads /state/sandbox/Uploads
 # Stop/start keeps /tmp: a stale X lock or socket makes Xvnc refuse to start.
 rm -f "/tmp/.X${DISPLAY_NUMBER}-lock" "/tmp/.X11-unix/X${DISPLAY_NUMBER}"
 # A stopped sandbox leaves Chromium's single-instance locks behind.

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Inside a browser sandbox, "open" means: show it in this sandbox's Chromium,
+# in a new tab. Chromium opens downloads through xdg-open, and there is no
+# other app here, so PDFs, images, text and pages open where they are safe.
+set -euo pipefail
+target="${1:?usage: xdg-open <file|url>}"
+case "$target" in
+  http://*|https://*|file://*) url="$target" ;;
+  *) url="file://$(realpath -- "$target")" ;;
+esac
+# Same profile as the running browser, so Chromium hands the URL to it.
+exec chromium --user-data-dir="${SAND_BROWSER_PROFILE:-/state/sandbox/chromium}" --no-sandbox --test-type "$url" >/dev/null 2>&1
