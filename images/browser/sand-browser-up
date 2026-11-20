@@ -51,10 +51,11 @@ chromium_loop() {
       --disable-dev-shm-usage \
       --password-store=basic \
       --restore-last-session \
+      --hide-crash-restore-bubble \
       --window-position=0,0 \
       --window-size="${WIDTH},${HEIGHT}" \
       --start-maximized \
-      about:blank >>"${LOGS}/chromium.log" 2>&1 &
+      >>"${LOGS}/chromium.log" 2>&1 &
     pid=$!
     wait "${pid}"
     # A TERM interrupts the first wait; this one lasts until Chromium has
