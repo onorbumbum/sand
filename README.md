@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: 9d16349b066034bb7d9e80537a865b591e857c85d34d2983c5621aedda71ad3f -->
+<!-- docs-input-hash: 167d7ac678c21c681cd4628585b6ef5ed8cc39c051623b5d91f88a59b9564943 -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -104,7 +104,7 @@ sand run web pi                        # Pi in the same Sandbox VM drives the sa
 
 Inside the Sandbox Guest, agents use `sand-browser` (open, text, screenshot, click, fill, press, eval, tabs; `activity` prints the last agent action and open tabs as JSON for Ops's Live Browsers list) or Playwright with `chromium.connectOverCDP(process.env.SAND_BROWSER_CDP)`. DevTools listens on guest-local `127.0.0.1:9222` and is never published. The Chromium profile lives in Guest State, so sign-ins survive `sand stop` / `sand start` and stay inside that Sandbox VM; use one Browser Sandbox per client or account.
 
-Files cross the sandbox boundary only through two folders in Guest State, `/state/sandbox/Downloads` and `/state/sandbox/Uploads` (also `~/Downloads` and `~/Uploads`). A download an agent's action starts is kept and its path printed; `sand-browser downloads`, `download-get <file>` (to stdout, e.g. into a client's task folder on the Host Mac), `download-open <file>` (a new tab in the sandbox's Chromium, which shows PDFs, images and text) and `download-delete` manage them. Files go in with `sand-browser upload-put <name> < file` and onto the page with `sand-browser upload "<selector>" <name>`, which handles both file fields and buttons that open a file picker. Opening a file inside the sandbox always means a Chromium tab; nothing from the web is opened on the Host Mac.
+Files cross the sandbox boundary only through two folders in Guest State, `/state/sandbox/Downloads` and `/state/sandbox/Uploads` (also `~/Downloads` and `~/Uploads`). A download an agent's action starts is kept and its path printed; `sand-browser downloads`, `download-get <file>` (to stdout, e.g. into a client's task folder on the Host Mac), `download-open <file>` (a new tab in the sandbox's Chromium, which shows PDFs, images and text) and `download-delete` manage them. Files go in with `sand-browser upload-put <name> < file` and onto the page with `sand-browser upload "<selector>" <name>`, which handles both file fields and buttons that open a file picker. Opening a file inside the sandbox always means a Chromium tab; nothing from the web is opened on the Host Mac. In the Live View, a page's file picker opens at the sandbox's home with Downloads and Uploads: click the file once and press Open. Double-clicking a file closes the picker without attaching it (seen with Chromium's GTK picker; double-clicking folders works).
 
 While you have control in Ops's Live Browsers view, `sand-browser` actions in that sandbox exit 75 and change nothing (looking still works), so an agent cannot click under your hands; closing the view hands control back. Chromium reopens its last tabs on start, so a stopped Browser Sandbox loses nothing: Ops stops client Browser Sandboxes after 10 idle minutes to keep memory free.
 
