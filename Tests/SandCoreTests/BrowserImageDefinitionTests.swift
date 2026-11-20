@@ -74,4 +74,49 @@ final class BrowserImageDefinitionTests: XCTestCase {
         XCTAssertTrue(smokeScript.contains("downloads open in the sandbox Chromium -> ok"))
         XCTAssertTrue(smokeScript.contains("downloads survive a restart -> ok"))
     }
+
+    // Aslan Browser parity (issues 033-035): the commands Aslan playbooks use.
+    func testAgentCLIReadsPagesAsAnAccessibilityTreeWithRefs() throws {
+        let agentCLI = try read("images/browser/sand-browser")
+        let smokeScript = try read("scripts/smoke-browser-image.sh")
+
+        XCTAssertTrue(agentCLI.contains("ariaSnapshot({ mode: 'ai' })"), "only AI mode prints [ref=eN]")
+        XCTAssertTrue(agentCLI.contains("data-sand-ref"), "refs must outlive the CLI's CDP connection, so tree tags the elements")
+        XCTAssertTrue(agentCLI.contains("run sand-browser tree again"), "a stale ref tells the agent what to do")
+        XCTAssertTrue(agentCLI.contains("const LOOKING = new Set(['status', 'tabs', 'tree',"), "tree is looking, allowed while Onur has control")
+        XCTAssertTrue(smokeScript.contains("tree, click and fill by ref -> ok"))
+        XCTAssertTrue(smokeScript.contains("stale ref refused -> ok"))
+        XCTAssertTrue(smokeScript.contains("refs on a big page -> ok"), "resolving refs one by one took seconds on Google Maps")
+        XCTAssertTrue(agentCLI.contains("__playwright_utility_world_"), "refs are tagged in one pass inside Playwright's isolated world")
+    }
+
+    func testAgentCLIHasAslanInteractionParity() throws {
+        let agentCLI = try read("images/browser/sand-browser")
+        let smokeScript = try read("scripts/smoke-browser-image.sh")
+
+        for command in ["'type'", "'select'", "'key'", "'scroll'", "'wait'", "'back'", "'forward'", "'reload'"] {
+            XCTAssertTrue(agentCLI.contains("case \(command)"), "sand-browser \(command)")
+        }
+        XCTAssertTrue(agentCLI.contains("keyboard.insertText"), "type works on contenteditable editors (LinkedIn, Facebook)")
+        XCTAssertTrue(agentCLI.contains("selectOption"))
+        XCTAssertTrue(smokeScript.contains("type into contenteditable -> ok"))
+        XCTAssertTrue(smokeScript.contains("select, key chords, scroll, wait, history -> ok"))
+        for command in ["'title'", "'url'"] {
+            XCTAssertTrue(agentCLI.contains("case \(command)"), "sand-browser \(command)")
+        }
+        XCTAssertTrue(agentCLI.contains("Illegal return"), "Aslan playbooks' eval snippets are function bodies with return")
+        XCTAssertTrue(smokeScript.contains("eval bodies, title, url, wait for an element -> ok"))
+    }
+
+    func testAgentCLIHasNamedTabsInGuestState() throws {
+        let agentCLI = try read("images/browser/sand-browser")
+        let smokeScript = try read("scripts/smoke-browser-image.sh")
+
+        for command in ["'tab-new'", "'tab-use'", "'tab-close'"] {
+            XCTAssertTrue(agentCLI.contains("case \(command)"), "sand-browser \(command)")
+        }
+        XCTAssertTrue(agentCLI.contains("/state/sandbox/sand-browser-tabs.json"), "tab names live in Guest State")
+        XCTAssertTrue(agentCLI.contains("Target.getTargetInfo"), "names are keyed by CDP target id")
+        XCTAssertTrue(smokeScript.contains("named tabs -> ok"))
+    }
 }

@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 // Ops writes this file while Onur has control in the Live View. Looking
 // (status, tabs, text, html, screenshot) is fine; acting waits for him.
 const HELD_FLAG = '/tmp/sand-browser-held';
-const LOOKING = new Set(['status', 'tabs', 'text', 'html', 'screenshot', 'quit', 'activity',
+const LOOKING = new Set(['status', 'tabs', 'tree', 'title', 'url', 'text', 'html', 'screenshot', 'quit', 'activity',
   'downloads', 'download-get', 'download-delete', 'download-open', 'uploads', 'upload-put', 'upload-delete']);
 // Each agent action is recorded here; Ops shows it as "Agent working".
 const LAST_ACTION = '/tmp/sand-browser-last.json';
@@ -77,19 +77,178 @@ function readLastAction() {
 }
 const EX_TEMPFAIL = 75;
 
-const usage = `Usage: sand-browser <command> [args] [--tab N]
+// Named tabs (`tab-new <name>`, `--tab <name>`): names and the tab chosen with
+// tab-use, keyed by CDP target id, in Guest State so they outlive each call.
+// A name whose tab has closed is dropped the next time tabs are read.
+const TAB_NAMES = process.env.SAND_BROWSER_TAB_NAMES || '/state/sandbox/sand-browser-tabs.json';
 
+function readTabNames() {
+  try {
+    const t = JSON.parse(fs.readFileSync(TAB_NAMES, 'utf8'));
+    return { names: t.names || {}, current: t.current || null };
+  } catch (_) { return { names: {}, current: null }; }
+}
+
+function writeTabNames(t) {
+  try {
+    fs.mkdirSync(path.dirname(TAB_NAMES), { recursive: true });
+    fs.writeFileSync(`${TAB_NAMES}.tmp`, JSON.stringify(t));
+    fs.renameSync(`${TAB_NAMES}.tmp`, TAB_NAMES);
+  } catch (_) {}
+}
+
+async function targetId(page) {
+  const session = await page.context().newCDPSession(page);
+  try { return (await session.send('Target.getTargetInfo')).targetInfo.targetId; } finally { await session.detach().catch(() => {}); }
+}
+
+// Refs. `tree` prints Playwright's AI-mode snapshot, whose refs ([ref=e3])
+// live only as long as one CDP connection, and every sand-browser call is its
+// own connection. So tree also tags each element it printed a ref for with
+// data-sand-ref (clearing the tags of an earlier tree first), and `@e3` finds
+// the element by that tag, in any frame. Navigating or re-rendering removes the
+// tags: the ref is stale and the agent runs tree again, as with Aslan.
+const REF_ATTR = 'data-sand-ref';
+
+// Playwright keeps each element's ref as element._ariaRef ({ role, name, ref })
+// in its isolated world. Resolving refs one by one (aria-ref=eN) costs ~10 ms
+// each and is serialized: seconds on a big page. So the tags are written in
+// one pass inside that world, found over CDP. It is named after this
+// connection's page (__playwright_utility_world_page@<guid>); every earlier
+// call left its own world behind until the page navigates. If that name ever
+// changes, fall back to the utility world whose refs best match this snapshot.
+const UTILITY_WORLD = '__playwright_utility_world_';
+
+function tagInWorld(want, attr, apply) {
+  let score = 0;
+  const hits = [];
+  const walk = (root) => {
+    for (const el of root.querySelectorAll('*')) {
+      const r = el._ariaRef;
+      if (r && want[r.ref] === r.role) { score++; hits.push(el); }
+      if (el.shadowRoot) walk(el.shadowRoot);
+    }
+  };
+  walk(document);
+  if (apply) for (const el of hits) el.setAttribute(attr, el._ariaRef.ref);
+  return score;
+}
+
+function clearTags(attr) {
+  const walk = (root) => {
+    for (const el of root.querySelectorAll('*')) {
+      if (el.hasAttribute(attr)) el.removeAttribute(attr);
+      if (el.shadowRoot) walk(el.shadowRoot);
+    }
+  };
+  walk(document);
+}
+
+async function tagFast(page, want) {
+  const session = await page.context().newCDPSession(page);
+  try {
+    const contexts = [];
+    session.on('Runtime.executionContextCreated', (e) => contexts.push(e.context));
+    await session.send('Runtime.enable');
+    const run = (contextId, apply) => session.send('Runtime.evaluate', {
+      contextId, returnByValue: true,
+      expression: `(${tagInWorld})(${JSON.stringify(want)}, ${JSON.stringify(REF_ATTR)}, ${apply})`,
+    }).then((r) => (r.result && typeof r.result.value === 'number' ? r.result.value : 0)).catch(() => 0);
+    const ours = `${UTILITY_WORLD}${page._guid}`;
+    const utility = contexts.filter((c) => c.name === ours);
+    const byFrame = new Map();
+    for (const c of utility.length ? utility : contexts.filter((c) => String(c.name).startsWith(UTILITY_WORLD))) {
+      const frame = (c.auxData && c.auxData.frameId) || '';
+      if (!byFrame.has(frame)) byFrame.set(frame, []);
+      byFrame.get(frame).push(c);
+    }
+    for (const candidates of byFrame.values()) {
+      let best = null;
+      let bestScore = 0;
+      for (const c of candidates.sort((x, y) => y.id - x.id)) {
+        const score = await run(c.id, false);
+        if (score > bestScore) { best = c; bestScore = score; }
+      }
+      if (best) await run(best.id, true);
+    }
+    await session.send('Runtime.disable').catch(() => {});
+  } finally {
+    await session.detach().catch(() => {});
+  }
+}
+
+async function snapshotWithRefs(page) {
+  const snapshot = await page.ariaSnapshot({ mode: 'ai' });
+  for (const frame of page.frames()) await frame.evaluate(clearTags, REF_ATTR).catch(() => {});
+  const want = {};
+  for (const m of snapshot.matchAll(/- ([a-z]+)\b[^\n]*?\[ref=([a-z0-9]+)\]/g)) want[m[2]] = m[1];
+  await tagFast(page, want).catch(() => {});
+  // Refs the fast pass could not reach (e.g. frames in another process): one by one, capped.
+  const tagged = new Set();
+  for (const frame of page.frames()) {
+    const found = await frame.evaluate((attr) => {
+      const out = [];
+      const walk = (root) => { for (const el of root.querySelectorAll('*')) { if (el.hasAttribute(attr)) out.push(el.getAttribute(attr)); if (el.shadowRoot) walk(el.shadowRoot); } };
+      walk(document);
+      return out;
+    }, REF_ATTR).catch(() => []);
+    found.forEach((r) => tagged.add(r));
+  }
+  const missing = Object.keys(want).filter((ref) => !tagged.has(ref)).slice(0, 40);
+  for (const ref of missing) {
+    await page.locator(`aria-ref=${ref}`)
+      .evaluate((el, [attr, value]) => el.setAttribute(attr, value), [REF_ATTR, ref], { timeout: 1000 })
+      .catch(() => {});
+  }
+  return snapshot;
+}
+
+// A target is a Playwright selector, or @eN from the last tree.
+async function locate(page, target) {
+  const t = String(target || '');
+  if (!t.startsWith('@')) return page.locator(t);
+  const ref = t.slice(1).replace(/^ref=/, '');
+  if (!/^[a-z0-9]+$/.test(ref)) throw new Error(`bad ref ${t}: use @e3 as printed by sand-browser tree ([ref=e3])`);
+  for (const frame of page.frames()) {
+    const found = frame.locator(`[${REF_ATTR}="${ref}"]`);
+    if (await found.count().catch(() => 0)) return found.first();
+  }
+  throw new Error(`ref ${t} is not on the page any more (it changed or navigated since tree); run sand-browser tree again`);
+}
+
+const usage = `Usage: sand-browser <command> [args] [--tab N|name]
+
+Looking:
   status                     Is the browser up? Lists tabs.
-  tabs                       List tabs (index, title, url).
-  open <url> [--new]         Load url in the tab (or a new tab with --new).
+  tabs                       List tabs (index, title, url, name).
+  tree                       Print the tab as an accessibility tree with refs: button "Save" [ref=e3].
+  title | url                Print the tab's title or URL.
   text                       Print the tab's visible text.
   html                       Print the tab's HTML.
   screenshot <file.png>      Save a screenshot of the tab.
-  click <selector>           Click an element (Playwright selector, e.g. 'text=Sign in').
-  fill <selector> <value>    Fill an input.
-  press <key>                Press a key, e.g. Enter.
-  eval <js>                  Evaluate a JS expression in the tab and print the JSON result.
+
+Acting (a <target> is a Playwright selector such as 'text=Sign in', or @e3 from tree):
+  open <url> [--new] [--wait load|idle]  Load url in the tab (or a new tab with --new).
+  back | forward | reload    Move through the tab's history, or reload it.
+  click <target>             Click an element.
+  fill <target> <value>      Replace an input's value.
+  type <target> <text>       Type text where the caret is; works in rich-text editors (contenteditable).
+  select <target> <value>    Choose a <select> option by value or label.
+  key <chord> [--meta --ctrl --shift --alt]  Press a key or chord: Enter, Control+Shift+g, Meta+a.
+  press <key>                Same as key.
+  scroll [--down px|--up px|--to <target>]  Scroll the page (default down 600 px) or to an element.
+  wait [--idle|--load|--for <target>] [--timeout ms]  Wait for the page to load (default), the
+                             network to go idle, or an element to appear.
+  eval <js>                  Evaluate JS in the tab and print the JSON result: an expression, or a
+                             function body with return (as in Aslan playbooks); await works in both.
   close                      Close the tab.
+
+Named tabs (names last until the tab closes):
+  tab-new <name> [url]       Open a named tab and make it the default tab.
+  tab-use <name|N>           Show a tab and make it the default tab.
+  tab-close [name|N]         Close a tab (default: the default tab).
+
+Files:
   downloads [--json]         List finished downloads, newest first.
   download-get <file>        Write a download to stdout, e.g. > ~/client/_WORK/ID/file.
   download-delete <file>     Delete a download.
@@ -97,26 +256,36 @@ const usage = `Usage: sand-browser <command> [args] [--tab N]
   uploads [--json]           List files ready to upload, newest first.
   upload-put <name>          Store stdin as an upload, e.g. < ~/client/photo.jpg.
   upload-delete <file>       Delete an upload.
-  upload <selector> <file>…  Attach files to a file field, or to a button that opens a file picker.
-  activity                   JSON for Ops: held, last agent action, open tabs.
+  upload <target> <file>…    Attach files to a file field, or to a button that opens a file picker.
+
+For Ops:
+  activity                   JSON: held, last agent action, open tabs.
   quit                       Shut Chromium down cleanly, saving sign-ins (the sandbox restarts it).
 
-While Onur has control in the Live View, commands that act exit 75 and
-change nothing; looking (status, tabs, text, html, screenshot) still works.
+Refs from tree last until the page navigates or re-renders that part; a stale
+ref fails with a message: run tree again.
 
-The tab defaults to the most recently opened one. When a page needs a person
-(login, 2FA, captcha), stop and ask them to open the live view: on the Host Mac
+While Onur has control in the Live View, commands that act exit 75 and
+change nothing; looking (status, tabs, tree, text, html, screenshot) still works.
+
+The default tab is the one chosen with tab-new or tab-use while it is open,
+otherwise the most recently opened one. When a page needs a person (login,
+2FA, captcha), stop and ask them to open the live view: on the Host Mac
 run \`sand browser <sandbox>\`.`;
+
+const VALUE_FLAGS = new Set(['--tab', '--wait', '--timeout', '--down', '--up', '--to', '--for']);
+const BOOL_FLAGS = new Set(['--new', '--json', '--idle', '--load', '--meta', '--ctrl', '--shift', '--alt']);
 
 async function main(argv) {
   const args = [];
-  let tabIndex;
-  let newTab = false;
+  const flags = {};
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--tab') tabIndex = Number(argv[++i]);
-    else if (argv[i] === '--new') newTab = true;
+    if (VALUE_FLAGS.has(argv[i])) flags[argv[i].slice(2)] = argv[++i];
+    else if (BOOL_FLAGS.has(argv[i])) flags[argv[i].slice(2)] = true;
     else args.push(argv[i]);
   }
+  const tabArg = flags.tab;
+  const newTab = Boolean(flags.new);
   const [command, ...rest] = args;
   if (!command || command === '--help' || command === '-h') {
     console.log(usage);
@@ -134,7 +303,7 @@ async function main(argv) {
   try {
     if (command === 'downloads' || command === 'uploads') {
       const all = listFolder(command === 'downloads' ? DOWNLOADS : UPLOADS);
-      if (args.includes('--json')) console.log(JSON.stringify(all));
+      if (flags.json) console.log(JSON.stringify(all));
       else for (const d of all) console.log(`${d.name}\t${d.size}\t${d.at}`);
       return 0;
     }
@@ -181,14 +350,45 @@ async function main(argv) {
   try {
     const context = browser.contexts()[0];
     const pages = () => context.pages();
-    const pick = async () => {
+    // Tabs by CDP target id, for names and the default tab (tab-new, tab-use).
+    const tabState = readTabNames();
+    const ids = new Map();
+    const idOf = async (page) => {
+      if (!ids.has(page)) ids.set(page, await targetId(page));
+      return ids.get(page);
+    };
+    const nameOf = async (page) => tabState.names[await idOf(page)] || '';
+    const pageWithId = async (id) => {
+      for (const page of pages()) if ((await idOf(page)) === id) return page;
+      return null;
+    };
+    const saveTabs = async () => {
+      // Drop names and the default of tabs that have closed.
+      const open = new Set(await Promise.all(pages().map(idOf)));
+      for (const id of Object.keys(tabState.names)) if (!open.has(id)) delete tabState.names[id];
+      if (tabState.current && !open.has(tabState.current)) tabState.current = null;
+      writeTabNames(tabState);
+    };
+    const findTab = async (which) => {
       const all = pages();
-      if (tabIndex !== undefined) {
-        if (!all[tabIndex]) throw new Error(`no tab ${tabIndex}; see sand-browser tabs`);
-        return all[tabIndex];
+      if (/^\d+$/.test(String(which))) {
+        if (!all[Number(which)]) throw new Error(`no tab ${which}; see sand-browser tabs`);
+        return all[Number(which)];
       }
+      const id = Object.keys(tabState.names).find((k) => tabState.names[k] === which);
+      const page = id && (await pageWithId(id));
+      if (!page) throw new Error(`no tab named ${JSON.stringify(which)}; see sand-browser tabs, or open one with tab-new`);
+      return page;
+    };
+    const pick = async () => {
+      if (tabArg !== undefined) return findTab(tabArg);
+      const chosen = tabState.current && (await pageWithId(tabState.current));
+      if (chosen) return chosen;
+      const all = pages();
       return all[all.length - 1] || (await context.newPage());
     };
+    const show = async (page) => console.log(`${await page.title()}\t${page.url()}`);
+    const waitUntil = { idle: 'networkidle', load: 'load' }[flags.wait] || 'domcontentloaded';
     // A download an agent's action starts is saved in the downloads folder (not
     // Playwright's temporary one) and its path printed for the agent.
     const saving = [];
@@ -208,7 +408,8 @@ async function main(argv) {
     switch (command) {
       case 'activity': {
         const tabs = [];
-        for (const page of pages()) tabs.push({ title: await page.title(), url: page.url() });
+        for (const page of pages()) tabs.push({ title: await page.title(), url: page.url(), name: (await nameOf(page)) || null });
+        await saveTabs();
         console.log(JSON.stringify({ held: fs.existsSync(HELD_FLAG), last: readLastAction(), tabs, downloads: listFolder(DOWNLOADS).slice(0, 50), uploads: listFolder(UPLOADS).slice(0, 50) }));
         break;
       }
@@ -216,17 +417,59 @@ async function main(argv) {
       case 'tabs': {
         const all = pages();
         if (command === 'status') console.log(`up: ${endpoint}, ${all.length} tab(s)`);
-        for (const [i, page] of all.entries()) console.log(`${i}\t${await page.title()}\t${page.url()}`);
+        for (const [i, page] of all.entries()) {
+          const name = await nameOf(page);
+          console.log(`${i}\t${await page.title()}\t${page.url()}${name ? `\t${name}` : ''}`);
+        }
+        await saveTabs();
         break;
       }
       case 'open': {
         need(1, 'url');
         const page = newTab ? await context.newPage() : await pick();
-        await page.goto(rest[0], { waitUntil: 'domcontentloaded', timeout: 60000 });
+        if (newTab) { tabState.current = await idOf(page); await saveTabs(); }
+        await page.goto(rest[0], { waitUntil, timeout: 60000 });
         await page.bringToFront();
-        console.log(`${await page.title()}\t${page.url()}`);
+        await show(page);
         break;
       }
+      case 'reload': {
+        const page = await pick();
+        await page.reload({ waitUntil, timeout: 60000 });
+        await show(page);
+        break;
+      }
+      case 'back':
+      case 'forward': {
+        // Over CDP rather than page.goBack: Playwright never sees a page the
+        // back/forward cache restores as navigated, and would wait forever.
+        const page = await pick();
+        const session = await page.context().newCDPSession(page);
+        try {
+          const { currentIndex, entries } = await session.send('Page.getNavigationHistory');
+          const to = currentIndex + (command === 'back' ? -1 : 1);
+          if (!entries[to]) {
+            console.error(`sand-browser: no page to go ${command} to`);
+          } else {
+            await session.send('Page.navigateToHistoryEntry', { entryId: entries[to].id });
+            const deadline = Date.now() + 60000;
+            while ((await session.send('Page.getNavigationHistory')).currentIndex !== to) {
+              if (Date.now() > deadline) throw new Error(`timed out going ${command}`);
+              await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+            await page.waitForLoadState(waitUntil, { timeout: flags.wait ? 60000 : 5000 }).catch(() => {});
+          }
+          // From CDP too: page.title() never answers on a restored page.
+          const { targetInfo } = await session.send('Target.getTargetInfo');
+          console.log(`${targetInfo.title}\t${targetInfo.url}`);
+        } finally {
+          await session.detach().catch(() => {});
+        }
+        break;
+      }
+      case 'tree':
+        console.log(await snapshotWithRefs(await pick()));
+        break;
       case 'text':
         console.log(await (await pick()).innerText('body'));
         break;
@@ -239,21 +482,122 @@ async function main(argv) {
         console.log(rest[0]);
         break;
       case 'click':
-        need(1, 'selector');
-        await (await pick()).click(rest[0], { timeout: 15000 });
+        need(1, 'target');
+        await (await locate(await pick(), rest[0])).click({ timeout: 15000 });
         break;
       case 'fill':
-        need(2, 'selector and value');
-        await (await pick()).fill(rest[0], rest[1], { timeout: 15000 });
+        need(2, 'target and value');
+        await (await locate(await pick(), rest[0])).fill(rest[1], { timeout: 15000 });
         break;
-      case 'press':
+      case 'type': {
+        // Keyboard text at the end of the field, like a person typing: rich-text
+        // editors (LinkedIn, Facebook) ignore fill but take inserted text.
+        need(2, 'target and text');
+        const page = await pick();
+        const field = await locate(page, rest[0]);
+        const editable = await field.evaluate((el) => el.isContentEditable || ['INPUT', 'TEXTAREA'].includes(el.tagName), null, { timeout: 15000 });
+        if (editable) await field.focus({ timeout: 15000 });
+        else await field.click({ timeout: 15000 });
+        await field.evaluate((el) => {
+          if (typeof el.setSelectionRange === 'function') {
+            try { el.setSelectionRange(el.value.length, el.value.length); } catch (_) {}
+          } else if (el.isContentEditable) {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            range.collapse(false);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }).catch(() => {});
+        await page.keyboard.insertText(rest[1]);
+        break;
+      }
+      case 'select': {
+        need(2, 'target and value');
+        const chosen = await (await locate(await pick(), rest[0])).selectOption(rest[1], { timeout: 15000 });
+        console.log(chosen.join(', '));
+        break;
+      }
+      case 'key':
+      case 'press': {
         need(1, 'key');
-        await (await pick()).keyboard.press(rest[0]);
+        const held = [['meta', 'Meta'], ['ctrl', 'Control'], ['shift', 'Shift'], ['alt', 'Alt']].filter(([f]) => flags[f]).map(([, k]) => k);
+        await (await pick()).keyboard.press([...held, rest[0]].join('+'));
+        break;
+      }
+      case 'scroll': {
+        const page = await pick();
+        if (flags.to) {
+          await (await locate(page, flags.to)).scrollIntoViewIfNeeded({ timeout: 15000 });
+        } else {
+          const by = flags.up !== undefined ? -Number(flags.up) : Number(flags.down ?? 600);
+          if (!Number.isFinite(by)) throw new Error('scroll needs --down px, --up px or --to <target>');
+          // A wheel over the middle of the page scrolls whatever is there, as for a person.
+          const [w, h] = await page.evaluate(() => [window.innerWidth, window.innerHeight]);
+          await page.mouse.move(w / 2, h / 2);
+          await page.mouse.wheel(0, by);
+          await page.waitForTimeout(300);
+        }
+        console.log(await page.evaluate(() => `scrollY ${Math.round(window.scrollY)} of ${document.documentElement.scrollHeight - window.innerHeight}`));
+        break;
+      }
+      case 'wait': {
+        const timeout = Number(flags.timeout ?? 10000);
+        const page = await pick();
+        if (flags.for) await (await locate(page, flags.for)).waitFor({ state: 'visible', timeout });
+        else await page.waitForLoadState(flags.idle ? 'networkidle' : 'load', { timeout });
+        break;
+      }
+      case 'title':
+        console.log(await (await pick()).title());
+        break;
+      case 'url':
+        console.log((await pick()).url());
         break;
       case 'eval': {
         need(1, 'expression');
-        const result = await (await pick()).evaluate(rest[0]);
-        console.log(JSON.stringify(result, null, 2));
+        // An expression; else a function body with return (Aslan's eval took
+        // bodies), or an expression with await.
+        const page = await pick();
+        const code = rest[0];
+        const result = await page.evaluate(code).catch((error) => {
+          if (/Illegal return/.test(error.message)) return page.evaluate(`(async () => {\n${code}\n})()`);
+          if (/await is only valid/.test(error.message)) return page.evaluate(`(async () => (\n${code}\n))()`);
+          throw error;
+        });
+        console.log(result === undefined ? 'undefined' : JSON.stringify(result, null, 2));
+        break;
+      }
+      case 'tab-new': {
+        need(1, 'name');
+        if (/^\d+$/.test(rest[0])) throw new Error('a tab name needs a letter; numbers are tab indexes');
+        const taken = Object.keys(tabState.names).find((k) => tabState.names[k] === rest[0]);
+        if (taken && (await pageWithId(taken))) throw new Error(`tab ${JSON.stringify(rest[0])} is already open; use --tab ${rest[0]} or tab-use ${rest[0]}`);
+        const page = await context.newPage();
+        const id = await idOf(page);
+        tabState.names[id] = rest[0];
+        tabState.current = id;
+        await saveTabs();
+        if (rest[1]) await page.goto(rest[1], { waitUntil, timeout: 60000 });
+        await page.bringToFront();
+        console.log(`${pages().indexOf(page)}\t${rest[0]}\t${page.url()}`);
+        break;
+      }
+      case 'tab-use': {
+        need(1, 'tab name or index');
+        const page = await findTab(rest[0]);
+        tabState.current = await idOf(page);
+        await saveTabs();
+        await page.bringToFront();
+        await show(page);
+        break;
+      }
+      case 'tab-close':
+      case 'close': {
+        const page = rest[0] !== undefined ? await findTab(rest[0]) : await pick();
+        await page.close();
+        await saveTabs();
         break;
       }
       case 'quit': {
@@ -263,10 +607,11 @@ async function main(argv) {
         break;
       }
       case 'upload': {
-        need(2, 'selector and file');
+        need(2, 'target and file');
         const files = rest.slice(1).map(uploadSource);
         const page = await pick();
-        const target = await page.waitForSelector(rest[0], { state: 'attached', timeout: 15000 });
+        const target = await locate(page, rest[0]);
+        await target.waitFor({ state: 'attached', timeout: 15000 });
         if (await target.evaluate((el) => el.tagName === 'INPUT' && el.type === 'file')) {
           await target.setInputFiles(files);
         } else {
@@ -277,9 +622,6 @@ async function main(argv) {
         console.log(`attached: ${files.map((f) => path.basename(f)).join(', ')}`);
         break;
       }
-      case 'close':
-        await (await pick()).close();
-        break;
       default:
         console.error(`sand-browser: unknown command ${command}\n\n${usage}`);
         return 1;
