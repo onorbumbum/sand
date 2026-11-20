@@ -36,7 +36,7 @@ final class BrowserImageDefinitionTests: XCTestCase {
         let smokeScript = try read("scripts/smoke-browser-image.sh")
 
         XCTAssertTrue(dockerfile.contains("ARG BASE_IMAGE=sand/developer-ready:ubuntu-lts"))
-        XCTAssertTrue(dockerfile.contains("COPY sand-browser-up sand-browser xdg-open /usr/local/bin/"))
+        XCTAssertTrue(dockerfile.contains("COPY sand-browser-up sand-browser sand-browser-fill-login xdg-open /usr/local/bin/"))
         XCTAssertTrue(dockerfile.contains("USER sandbox"))
         XCTAssertTrue(buildScript.contains("sand/browser:ubuntu-lts"))
         XCTAssertTrue(smokeScript.contains("--publish \"127.0.0.1:${VIEW_PORT}:6080\""))
@@ -57,7 +57,7 @@ final class BrowserImageDefinitionTests: XCTestCase {
         XCTAssertTrue(smokeScript.contains("agent downloads are kept -> ok"))
         let opener = try read("images/browser/xdg-open")
         XCTAssertTrue(opener.contains("chromium --user-data-dir="), "opening a file in the sandbox shows it in the same Chromium")
-        XCTAssertTrue(try read("images/browser/Dockerfile").contains("COPY sand-browser-up sand-browser xdg-open /usr/local/bin/"))
+        XCTAssertTrue(try read("images/browser/Dockerfile").contains("COPY sand-browser-up sand-browser sand-browser-fill-login xdg-open /usr/local/bin/"))
         XCTAssertTrue(agentCLI.contains("'download-open'"))
         for command in ["'uploads'", "'upload-put'", "'upload'"] {
             XCTAssertTrue(agentCLI.contains(command), "sand-browser owns the uploads folder: \(command)")
@@ -118,5 +118,18 @@ final class BrowserImageDefinitionTests: XCTestCase {
         XCTAssertTrue(agentCLI.contains("/state/sandbox/sand-browser-tabs.json"), "tab names live in Guest State")
         XCTAssertTrue(agentCLI.contains("Target.getTargetInfo"), "names are keyed by CDP target id")
         XCTAssertTrue(smokeScript.contains("named tabs -> ok"))
+    }
+
+    // Fill login (issue 038): Ops types a Bitwarden login into the page Onur is on.
+    func testFillLoginTypesOnTheDisplayOnlyWhileOnurHasControl() throws {
+        let fill = try read("images/browser/sand-browser-fill-login")
+        let dockerfile = try read("images/browser/Dockerfile")
+        let smokeScript = try read("scripts/smoke-browser-image.sh")
+
+        XCTAssertTrue(dockerfile.contains("xdotool"))
+        XCTAssertTrue(fill.contains("/tmp/sand-browser-held"), "only while Onur has control")
+        XCTAssertTrue(fill.contains("--file -"), "secrets go to xdotool on stdin, never as arguments")
+        XCTAssertFalse(fill.contains("Return"), "Fill login never submits")
+        XCTAssertTrue(smokeScript.contains("fill login types into the focused field -> ok"))
     }
 }

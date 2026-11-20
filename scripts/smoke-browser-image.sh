@@ -180,6 +180,17 @@ EOF
   sand-browser eval "setTimeout(() => document.body.append(Object.assign(document.createElement(\"button\"), { textContent: \"Late\" })), 300)" >/dev/null
   sand-browser wait --for "text=Late" --timeout 5000
   echo "eval bodies, title, url, wait for an element -> ok"
+  sand-browser eval "document.body.innerHTML = \"<input id=u autocomplete=off><input id=p type=password>\"" >/dev/null
+  sand-browser click "#u"
+  set +e
+  printf "x\ny\n" | sand-browser-fill-login >/dev/null 2>&1; unheld_exit=$?
+  set -e
+  test "$unheld_exit" = 75
+  touch /tmp/sand-browser-held
+  printf "alice@example.com\ncorrect horse!#\n" | sand-browser-fill-login | grep -qx filled
+  rm -f /tmp/sand-browser-held
+  test "$(sand-browser eval "document.getElementById(\"u\").value + \"|\" + document.getElementById(\"p\").value")" = "\"alice@example.com|correct horse!#\""
+  echo "fill login types into the focused field -> ok"
   ldconfig -p | grep "libgtk-3.so.0" >/dev/null
   echo "file picker available -> ok"
   if [ "$(dpkg --print-architecture)" = amd64 ]; then chromium --version | grep -q "Google Chrome"; fi

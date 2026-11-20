@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Types a login into the focused field of the sandbox's browser, as key
+# presses on its display, for Ops's "Fill login" in the Live View: the
+# username, Tab, the password; never Enter. Reads two lines on stdin
+# (username, then password), so neither appears in a process list or a log.
+#
+# Only while Onur has control (/tmp/sand-browser-held): the login is his
+# action, and an agent's sand-browser actions are paused meanwhile.
+# Ops is the only caller; it gets the login from Bitwarden on the Host Mac.
+set -euo pipefail
+export DISPLAY="${DISPLAY:-:99}"
+HELD_FLAG=/tmp/sand-browser-held
+
+if [ ! -e "$HELD_FLAG" ]; then
+  echo "sand-browser-fill-login: only while Onur has control in the Live View" >&2
+  exit 75
+fi
+
+IFS= read -r username || true
+IFS= read -r password || true
+if [ -z "$password" ]; then
+  echo "sand-browser-fill-login: needs a username line and a password line on stdin" >&2
+  exit 2
+fi
+
+type_text() { printf '%s' "$1" | xdotool type --clearmodifiers --delay 15 --file -; }
+
+if [ -n "$username" ]; then
+  type_text "$username"
+  xdotool key --clearmodifiers Tab
+fi
+type_text "$password"
+unset username password
+echo "filled"

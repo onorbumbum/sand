@@ -29,6 +29,7 @@ RUN apt-get update \
         fonts-noto-color-emoji \
         fonts-noto-cjk \
         libgtk-3-0t64 \
+        xdotool \
     && npm install -g "playwright@${PLAYWRIGHT_VERSION}" \
     && if [ "$(dpkg --print-architecture)" = amd64 ]; then \
          install -d -m 0755 /etc/apt/keyrings \
@@ -48,9 +49,9 @@ RUN apt-get update \
     && npm cache clean --force \
     && rm -rf /var/lib/apt/lists/*
 
-COPY sand-browser-up sand-browser xdg-open /usr/local/bin/
+COPY sand-browser-up sand-browser sand-browser-fill-login xdg-open /usr/local/bin/
 COPY openbox.xml /etc/sand-browser/openbox.xml
-RUN chmod 0755 /usr/local/bin/sand-browser-up /usr/local/bin/sand-browser /usr/local/bin/xdg-open \
+RUN chmod 0755 /usr/local/bin/sand-browser-up /usr/local/bin/sand-browser /usr/local/bin/sand-browser-fill-login /usr/local/bin/xdg-open \
     && ln -s /state/sandbox/Downloads /home/sandbox/Downloads \
     && ln -s /state/sandbox/Uploads /home/sandbox/Uploads \
     && chown -h sandbox:sandbox /home/sandbox/Downloads /home/sandbox/Uploads
