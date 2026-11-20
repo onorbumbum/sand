@@ -4,6 +4,10 @@
 # username, Tab, the password; never Enter. Reads two lines on stdin
 # (username, then password), so neither appears in a process list or a log.
 #
+#   sand-browser-fill-login [both|username|password]
+# One-step forms take both; a two-step sign-in (Google) takes the username on
+# its first screen and the password on the next. Ops picks from `sand-browser focus`.
+#
 # Only while Onur has control (/tmp/sand-browser-held): the login is his
 # action, and an agent's sand-browser actions are paused meanwhile.
 # Ops is the only caller; it gets the login from Bitwarden on the Host Mac.
@@ -16,19 +20,26 @@ if [ ! -e "$HELD_FLAG" ]; then
   exit 75
 fi
 
+mode="${1:-both}"
+case "$mode" in both|username|password) ;; *) echo "sand-browser-fill-login: mode is both, username or password" >&2; exit 2 ;; esac
 IFS= read -r username || true
 IFS= read -r password || true
-if [ -z "$password" ]; then
+if [ "$mode" != username ] && [ -z "$password" ]; then
   echo "sand-browser-fill-login: needs a username line and a password line on stdin" >&2
   exit 2
 fi
 
 type_text() { printf '%s' "$1" | xdotool type --clearmodifiers --delay 15 --file -; }
 
-if [ -n "$username" ]; then
-  type_text "$username"
-  xdotool key --clearmodifiers Tab
-fi
-type_text "$password"
+case "$mode" in
+  username) type_text "$username" ;;
+  password) type_text "$password" ;;
+  both)
+    if [ -n "$username" ]; then
+      type_text "$username"
+      xdotool key --clearmodifiers Tab
+    fi
+    type_text "$password" ;;
+esac
 unset username password
 echo "filled"

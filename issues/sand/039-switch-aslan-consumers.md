@@ -1,6 +1,6 @@
 ---
 title: Switch every Aslan consumer to Browser Sandboxes
-status: ready-for-agent
+status: in-progress
 type: issue
 category: migration
 labels:
@@ -21,7 +21,7 @@ Move each consumer found in the PRD inventory: `looker-studio-report-fixer` (SKI
 
 ## Acceptance criteria
 
-- [ ] `grep -r "aslan "` over skills, toolshed and dotfiles finds no live call outside `skills/aslan-browser`.
+- [x] `grep -r "aslan "` over skills, toolshed and dotfiles finds no live call outside `skills/aslan-browser`.
 - [ ] The Looker Studio fixer completes one real report fix in a Browser Sandbox.
 - [ ] The 032 log shows no calls from switched consumers.
 
@@ -29,3 +29,17 @@ Move each consumer found in the PRD inventory: `looker-studio-report-fixer` (SKI
 
 - `issues/sand/036-sand-browser-skill-and-knowledge.md`
 - `issues/sand/037-client-browser-sandboxes.md`
+
+## Progress
+
+### 2026-11-20 — Consumers switched; one real Looker fix still to run
+
+- `looker-studio-report-fixer`: `scripts/looker-ui.sh` drives the client's Browser Sandbox (`LOOKER_BOX=<client id lowercased>`, named tab `looker`, `sand run … sand-browser eval --raw`); ungroup is Ctrl+Shift+G (Linux Chrome) instead of Cmd+Shift+G. SKILL.md and conventions.md open the report with `tab-new looker` + `open --wait load --tab looker`. Checked in `web` against a page shaped like a report: audit, select, verify (pass and fail) and cleanup-overlays return the JSON the skill reads with jq; a missing `LOOKER_BOX` exits 2 with a clear message.
+- `sand-browser eval --raw` added (strings printed as is, as Aslan did); the reviews playbook's scroll loop uses it.
+- `web-search` and `dotfiles/pi/AGENTS.md` already escalated to Browser Sandboxes (earlier commits). Google Business photo uploads: `knowledge/user.md` and the GBP playbooks use `upload-put` + `upload` (036). Aslan's user preferences are in `skills/sand-browser/knowledge/user.md`.
+- Grep over skills, toolshed and dotfiles: no live `aslan <command>` call outside `skills/aslan-browser` (the usage-logging wrapper and its test aside).
+
+## Waiting on Onur
+
+- One real Looker Studio fix in a client's sandbox, signed in to that client's Google account (037), to tick the second criterion. The third (no calls from switched consumers in the 032 log) is checked during the quiet period.
+

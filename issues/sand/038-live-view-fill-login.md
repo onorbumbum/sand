@@ -41,8 +41,12 @@ Decision (Onur, 2026-11-20): a Bitwarden session on the Mini is acceptable.
 - Tests: 4 new deftests in `sandbox_browser_test.clj` (host matching, no password in the listing, refused unless held, refused for a site not open, no secret in any error). Ops tests 176/176.
 - Live check on the Mini: the routes answer; not held gives "Take control first"; without the dashboard header gives 403. Listing logins fails with "Bitwarden could not answer … Run `secrets unlock`": the stored session in `~/.config/secrets/bw-session` is stale (`bw status` says locked).
 
+### 2026-11-20 — First real use (dwca, Google sign-in) and the fix
+
+Onur unlocked Bitwarden and tried it in `dwca`: the listing worked (40 logins for accounts.google.com), but the fill typed username, Tab, password on every page, so Google's password step got the username. Now `sand-browser focus` reports the focused field on the tab on screen (Chrome's `/json/list` is most-recently-activated first; over CDP every tab reports focus) and Ops chooses what to type (`fill-mode`): password boxes (type, autocomplete or name, so also with Show password) get the password; username/email fields get username + Tab + password only if the page shows a password field, else the username alone; nothing focused asks Onur to click a field. Viewer says what was typed and, after a username-only step, to Fill login again on the password page. Smoke: "fill login one step at a time (two-step sign-ins) -> ok". Ops tests 177/177.
+
 ## Waiting on Onur
 
-- Run `secrets unlock` on the Mini (master password), then in Live Browsers → `web`: Take control, open a sign-in page you have a vault login for, click its username field, Fill login. Tick done when one real fill works.
+- Bitwarden is unlocked (2026-11-20). Confirm one real two-step Google sign-in in `dwca` works with the fix: Fill login on the email step, then again on the password step.
 - Note: the Bitwarden session file is readable by any process running as the Mini's user, agents included; Fill login adds no new exposure, but the boundary is the file, not Ops.
 

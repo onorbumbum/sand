@@ -174,6 +174,7 @@ EOF
   if sand-browser tabs | grep research >/dev/null || grep -q research /state/sandbox/sand-browser-tabs.json; then echo "closed tab kept its name" >&2; exit 1; fi
   echo "named tabs -> ok"
   test "$(sand-browser eval "return 6 * 7")" = 42
+  test "$(sand-browser eval "return \"a/b\"" --raw)" = "a/b"
   test "$(sand-browser eval "[1, 2].map((x) => { return x * 2 }).length")" = 2
   sand-browser url | grep -q "^http://127.0.0.1:8765/"
   sand-browser title >/dev/null
@@ -191,6 +192,19 @@ EOF
   rm -f /tmp/sand-browser-held
   test "$(sand-browser eval "document.getElementById(\"u\").value + \"|\" + document.getElementById(\"p\").value")" = "\"alice@example.com|correct horse!#\""
   echo "fill login types into the focused field -> ok"
+  sand-browser eval "document.body.innerHTML = \"<input id=e type=email><input id=q type=password>\"" >/dev/null
+  sand-browser click "#q"
+  sand-browser focus | python3 -c "import json,sys; f=json.load(sys.stdin); assert f[\"type\"] == \"password\", f"
+  touch /tmp/sand-browser-held
+  printf "bob\npw2\n" | sand-browser-fill-login password >/dev/null
+  rm -f /tmp/sand-browser-held
+  sand-browser click "#e"
+  sand-browser focus | python3 -c "import json,sys; f=json.load(sys.stdin); assert f[\"type\"] == \"email\" and f[\"passwordFieldOnPage\"], f"
+  touch /tmp/sand-browser-held
+  printf "bob\npw2\n" | sand-browser-fill-login username >/dev/null
+  rm -f /tmp/sand-browser-held
+  test "$(sand-browser eval "document.getElementById(\"e\").value + \"|\" + document.getElementById(\"q\").value")" = "\"bob|pw2\""
+  echo "fill login one step at a time (two-step sign-ins) -> ok"
   ldconfig -p | grep "libgtk-3.so.0" >/dev/null
   echo "file picker available -> ok"
   if [ "$(dpkg --print-architecture)" = amd64 ]; then chromium --version | grep -q "Google Chrome"; fi

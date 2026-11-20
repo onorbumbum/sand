@@ -105,6 +105,7 @@ final class BrowserImageDefinitionTests: XCTestCase {
             XCTAssertTrue(agentCLI.contains("case \(command)"), "sand-browser \(command)")
         }
         XCTAssertTrue(agentCLI.contains("Illegal return"), "Aslan playbooks' eval snippets are function bodies with return")
+        XCTAssertTrue(agentCLI.contains("flags.raw"), "eval --raw prints strings as Aslan did, for scripts that read the output")
         XCTAssertTrue(smokeScript.contains("eval bodies, title, url, wait for an element -> ok"))
     }
 
@@ -131,5 +132,7 @@ final class BrowserImageDefinitionTests: XCTestCase {
         XCTAssertTrue(fill.contains("--file -"), "secrets go to xdotool on stdin, never as arguments")
         XCTAssertFalse(fill.contains("Return"), "Fill login never submits")
         XCTAssertTrue(smokeScript.contains("fill login types into the focused field -> ok"))
+        XCTAssertTrue(smokeScript.contains("fill login one step at a time (two-step sign-ins) -> ok"))
+        XCTAssertTrue(try read("images/browser/sand-browser").contains("case 'focus'"), "Ops asks what field is focused on the tab on screen")
     }
 }

@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 // Ops writes this file while Onur has control in the Live View. Looking
 // (status, tabs, text, html, screenshot) is fine; acting waits for him.
 const HELD_FLAG = '/tmp/sand-browser-held';
-const LOOKING = new Set(['status', 'tabs', 'tree', 'title', 'url', 'text', 'html', 'screenshot', 'quit', 'activity',
+const LOOKING = new Set(['status', 'tabs', 'tree', 'title', 'url', 'focus', 'text', 'html', 'screenshot', 'quit', 'activity',
   'downloads', 'download-get', 'download-delete', 'download-open', 'uploads', 'upload-put', 'upload-delete']);
 // Each agent action is recorded here; Ops shows it as "Agent working".
 const LAST_ACTION = '/tmp/sand-browser-last.json';
@@ -223,6 +223,7 @@ Looking:
   tabs                       List tabs (index, title, url, name).
   tree                       Print the tab as an accessibility tree with refs: button "Save" [ref=e3].
   title | url                Print the tab's title or URL.
+  focus                      JSON about the field focused in the tab on screen (for Ops's Fill login).
   text                       Print the tab's visible text.
   html                       Print the tab's HTML.
   screenshot <file.png>      Save a screenshot of the tab.
@@ -239,8 +240,9 @@ Acting (a <target> is a Playwright selector such as 'text=Sign in', or @e3 from 
   scroll [--down px|--up px|--to <target>]  Scroll the page (default down 600 px) or to an element.
   wait [--idle|--load|--for <target>] [--timeout ms]  Wait for the page to load (default), the
                              network to go idle, or an element to appear.
-  eval <js>                  Evaluate JS in the tab and print the JSON result: an expression, or a
+  eval <js> [--raw]          Evaluate JS in the tab and print the JSON result: an expression, or a
                              function body with return (as in Aslan playbooks); await works in both.
+                             --raw prints a string result without JSON quotes (Aslan's eval did).
   close                      Close the tab.
 
 Named tabs (names last until the tab closes):
@@ -274,7 +276,7 @@ otherwise the most recently opened one. When a page needs a person (login,
 run \`sand browser <sandbox>\`.`;
 
 const VALUE_FLAGS = new Set(['--tab', '--wait', '--timeout', '--down', '--up', '--to', '--for']);
-const BOOL_FLAGS = new Set(['--new', '--json', '--idle', '--load', '--meta', '--ctrl', '--shift', '--alt']);
+const BOOL_FLAGS = new Set(['--new', '--json', '--raw', '--idle', '--load', '--meta', '--ctrl', '--shift', '--alt']);
 
 async function main(argv) {
   const args = [];
@@ -549,6 +551,35 @@ async function main(argv) {
         else await page.waitForLoadState(flags.idle ? 'networkidle' : 'load', { timeout });
         break;
       }
+      case 'focus': {
+        // The tab on screen, not the default one: Onur's Live View shows it. Over
+        // CDP every tab claims focus, but Chrome lists tabs most recently
+        // activated first (/json/list).
+        let shown = null;
+        try {
+          const list = await (await fetch(`${endpoint.replace(/\/$/, '')}/json/list`)).json();
+          const first = list.find((t) => t.type === 'page');
+          for (const page of pages()) if (first && (await idOf(page)) === first.id) shown = page;
+        } catch (_) {}
+        const page = shown || (await pick());
+        const info = await page.evaluate(() => {
+          let el = document.activeElement;
+          while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
+          const visible = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+          const password = [...document.querySelectorAll('input[type=password]')].some(visible);
+          if (!el || el === document.body) return { field: null, passwordFieldOnPage: password };
+          if (!visible(el)) return { field: null, passwordFieldOnPage: password };
+          return {
+            field: el.tagName.toLowerCase(),
+            type: (el.getAttribute('type') || '').toLowerCase(),
+            name: el.getAttribute('name') || '',
+            autocomplete: (el.getAttribute('autocomplete') || '').toLowerCase(),
+            passwordFieldOnPage: password,
+          };
+        });
+        console.log(JSON.stringify({ url: page.url(), ...info }));
+        break;
+      }
       case 'title':
         console.log(await (await pick()).title());
         break;
@@ -566,7 +597,8 @@ async function main(argv) {
           if (/await is only valid/.test(error.message)) return page.evaluate(`(async () => (\n${code}\n))()`);
           throw error;
         });
-        console.log(result === undefined ? 'undefined' : JSON.stringify(result, null, 2));
+        // --raw prints a string result as is (Aslan's eval did); everything else is JSON.
+        console.log(flags.raw && typeof result === 'string' ? result : result === undefined ? 'undefined' : JSON.stringify(result, null, 2));
         break;
       }
       case 'tab-new': {
