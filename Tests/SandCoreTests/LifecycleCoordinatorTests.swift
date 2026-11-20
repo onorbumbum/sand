@@ -691,3 +691,57 @@ final class LifecycleCoordinatorTests: XCTestCase {
 private struct FixedDoctorPlatform: DoctorPlatform {
     var isSupported: Bool
 }
+
+final class BrowserLifecycleTests: XCTestCase {
+    func testCreateBrowserPicksFirstViewPortNotUsedByAnotherBrowserSandbox() throws {
+        let existing = SandboxSpec(name: try SandboxName("old"), image: .browserDefault, browser: BrowserSettings(viewPort: 6080))
+        let metadataStore = MemoryMetadataStore(specs: [existing])
+        let coordinator = LifecycleCoordinator(metadataStore: metadataStore, backend: RecordingSandboxBackend(status: .missing), writeOutput: { _ in })
+
+        try coordinator.create(CreateRequest(sandboxName: try SandboxName("web"), image: .browserDefault, browser: .automaticViewPort))
+
+        XCTAssertEqual(try metadataStore.readSpec(named: try SandboxName("web")).browser, BrowserSettings(viewPort: 6081))
+    }
+
+    func testCreateBrowserRejectsViewPortAlreadyUsedByAnotherSandbox() throws {
+        let existing = SandboxSpec(name: try SandboxName("old"), image: .browserDefault, browser: BrowserSettings(viewPort: 6090))
+        let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [existing]), backend: RecordingSandboxBackend(status: .missing), writeOutput: { _ in })
+
+        XCTAssertThrowsError(try coordinator.create(CreateRequest(sandboxName: try SandboxName("web"), image: .browserDefault, browser: .viewPort(6090)))) { error in
+            XCTAssertEqual(error as? SandboxBrowserError, .viewPortInUse(port: 6090, sandbox: "old"))
+        }
+    }
+
+    func testBrowserStartsStoppedSandboxAndPrintsOnlyTheViewURLOnStandardOutput() throws {
+        let spec = SandboxSpec(name: try SandboxName("web"), image: .browserDefault, browser: BrowserSettings(viewPort: 6081))
+        let backend = RecordingSandboxBackend(status: .stopped)
+        var output: [String] = []
+        var warnings: [String] = []
+        let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [spec]), backend: backend, writeOutput: { output.append($0) }, writeWarning: { warnings.append($0) })
+
+        XCTAssertEqual(try coordinator.browser(NamedSandboxRequest(sandboxName: spec.name)), .success)
+
+        XCTAssertEqual(backend.calls, [.status("web"), .start("web")])
+        XCTAssertEqual(output, ["http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=remote"])
+        XCTAssertEqual(warnings, ["Starting Sandbox VM web..."])
+    }
+
+    func testBrowserRejectsSandboxWithoutBrowser() throws {
+        let spec = SandboxSpec.generated(name: try SandboxName("box"))
+        let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [spec]), backend: RecordingSandboxBackend(status: .running), writeOutput: { _ in })
+
+        XCTAssertThrowsError(try coordinator.browser(NamedSandboxRequest(sandboxName: spec.name))) { error in
+            XCTAssertEqual(error as? SandboxBrowserError, .notABrowserSandbox("box"))
+        }
+    }
+
+    func testStatusShowsBrowserViewURL() throws {
+        let spec = SandboxSpec(name: try SandboxName("web"), image: .browserDefault, browser: BrowserSettings(viewPort: 6081))
+        var output: [String] = []
+        let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [spec]), backend: RecordingSandboxBackend(status: .running), writeOutput: { output.append($0) })
+
+        try coordinator.status(NamedSandboxRequest(sandboxName: spec.name))
+
+        XCTAssertTrue(output.contains("browser: http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=remote"))
+    }
+}

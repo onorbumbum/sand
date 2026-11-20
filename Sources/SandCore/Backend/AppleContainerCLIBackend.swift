@@ -236,31 +236,16 @@ public struct AppleContainerCLIBackend: SandboxBackend {
             "--volume", "\(guestStateVolumeName(for: spec.name)):/state"
         ]
         for folder in spec.sharedFolders {
-            arguments += ["--mount", mountArgument(for: folder)]
+            arguments += ["--mount", LinuxGuestRuntime.mountArgument(for: folder)]
         }
+        arguments += LinuxGuestRuntime.browserPublishArguments(for: spec)
         arguments.append(spec.image.reference)
-        arguments += guestStateBootstrapCommand()
+        arguments += LinuxGuestRuntime.mainCommand(for: spec)
         return arguments
     }
 
-    private func guestStateBootstrapCommand() -> [String] {
-        [
-            "/bin/bash",
-            "-lc",
-            "sudo -n mkdir -p /state/sandbox/.pi /state/sandbox/secrets && sudo -n chown -R sandbox:sandbox /state/sandbox && exec sleep infinity"
-        ]
-    }
-
-    private func mountArgument(for folder: SharedFolder) -> String {
-        var argument = "type=bind,source=\(folder.resolvedHostPath),target=\(folder.guestPath.rawValue)"
-        if folder.accessMode == .readOnly {
-            argument += ",readonly"
-        }
-        return argument
-    }
-
     private func guestStateVolumeName(for sandboxName: SandboxName) -> String {
-        "sand-state-\(sandboxName.rawValue)"
+        LinuxGuestRuntime.guestStateVolumeName(for: sandboxName)
     }
 
     // Runs a command and translates errors to user-friendly messages.

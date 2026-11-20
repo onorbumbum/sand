@@ -16,6 +16,7 @@ public protocol SandboxApplication {
     func shell(_ request: ShellRequest) throws -> CommandResult
     func run(_ request: RunRequest) throws -> CommandResult
     func gui(_ request: GUIRequest) throws -> CommandResult
+    func browser(_ request: NamedSandboxRequest) throws -> CommandResult
     func logs(_ request: NamedSandboxRequest) throws -> CommandResult
     func spec(_ request: NamedSandboxRequest) throws -> CommandResult
     func addFolder(_ request: AddFolderRequest) throws -> CommandResult
@@ -44,6 +45,7 @@ public struct CreateRequest: Equatable {
     public var displayResolution: DisplayResolution?
     public var sourceReference: String?
     public var ipswSource: String?
+    public var browser: BrowserRequest?
 
     public init(
         sandboxName: SandboxName,
@@ -54,7 +56,8 @@ public struct CreateRequest: Equatable {
         diskSize: DiskSize? = nil,
         displayResolution: DisplayResolution? = nil,
         sourceReference: String? = nil,
-        ipswSource: String? = nil
+        ipswSource: String? = nil,
+        browser: BrowserRequest? = nil
     ) {
         self.sandboxName = sandboxName
         self.authoredSpecText = authoredSpecText
@@ -65,6 +68,28 @@ public struct CreateRequest: Equatable {
         self.displayResolution = displayResolution
         self.sourceReference = sourceReference
         self.ipswSource = ipswSource
+        self.browser = browser
+    }
+}
+
+/// How a new browser sandbox picks its Host Mac loopback view port.
+public enum BrowserRequest: Equatable {
+    case automaticViewPort
+    case viewPort(Int)
+}
+
+/// Errors raised by browser sandbox commands.
+public enum SandboxBrowserError: Error, Equatable, CustomStringConvertible {
+    case notABrowserSandbox(String)
+    case viewPortInUse(port: Int, sandbox: String)
+
+    public var description: String {
+        switch self {
+        case .notABrowserSandbox(let name):
+            return "Sandbox VM \(name) has no browser. Create one with `sand create <name> --browser`."
+        case .viewPortInUse(let port, let sandbox):
+            return "browser view port \(port) is already used by Sandbox VM \(sandbox); pick another with --browser-port or omit it."
+        }
     }
 }
 

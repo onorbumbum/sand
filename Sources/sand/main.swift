@@ -16,8 +16,16 @@ import SandCore
 /// - `1`: Error occurred during processing
 let metadataStore = FileHostMetadataStore()
 let writeProgress: (String) -> Void = { FileHandle.standardError.write(Data($0.utf8)) }
+// Apple `container` needs Apple silicon and macOS 26; elsewhere (e.g. an Intel
+// Mac mini) a Docker-compatible engine such as colima runs Linux sandboxes.
+// Override with SAND_LINUX_BACKEND=docker|apple-container.
+let linuxBackend: any SandboxBackend
+switch LinuxBackendKind.select(environment: ProcessInfo.processInfo.environment, isAppleSilicon: LinuxBackendKind.hostIsAppleSilicon) {
+case .appleContainer: linuxBackend = AppleContainerCLIBackend()
+case .docker: linuxBackend = DockerCLIBackend()
+}
 let backendResolver = GuestOSBackendResolver(
-    linuxBackend: AppleContainerCLIBackend(),
+    linuxBackend: linuxBackend,
     macOSBackend: TartCLIBackend(writeProgress: writeProgress)
 )
 let application = LifecycleCoordinator(metadataStore: metadataStore, backendResolver: backendResolver, prompt: StandardInputPromptConfirmation())

@@ -284,11 +284,60 @@ final class CLICommandRouterTests: XCTestCase {
     }
 }
 
+final class BrowserCLITests: XCTestCase {
+    func testCreateBrowserDefaultsToBrowserImageAndAutoPort() throws {
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(application: app, writeOutput: { _ in })
+
+        try router.dispatch(arguments: ["create", "web", "--browser", "--cpus", "2", "--memory", "2GB"])
+
+        let request = try XCTUnwrap(app.createRequests.first)
+        XCTAssertEqual(request.image, .browserDefault)
+        XCTAssertEqual(request.browser, .automaticViewPort)
+        XCTAssertEqual(request.resourceProfile, ResourceProfile(cpus: 2, memory: MemorySize(gigabytes: 2)))
+    }
+
+    func testCreateBrowserAcceptsExplicitViewPortAndImage() throws {
+        let app = RecordingSandboxApplication()
+        let router = CLICommandRouter(application: app, writeOutput: { _ in })
+
+        try router.dispatch(arguments: ["create", "web", "--browser-port", "6090", "--image", "my/browser:dev"])
+
+        let request = try XCTUnwrap(app.createRequests.first)
+        XCTAssertEqual(request.image, SandboxImage(reference: "my/browser:dev"))
+        XCTAssertEqual(request.browser, .viewPort(6090))
+    }
+
+    func testPlainCreateHasNoBrowser() throws {
+        let app = RecordingSandboxApplication()
+        try CLICommandRouter(application: app, writeOutput: { _ in }).dispatch(arguments: ["create", "box"])
+
+        XCTAssertNil(try XCTUnwrap(app.createRequests.first).browser)
+        XCTAssertEqual(app.createRequests.first?.image, .developerReadyDefault)
+    }
+
+    func testBrowserCommandDispatchesAndHasHelp() throws {
+        let app = RecordingSandboxApplication()
+        var output: [String] = []
+        let router = CLICommandRouter(application: app, writeOutput: { output.append($0) })
+
+        try router.dispatch(arguments: ["browser", "web"])
+        try router.dispatch(arguments: ["browser", "--help"])
+        try router.dispatch(arguments: ["--help"])
+
+        XCTAssertEqual(app.calls, [.browser("web")])
+        XCTAssertTrue(output[0].contains("Usage: sand browser <name>"))
+        XCTAssertTrue(output[1].contains("browser <name>"))
+    }
+}
+
 private final class RecordingSandboxApplication: SandboxApplication {
     var calls: [AppCall] = []
+    var createRequests: [CreateRequest] = []
 
     func doctor() throws -> CommandResult { calls.append(.doctor); return .success }
     func create(_ request: CreateRequest) throws -> CommandResult {
+        createRequests.append(request)
         calls.append(.create(request.sandboxName.rawValue, request.authoredSpecText, request.image.reference, request.guestOS.rawValue, request.resourceProfile.cpus, request.resourceProfile.memory.megabytes, request.diskSize?.description, request.displayResolution?.description, request.sourceReference, request.ipswSource)); return .success
     }
     func bootstrap(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.bootstrap(request.sandboxName.rawValue)); return .success }
@@ -301,6 +350,7 @@ private final class RecordingSandboxApplication: SandboxApplication {
     func shell(_ request: ShellRequest) throws -> CommandResult { calls.append(.shell(request.sandboxName.rawValue)); return .success }
     func run(_ request: RunRequest) throws -> CommandResult { calls.append(.run(request.sandboxName.rawValue, request.command.arguments)); return .success }
     func gui(_ request: GUIRequest) throws -> CommandResult { calls.append(.gui(request.sandboxName.rawValue)); return .success }
+    func browser(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.browser(request.sandboxName.rawValue)); return .success }
     func logs(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.logs(request.sandboxName.rawValue)); return .success }
     func spec(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.spec(request.sandboxName.rawValue)); return .success }
     func addFolder(_ request: AddFolderRequest) throws -> CommandResult { calls.append(.addFolder(request.sandboxName.rawValue, request.displayHostPath, request.accessMode, request.guestPath?.rawValue)); return .success }
@@ -324,6 +374,7 @@ private enum AppCall: Equatable {
     case shell(String)
     case run(String, [String])
     case gui(String)
+    case browser(String)
     case logs(String)
     case spec(String)
     case addFolder(String, String, String, String?)

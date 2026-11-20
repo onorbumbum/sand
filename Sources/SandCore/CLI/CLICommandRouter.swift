@@ -96,6 +96,10 @@ public struct CLICommandRouter {
             if try printHelpIfRequested(arguments, CLIHelp.gui) { return .success }
             let name = try singleNameArgument(arguments, command: "gui")
             return try application.gui(GUIRequest(sandboxName: name))
+        case "browser":
+            if try printHelpIfRequested(arguments, CLIHelp.browser) { return .success }
+            let name = try singleNameArgument(arguments, command: "browser")
+            return try application.browser(NamedSandboxRequest(sandboxName: name))
         case "logs":
             if try printHelpIfRequested(arguments, CLIHelp.logs) { return .success }
             let name = try singleNameArgument(arguments, command: "logs")
@@ -125,6 +129,8 @@ public struct CLICommandRouter {
         var sourceReference: String?
         var fromValue: String?
         var ipswValue: String?
+        var browser: BrowserRequest?
+        var explicitImage = false
         var index = 0
 
         if !firstArgument.hasPrefix("--") {
@@ -163,6 +169,13 @@ public struct CLICommandRouter {
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--image") }
                 image = SandboxImage(reference: arguments[index])
+                explicitImage = true
+            case "--browser":
+                if browser == nil { browser = .automaticViewPort }
+            case "--browser-port":
+                index += 1
+                guard index < arguments.count, let port = Int(arguments[index]) else { throw CLICommandError.missingOptionValue("--browser-port") }
+                browser = .viewPort(port)
             case "--os":
                 index += 1
                 guard index < arguments.count else { throw CLICommandError.missingOptionValue("--os") }
@@ -173,6 +186,10 @@ public struct CLICommandRouter {
                 throw CLICommandError.unsupportedOption(arguments[index])
             }
             index += 1
+        }
+
+        if browser != nil, !explicitImage {
+            image = .browserDefault
         }
 
         if fromValue != nil, ipswValue != nil {
@@ -201,7 +218,7 @@ public struct CLICommandRouter {
         guard let name else { throw CLICommandError.missingSandboxName }
         let defaults = ResourceProfile.default(for: guestOS)
         let resourceProfile = ResourceProfile(cpus: cpus ?? defaults.cpus, memory: memory ?? defaults.memory)
-        return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, guestOS: guestOS, resourceProfile: resourceProfile, diskSize: diskSize, displayResolution: displayResolution, sourceReference: sourceReference, ipswSource: ipswValue))
+        return try application.create(CreateRequest(sandboxName: name, authoredSpecText: authoredSpecText, image: image, guestOS: guestOS, resourceProfile: resourceProfile, diskSize: diskSize, displayResolution: displayResolution, sourceReference: sourceReference, ipswSource: ipswValue, browser: browser))
     }
 
     // Parses and dispatches the `delete` command with its options.
@@ -386,6 +403,7 @@ private enum CLIHelp {
       shell <name>                   Open a shell
       run <name> <command> [args...] Run a Workload Command
       gui <name>                     Open a graphical desktop session
+      browser <name>                 Print the live browser view URL
       logs <name>                    Show logs
       spec <name>                    Print the sandbox spec
 
@@ -405,7 +423,7 @@ private enum CLIHelp {
     """
 
     static let create = """
-    Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--from-ipsw <latest|path|url>] [--cpus <count>] [--memory <size>] [--disk <size>] [--display <WIDTHxHEIGHT[px|pt]>]
+    Usage: sand create <name> [--os <linux|macos>] [--image <image>] [--from <spec.yaml|image|local-sandbox>] [--from-ipsw <latest|path|url>] [--cpus <count>] [--memory <size>] [--disk <size>] [--display <WIDTHxHEIGHT[px|pt]>] [--browser] [--browser-port <port>]
 
     Creates a Sandbox VM from generated defaults, an authored Linux spec, a backend image, or a stopped local macOS sandbox.
 
@@ -415,6 +433,8 @@ private enum CLIHelp {
       --display <WIDTHxHEIGHT[px|pt]>   macOS-only display resolution. Unsuffixed values are pixels, e.g. 1920x1080.
       --from <image-or-local-sandbox>   Clone a backend image or stopped local macOS sandbox.
       --from-ipsw <latest|path|url>     Build a self-made macOS base via the macOS Install Flow.
+      --browser                         Linux-only browser sandbox: Chromium on a virtual display, sand/browser image.
+      --browser-port <port>             Host Mac loopback port for the live view (implies --browser; default first free from 6080).
 
     macOS sources are open-ended and must be explicit:
       --from <image-or-local-sandbox>   Clone any Tart-compatible macOS image (Sequoia, Tahoe, pinned digest) or a stopped local sandbox.
@@ -491,6 +511,17 @@ private enum CLIHelp {
     Usage: sand run <name> <command> [args...]
 
     Runs a command inside the Sandbox VM.
+    """
+
+    static let browser = """
+    Usage: sand browser <name>
+
+    Starts the browser sandbox if needed and prints its live view URL (noVNC on the Host Mac loopback).
+    Open it to watch the browser or take over, for example to sign in or pass 2FA.
+
+    Agents inside the sandbox drive the same Chromium over CDP at http://127.0.0.1:9222, which is never
+    published outside the Sandbox VM. Reach the view from other machines through a proxy that owns
+    authentication (for example `tailscale serve` or Ops), not by widening the loopback publish.
     """
 
     static let gui = """

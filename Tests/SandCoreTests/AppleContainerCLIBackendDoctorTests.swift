@@ -282,7 +282,7 @@ final class AppleContainerCLIBackendDoctorTests: XCTestCase {
     }
 }
 
-private final class ScriptedBackendCommandRunner: BackendCommandRunner {
+final class ScriptedBackendCommandRunner: BackendCommandRunner {
     enum Result {
         case success(BackendCommandOutput)
         case failure(any Error)
@@ -300,7 +300,7 @@ private final class ScriptedBackendCommandRunner: BackendCommandRunner {
         calls.append(arguments)
         ioModes.append(io)
         guard let result = results[arguments] else {
-            throw UnexpectedBackendCommand(arguments: arguments)
+            throw UnexpectedBackendCommandInAppleTests(arguments: arguments)
         }
         switch result {
         case .success(let output): return output
@@ -309,7 +309,7 @@ private final class ScriptedBackendCommandRunner: BackendCommandRunner {
     }
 }
 
-private struct FixedBackendTerminal: BackendTerminal {
+struct FixedBackendTerminal: BackendTerminal {
     var inputIsTerminal: Bool
     var outputIsTerminal: Bool
 
@@ -317,6 +317,6 @@ private struct FixedBackendTerminal: BackendTerminal {
     var standardOutputIsTerminal: Bool { outputIsTerminal }
 }
 
-private struct UnexpectedBackendCommand: Error, Equatable {
+private struct UnexpectedBackendCommandInAppleTests: Error, Equatable {
     var arguments: [String]
 }

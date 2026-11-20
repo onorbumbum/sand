@@ -90,7 +90,7 @@ public struct LifecycleCoordinator: SandboxApplication {
                     throw SandboxCreateError.localCloneSourceNotStopped(clone.sourceSpec.name.rawValue)
                 }
             } else {
-                spec = SandboxSpec.generated(name: request.sandboxName, image: request.image, guestOS: request.guestOS, resourceProfile: request.resourceProfile, diskSize: request.diskSize, displayResolution: request.displayResolution)
+                spec = SandboxSpec.generated(name: request.sandboxName, image: request.image, guestOS: request.guestOS, resourceProfile: request.resourceProfile, diskSize: request.diskSize, displayResolution: request.displayResolution, browser: try browserSettings(for: request.browser))
             }
             try spec.validateV1()
             try metadataStore.createSpec(spec)
@@ -293,6 +293,41 @@ public struct LifecycleCoordinator: SandboxApplication {
             throw SandboxGUIError.unsupportedGuestOS(spec.guestOS.rawValue)
         }
         return try backend(for: spec).gui(BackendGUIRequest(spec: spec))
+    }
+
+    /// Starts a browser sandbox if needed and prints its live view URL.
+    ///
+    /// Only the URL goes to standard output so callers such as Ops can use it directly.
+    public func browser(_ request: NamedSandboxRequest) throws -> CommandResult {
+        let spec = try metadataStore.readSpec(named: request.sandboxName)
+        guard let browser = spec.browser else {
+            throw SandboxBrowserError.notABrowserSandbox(request.sandboxName.rawValue)
+        }
+        let backend = try backend(for: spec)
+        if try backend.status(request.sandboxName) == .stopped {
+            writeWarning("Starting Sandbox VM \(request.sandboxName.rawValue)...")
+            try backend.start(spec)
+        }
+        writeOutput(browser.viewURL)
+        return .success
+    }
+
+    // Resolves the requested view port against ports other browser sandboxes already use.
+    private func browserSettings(for request: BrowserRequest?) throws -> BrowserSettings? {
+        guard let request else { return nil }
+        var portOwners: [Int: String] = [:]
+        for spec in try metadataStore.listSpecs() {
+            if let port = spec.browser?.viewPort { portOwners[port] = spec.name.rawValue }
+        }
+        switch request {
+        case .automaticViewPort:
+            return BrowserSettings(viewPort: BrowserSettings.firstFreeViewPort(excluding: Set(portOwners.keys)))
+        case .viewPort(let port):
+            if let owner = portOwners[port] {
+                throw SandboxBrowserError.viewPortInUse(port: port, sandbox: owner)
+            }
+            return BrowserSettings(viewPort: port)
+        }
     }
 
     /// Installs distribution-signing credentials as a macOS Sandbox Guest Secret.

@@ -13,7 +13,8 @@ public struct StatusPresenter {
             memory: spec.resourceProfile.memory.description,
             diskSize: spec.diskSize?.description,
             displayResolution: spec.displayResolution?.description,
-            sharedFolderCount: spec.sharedFolders.count
+            sharedFolderCount: spec.sharedFolders.count,
+            browserViewURL: spec.browser?.viewURL
         )
     }
 
@@ -38,6 +39,9 @@ public struct StatusPresenter {
             lines.append("display: \(displayResolution)")
         }
         lines.append("sharedFolders: \(view.sharedFolderCount)")
+        if let browserViewURL = view.browserViewURL {
+            lines.append("browser: \(browserViewURL)")
+        }
         return lines
     }
 }
@@ -53,8 +57,9 @@ public struct SandboxStatusView: Equatable {
     public var diskSize: String?
     public var displayResolution: String?
     public var sharedFolderCount: Int
+    public var browserViewURL: String?
 
-    public init(name: String, runtimeState: String, guestOS: String, image: String, cpus: Int, memory: String, diskSize: String? = nil, displayResolution: String? = nil, sharedFolderCount: Int) {
+    public init(name: String, runtimeState: String, guestOS: String, image: String, cpus: Int, memory: String, diskSize: String? = nil, displayResolution: String? = nil, sharedFolderCount: Int, browserViewURL: String? = nil) {
         self.name = name
         self.runtimeState = runtimeState
         self.guestOS = guestOS
@@ -64,6 +69,7 @@ public struct SandboxStatusView: Equatable {
         self.diskSize = diskSize
         self.displayResolution = displayResolution
         self.sharedFolderCount = sharedFolderCount
+        self.browserViewURL = browserViewURL
     }
 }
 

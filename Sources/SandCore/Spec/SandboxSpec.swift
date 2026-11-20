@@ -16,6 +16,7 @@ public struct SandboxSpec: Equatable, Sendable {
     public var displayResolution: DisplayResolution?
     public var bootstrapState: BootstrapState
     public var sharedFolders: [SharedFolder]
+    public var browser: BrowserSettings?
 
     public init(
         schemaVersion: Int = SandboxSpec.supportedSchemaVersion,
@@ -26,7 +27,8 @@ public struct SandboxSpec: Equatable, Sendable {
         diskSize: DiskSize? = nil,
         displayResolution: DisplayResolution? = nil,
         bootstrapState: BootstrapState = .ready,
-        sharedFolders: [SharedFolder] = []
+        sharedFolders: [SharedFolder] = [],
+        browser: BrowserSettings? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.name = name
@@ -37,11 +39,12 @@ public struct SandboxSpec: Equatable, Sendable {
         self.displayResolution = displayResolution
         self.bootstrapState = bootstrapState
         self.sharedFolders = sharedFolders
+        self.browser = browser
     }
 
     /// Creates a spec with default settings.
-    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile? = nil, diskSize: DiskSize? = nil, displayResolution: DisplayResolution? = nil, bootstrapState: BootstrapState = .ready) -> SandboxSpec {
-        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile ?? ResourceProfile.default(for: guestOS), diskSize: diskSize, displayResolution: displayResolution, bootstrapState: bootstrapState, sharedFolders: [])
+    public static func generated(name: SandboxName, image: SandboxImage = .developerReadyDefault, guestOS: GuestOS = .linux, resourceProfile: ResourceProfile? = nil, diskSize: DiskSize? = nil, displayResolution: DisplayResolution? = nil, bootstrapState: BootstrapState = .ready, browser: BrowserSettings? = nil) -> SandboxSpec {
+        SandboxSpec(name: name, image: image, guestOS: guestOS, resourceProfile: resourceProfile ?? ResourceProfile.default(for: guestOS), diskSize: diskSize, displayResolution: displayResolution, bootstrapState: bootstrapState, sharedFolders: [], browser: browser)
     }
 
     public func validateV1() throws {
@@ -53,6 +56,12 @@ public struct SandboxSpec: Equatable, Sendable {
         }
         if guestOS == .linux, displayResolution != nil {
             throw SandboxSpecError.displayUnsupportedForGuestOS(guestOS)
+        }
+        if guestOS != .linux, browser != nil {
+            throw SandboxSpecError.browserUnsupportedForGuestOS(guestOS)
+        }
+        if let browser, !BrowserSettings.allowedViewPorts.contains(browser.viewPort) {
+            throw SandboxSpecError.invalidBrowserViewPort(browser.viewPort)
         }
     }
 
@@ -99,6 +108,10 @@ public struct SandboxSpec: Equatable, Sendable {
         if let displayResolution {
             lines.append("display: \(displayResolution.description)")
         }
+        if let browser {
+            lines.append("browser:")
+            lines.append("  viewPort: \(browser.viewPort)")
+        }
         lines.append("resources:")
         lines.append("  cpus: \(resourceProfile.cpus)")
         lines.append("  memory: \(resourceProfile.memory.description)")
@@ -129,6 +142,9 @@ public struct SandboxSpec: Equatable, Sendable {
         var displayResolution: DisplayResolution?
         var bootstrapState: BootstrapState = .ready
         var sharedFolders: [SharedFolder] = []
+        var browserViewPort: Int?
+        var hasBrowser = false
+        var inBrowser = false
         var inResources = false
         var inSharedFolders = false
         var currentFolder: PartialSharedFolder?
@@ -147,6 +163,7 @@ public struct SandboxSpec: Equatable, Sendable {
             if !rawLine.hasPrefix(" ") {
                 inResources = false
                 inSharedFolders = false
+                inBrowser = false
             }
 
             if line.hasPrefix("- ") {
@@ -175,6 +192,16 @@ public struct SandboxSpec: Equatable, Sendable {
                 continue
             }
 
+            if inBrowser {
+                switch key {
+                case "viewPort":
+                    guard let port = Int(value) else { throw SandboxSpecError.malformedLine(rawLine) }
+                    browserViewPort = port
+                default: throw SandboxSpecError.unsupportedField("browser.\(key)")
+                }
+                continue
+            }
+
             if inSharedFolders {
                 try currentFolder?.set(key: key, value: value)
                 continue
@@ -188,6 +215,10 @@ public struct SandboxSpec: Equatable, Sendable {
             case "bootstrap": bootstrapState = try BootstrapState.parse(value)
             case "disk": diskSize = try DiskSize.parse(value)
             case "display": displayResolution = try DisplayResolution.parse(value)
+            case "browser":
+                guard value.isEmpty else { throw SandboxSpecError.malformedLine(rawLine) }
+                hasBrowser = true
+                inBrowser = true
             case "resources":
                 guard value.isEmpty else { throw SandboxSpecError.malformedLine(rawLine) }
                 inResources = true
@@ -216,7 +247,8 @@ public struct SandboxSpec: Equatable, Sendable {
             diskSize: diskSize,
             displayResolution: displayResolution,
             bootstrapState: bootstrapState,
-            sharedFolders: sharedFolders
+            sharedFolders: sharedFolders,
+            browser: hasBrowser ? BrowserSettings(viewPort: try required(browserViewPort, "browser.viewPort")) : nil
         )
         try spec.validateV1()
         return spec
@@ -274,6 +306,8 @@ public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
     case resourceProfileImmutable(field: String)
     case diskUnsupportedForGuestOS(GuestOS)
     case displayUnsupportedForGuestOS(GuestOS)
+    case browserUnsupportedForGuestOS(GuestOS)
+    case invalidBrowserViewPort(Int)
     case diskSizeImmutable
     case localCloneRequiresMacOS
     case cloneDiskTooSmall(source: DiskSize, requested: DiskSize)
@@ -289,6 +323,8 @@ public enum SandboxSpecError: Error, Equatable, CustomStringConvertible {
         case .resourceProfileImmutable(let field): return "resource profile field cannot be edited after creation: \(field)"
         case .diskUnsupportedForGuestOS(let guestOS): return "disk size is only supported for macOS sandboxes, not \(guestOS.rawValue)"
         case .displayUnsupportedForGuestOS(let guestOS): return "display resolution is only supported for macOS sandboxes, not \(guestOS.rawValue)"
+        case .browserUnsupportedForGuestOS(let guestOS): return "browser sandboxes are Linux-only, not \(guestOS.rawValue)"
+        case .invalidBrowserViewPort(let port): return "browser view port must be between 1024 and 65535, got \(port)"
         case .diskSizeImmutable: return "disk size cannot be edited after creation"
         case .localCloneRequiresMacOS: return "local sandbox clone is only supported for macOS sandboxes"
         case .cloneDiskTooSmall(let source, let requested): return "clone disk size \(requested.description) is smaller than source disk size \(source.description)"
@@ -338,6 +374,41 @@ public struct SandboxImage: Equatable, Sendable {
     }
 
     public static let developerReadyDefault = SandboxImage(reference: "sand/developer-ready:ubuntu-lts")
+    public static let browserDefault = SandboxImage(reference: "sand/browser:ubuntu-lts")
+}
+
+/// A browser sandbox: Chromium on a virtual display inside the guest.
+///
+/// Agents inside the guest drive Chromium over CDP on guest-local
+/// 127.0.0.1:9222, which never leaves the Sandbox VM. People watch and take
+/// over through noVNC, which is the only thing published, and only on the
+/// Host Mac's loopback (`viewPort`). Remote access goes through a proxy that
+/// owns authentication (for example Ops serve behind Tailscale).
+public struct BrowserSettings: Equatable, Sendable {
+    /// noVNC port inside the guest.
+    public static let guestViewPort = 6080
+    /// Chromium DevTools port inside the guest (guest loopback only).
+    public static let guestDevToolsPort = 9222
+    public static let firstViewPort = 6080
+    public static let allowedViewPorts = 1024...65535
+
+    /// Host Mac loopback port that forwards to the guest noVNC view.
+    public var viewPort: Int
+
+    public init(viewPort: Int) {
+        self.viewPort = viewPort
+    }
+
+    public var viewURL: String {
+        "http://127.0.0.1:\(viewPort)/vnc.html?autoconnect=1&resize=remote"
+    }
+
+    /// Returns the lowest view port at or above 6080 not already used.
+    public static func firstFreeViewPort(excluding usedPorts: Set<Int>) -> Int {
+        var port = firstViewPort
+        while usedPorts.contains(port) { port += 1 }
+        return port
+    }
 }
 
 /// CPU and memory allocation for a sandbox.
