@@ -8,6 +8,8 @@ The Chromium profile lives in Guest State (`/state/sandbox/chromium`), so sign-i
 
 Separately, Linux Sandbox VMs gain a Docker CLI backend. Apple `container` needs Apple silicon and macOS 26; the Ops host is an Intel Mac mini on macOS 15. `DockerCLIBackend` keeps the same guest contract (image, Guest State volume, Shared Folder mounts, Sandbox User, main process) through a shared `LinuxGuestRuntime` recipe. sand picks Apple `container` on Apple silicon and Docker elsewhere; `SAND_LINUX_BACKEND=docker|apple-container` overrides. With colima as the engine, only folders under the user's home are visible to the Docker VM by default.
 
+Files cross the boundary only through two Guest State folders that act as queues: Downloads (Chromium and agents put files in; agents and the Live View's Save to Mac take them out) and Uploads (the Host Mac puts files in; pages take them through `sand-browser upload` or the GTK file picker). Files there are never overwritten and appear only when complete, and `sand-browser` is the one owner of both folders. Opening a file in the Sandbox Guest means a new Chromium tab (`xdg-open` is replaced), never an app on the Host Mac.
+
 ## Considered Options
 
 - **Browser inside the agent's own Sandbox VM, loopback Live View (chosen)**: CDP never crosses the VM boundary; one Sandbox VM per client keeps sign-ins separate.
