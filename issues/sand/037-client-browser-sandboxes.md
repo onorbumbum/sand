@@ -38,6 +38,7 @@ Clients chosen with Onur from open Ops web work (DCC 20 tasks, WCM 8, DWCA 5, AG
 ### 2026-11-20 — agt flashed in the Live View: fixed
 
 Onur saw `agt` flash at random. The sandbox's own screen was steady (40 s of X captures, no change); the Chrome log showed the New Tab page reloading four times a second while a second viewer was connected (20:46:40–20:47:09Z), which is what a screen resize does to it. Cause: noVNC measures the viewer area with `getBoundingClientRect`; a fractional area (Retina) never equals the whole-pixel sandbox screen, so it requested a resize about ten times a second, and two viewers of different sizes made the screen ping-pong. Reproduced headless in `web` (96 requests in 10 s); the viewer now offers whole pixels and the same run sends one (toolshed `c757049`). Same commit: `ops serve` clears stale held flags at startup, matching `sand-browser-up` clearing it when a sandbox starts. An already open Live View keeps the old code until it is reloaded.
+Onur confirmed the `agt` Live View steady on his own screen after the fix (2026-11-20, 14:40).
 
 ## Waiting on Onur
 
