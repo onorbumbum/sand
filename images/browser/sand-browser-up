@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Keeps the browser stack of a browser sandbox running:
-#   Xvfb :99 -> openbox -> Chromium (CDP on guest 127.0.0.1:9222)
-#   x11vnc (guest localhost:5900) -> websockify/noVNC on 0.0.0.0:6080
+#   Xvnc :99 (X display + VNC on guest localhost:5900) -> openbox -> Chromium
+#   (CDP on guest 127.0.0.1:9222); websockify/noVNC on 0.0.0.0:6080.
+# Xvnc accepts the viewer's SetDesktopSize, so the screen follows the window.
 # Port 6080 is published by sand on the Host Mac loopback only.
 set -uo pipefail
 
@@ -15,19 +16,20 @@ HEIGHT="${SIZE#*x}"
 DISPLAY_NUMBER="${DISPLAY#:}"
 
 mkdir -p "${PROFILE}" "${LOGS}"
-# Stop/start keeps /tmp: a stale X lock or socket makes Xvfb refuse to start.
+# Stop/start keeps /tmp: a stale X lock or socket makes Xvnc refuse to start.
 rm -f "/tmp/.X${DISPLAY_NUMBER}-lock" "/tmp/.X11-unix/X${DISPLAY_NUMBER}"
 # A stopped sandbox leaves Chromium's single-instance locks behind.
 rm -f "${PROFILE}"/Singleton*
 
-Xvfb "${DISPLAY}" -screen 0 "${SIZE}x24" -nolisten tcp >"${LOGS}/xvfb.log" 2>&1 &
+# No VNC password: Xvnc listens on guest localhost only; sand publishes only noVNC, on the Host Mac loopback.
+Xvnc "${DISPLAY}" -geometry "${SIZE}" -depth 24 -SecurityTypes None -localhost=1 -rfbport 5900 \
+  -AcceptSetDesktopSize=1 -nolisten tcp >"${LOGS}/xvnc.log" 2>&1 &
 for _ in $(seq 1 50); do
   [ -e "/tmp/.X11-unix/X${DISPLAY_NUMBER}" ] && break
   sleep 0.1
 done
 
-openbox >"${LOGS}/openbox.log" 2>&1 &
-x11vnc -display "${DISPLAY}" -forever -shared -nopw -localhost -rfbport 5900 -quiet >"${LOGS}/x11vnc.log" 2>&1 &
+openbox --config-file /etc/sand-browser/openbox.xml >"${LOGS}/openbox.log" 2>&1 &
 websockify --web /usr/share/novnc 6080 localhost:5900 >"${LOGS}/novnc.log" 2>&1 &
 
 # Chromium comes back if someone closes the window or it crashes.

@@ -16,8 +16,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Chromium comes from Playwright, which ships amd64 and arm64 Linux builds.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        xvfb \
-        x11vnc \
+        tigervnc-standalone-server \
+        x11-xserver-utils \
         novnc \
         python3-websockify \
         openbox \
@@ -35,6 +35,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY sand-browser-up sand-browser /usr/local/bin/
+COPY openbox.xml /etc/sand-browser/openbox.xml
 RUN chmod 0755 /usr/local/bin/sand-browser-up /usr/local/bin/sand-browser
 
 USER sandbox

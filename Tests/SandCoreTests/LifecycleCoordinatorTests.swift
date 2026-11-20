@@ -722,7 +722,7 @@ final class BrowserLifecycleTests: XCTestCase {
         XCTAssertEqual(try coordinator.browser(NamedSandboxRequest(sandboxName: spec.name)), .success)
 
         XCTAssertEqual(backend.calls, [.status("web"), .start("web")])
-        XCTAssertEqual(output, ["http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=scale"])
+        XCTAssertEqual(output, ["http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=remote"])
         XCTAssertEqual(warnings, ["Starting Sandbox VM web..."])
     }
 
@@ -748,7 +748,7 @@ final class BrowserLifecycleTests: XCTestCase {
         XCTAssertEqual(byName["web"]?["state"] as? String, "running")
         XCTAssertEqual(byName["web"]?["os"] as? String, "linux")
         XCTAssertEqual(byName["web"]?["browserViewPort"] as? Int, 6081)
-        XCTAssertEqual(byName["web"]?["browserViewURL"] as? String, "http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=scale")
+        XCTAssertEqual(byName["web"]?["browserViewURL"] as? String, "http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=remote")
         XCTAssertNil(byName["box"]?["browserViewPort"])
     }
 
@@ -759,6 +759,6 @@ final class BrowserLifecycleTests: XCTestCase {
 
         try coordinator.status(NamedSandboxRequest(sandboxName: spec.name))
 
-        XCTAssertTrue(output.contains("browser: http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=scale"))
+        XCTAssertTrue(output.contains("browser: http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=remote"))
     }
 }

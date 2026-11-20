@@ -400,7 +400,7 @@ public struct BrowserSettings: Equatable, Sendable {
     }
 
     public var viewURL: String {
-        "http://127.0.0.1:\(viewPort)/vnc.html?autoconnect=1&resize=scale"
+        "http://127.0.0.1:\(viewPort)/vnc.html?autoconnect=1&resize=remote"
     }
 
     /// Returns the lowest view port at or above 6080 not already used.

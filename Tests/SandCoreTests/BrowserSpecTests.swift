@@ -52,7 +52,7 @@ final class BrowserSpecTests: XCTestCase {
     func testViewURLPointsAtNoVNCOnHostLoopback() {
         let settings = BrowserSettings(viewPort: 6082)
 
-        XCTAssertEqual(settings.viewURL, "http://127.0.0.1:6082/vnc.html?autoconnect=1&resize=scale")
+        XCTAssertEqual(settings.viewURL, "http://127.0.0.1:6082/vnc.html?autoconnect=1&resize=remote")
         XCTAssertEqual(BrowserSettings.guestViewPort, 6080)
     }
 

@@ -53,6 +53,7 @@ echo "CDP not published to host -> ok"
   for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:9222/json/version >/dev/null 2>&1 && break; sleep 1; done
   curl -fsS http://127.0.0.1:9222/json/version | grep -q "Browser"
   echo "CDP in guest -> ok"
+  DISPLAY=:99 xrandr | grep -q "VNC-0 connected" && echo "resizable VNC display -> ok"
   sand-browser open "data:text/html,<title>sand smoke</title><h1>hello from the browser sandbox</h1>"
   sand-browser text | grep -q "hello from the browser sandbox"
   echo "sand-browser drives the page -> ok"
