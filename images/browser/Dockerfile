@@ -36,7 +36,9 @@ RUN apt-get update \
 
 COPY sand-browser-up sand-browser /usr/local/bin/
 COPY openbox.xml /etc/sand-browser/openbox.xml
-RUN chmod 0755 /usr/local/bin/sand-browser-up /usr/local/bin/sand-browser
+RUN chmod 0755 /usr/local/bin/sand-browser-up /usr/local/bin/sand-browser \
+    && ln -s /state/sandbox/Downloads /home/sandbox/Downloads \
+    && chown -h sandbox:sandbox /home/sandbox/Downloads
 
 USER sandbox
 WORKDIR /workspace

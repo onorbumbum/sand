@@ -83,6 +83,21 @@ assert any(t[\"url\"].startswith(\"http://127.0.0.1:8765\") for t in a[\"tabs\"]
   sand-browser tabs | grep -q "127.0.0.1:8765/$"
   rm -f /tmp/sand-browser-held
   echo "held browser refuses agent actions -> ok"
+  mkdir -p /tmp/dl && echo "invoice 42" > /tmp/dl/invoice.txt
+  (cd /tmp/dl && nohup python3 -m http.server 8766 --bind 127.0.0.1 >/dev/null 2>&1 &)
+  sleep 1
+  sand-browser open http://127.0.0.1:8766/ >/dev/null
+  sand-browser eval "document.body.innerHTML = \"<a id=d href=/invoice.txt download>get</a>\"" >/dev/null
+  sand-browser click "#d" | grep -q "downloaded: /state/sandbox/Downloads/invoice.txt"
+  sand-browser click "#d" | grep -q "downloaded: /state/sandbox/Downloads/invoice (2).txt"
+  test "$(sand-browser download-get invoice.txt)" = "invoice 42"
+  sand-browser downloads --json | python3 -c "import json,sys; d=json.load(sys.stdin); assert [x[\"name\"] for x in d][:2] == [\"invoice (2).txt\", \"invoice.txt\"] or sorted(x[\"name\"] for x in d) == [\"invoice (2).txt\", \"invoice.txt\"], d"
+  if sand-browser download-get ../../etc/passwd >/dev/null 2>&1; then echo "download-get must refuse paths" >&2; exit 1; fi
+  sand-browser download-delete "invoice (2).txt"
+  test ! -e "/state/sandbox/Downloads/invoice (2).txt"
+  test -L "$HOME/Downloads"
+  sand-browser open http://127.0.0.1:8765/ >/dev/null
+  echo "agent downloads are kept -> ok"
 '
 # Stop/start keeps the container filesystem, like `sand stop` / `sand start`.
 "${SAND_ENGINE}" stop "${CONTAINER}" >/dev/null
@@ -101,6 +116,8 @@ curl -fsS "http://127.0.0.1:${VIEW_PORT}/vnc.html" | grep -qi novnc
   sand-browser open http://127.0.0.1:8765/ >/dev/null
   sand-browser eval "document.cookie" | grep -q sandlogin=yes || { echo "sign-in cookie lost across stop/start" >&2; exit 1; }
   echo "cookies survive stop/start -> ok"
+  sand-browser downloads | grep -q "invoice.txt"
+  echo "downloads survive a restart -> ok"
 '
 echo "live view after restart -> ok"
 echo "browser image smoke passed"

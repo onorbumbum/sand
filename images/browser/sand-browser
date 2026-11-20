@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 // Ops writes this file while Onur has control in the Live View. Looking
 // (status, tabs, text, html, screenshot) is fine; acting waits for him.
 const HELD_FLAG = '/tmp/sand-browser-held';
-const LOOKING = new Set(['status', 'tabs', 'text', 'html', 'screenshot', 'quit', 'activity']);
+const LOOKING = new Set(['status', 'tabs', 'text', 'html', 'screenshot', 'quit', 'activity', 'downloads', 'download-get', 'download-delete']);
 // Each agent action is recorded here; Ops shows it as "Agent working".
 const LAST_ACTION = '/tmp/sand-browser-last.json';
 
@@ -20,6 +20,43 @@ function recordAction(command, target) {
   try {
     fs.writeFileSync(LAST_ACTION, JSON.stringify({ at: new Date().toISOString(), command, target: String(target || '').slice(0, 200) }));
   } catch (_) {}
+}
+
+// Downloads: one folder in Guest State, a queue between whoever downloads
+// (Chromium for Onur, this CLI for agents) and whoever takes files out (agents,
+// Ops's Save to Mac). Finished files are values: never overwritten (a repeated
+// name gets " (2)"), never listed while Chromium is still writing them.
+const DOWNLOADS = process.env.SAND_BROWSER_DOWNLOADS || '/state/sandbox/Downloads';
+const path = require('path');
+
+function listDownloads() {
+  let names = [];
+  try { names = fs.readdirSync(DOWNLOADS); } catch (_) { return []; }
+  return names
+    .filter((n) => !n.startsWith('.') && !n.endsWith('.crdownload'))
+    .map((n) => { const st = fs.statSync(path.join(DOWNLOADS, n)); return st.isFile() ? { name: n, size: st.size, at: st.mtime.toISOString() } : null; })
+    .filter(Boolean)
+    .sort((a, b) => b.at.localeCompare(a.at) || a.name.localeCompare(b.name));
+}
+
+// The only way in: a plain file name in the folder. Anything else is not a download.
+function downloadPath(name) {
+  const n = String(name || '');
+  if (!n || n !== path.basename(n) || n.startsWith('.') || !listDownloads().some((d) => d.name === n)) {
+    throw new Error(`no download named ${JSON.stringify(n)}; see sand-browser downloads`);
+  }
+  return path.join(DOWNLOADS, n);
+}
+
+function freshPath(suggested) {
+  const base = path.basename(String(suggested || 'download')).replace(/^\.+/, '') || 'download';
+  const ext = path.extname(base);
+  const stem = base.slice(0, base.length - ext.length);
+  fs.mkdirSync(DOWNLOADS, { recursive: true });
+  for (let i = 1; ; i++) {
+    const candidate = path.join(DOWNLOADS, i === 1 ? base : `${stem} (${i})${ext}`);
+    if (!fs.existsSync(candidate)) return candidate;
+  }
 }
 
 function readLastAction() {
@@ -40,6 +77,9 @@ const usage = `Usage: sand-browser <command> [args] [--tab N]
   press <key>                Press a key, e.g. Enter.
   eval <js>                  Evaluate a JS expression in the tab and print the JSON result.
   close                      Close the tab.
+  downloads [--json]         List finished downloads, newest first.
+  download-get <file>        Write a download to stdout, e.g. > ~/client/_WORK/ID/file.
+  download-delete <file>     Delete a download.
   activity                   JSON for Ops: held, last agent action, open tabs.
   quit                       Shut Chromium down cleanly, saving sign-ins (the sandbox restarts it).
 
@@ -72,6 +112,28 @@ async function main(argv) {
 
   if (!LOOKING.has(command)) recordAction(command, rest[0]);
 
+  // Downloads need no browser.
+  try {
+    if (command === 'downloads') {
+      const all = listDownloads();
+      if (args.includes('--json')) console.log(JSON.stringify(all));
+      else for (const d of all) console.log(`${d.name}\t${d.size}\t${d.at}`);
+      return 0;
+    }
+    if (command === 'download-get') {
+      const from = downloadPath(rest[0]);
+      await new Promise((resolve, reject) => fs.createReadStream(from).on('error', reject).pipe(process.stdout).on('finish', resolve).on('error', reject));
+      return 0;
+    }
+    if (command === 'download-delete') {
+      fs.unlinkSync(downloadPath(rest[0]));
+      return 0;
+    }
+  } catch (error) {
+    console.error(`sand-browser: ${error.message}`);
+    return 1;
+  }
+
   const endpoint = process.env.SAND_BROWSER_CDP || 'http://127.0.0.1:9222';
   let browser;
   try {
@@ -91,6 +153,18 @@ async function main(argv) {
       }
       return all[all.length - 1] || (await context.newPage());
     };
+    // A download an agent's action starts is saved in the downloads folder (not
+    // Playwright's temporary one) and its path printed for the agent.
+    const saving = [];
+    const keepDownloads = (page) => page.on('download', (download) => saving.push((async () => {
+      const to = freshPath(download.suggestedFilename());
+      await download.saveAs(to);
+      console.log(`downloaded: ${to}`);
+    })().catch((e) => console.error(`sand-browser: download failed: ${e.message}`))));
+    if (!LOOKING.has(command)) {
+      pages().forEach(keepDownloads);
+      context.on('page', keepDownloads);
+    }
     const need = (n, what) => {
       if (rest.length < n) throw new Error(`missing ${what}\n\n${usage}`);
     };
@@ -99,7 +173,7 @@ async function main(argv) {
       case 'activity': {
         const tabs = [];
         for (const page of pages()) tabs.push({ title: await page.title(), url: page.url() });
-        console.log(JSON.stringify({ held: fs.existsSync(HELD_FLAG), last: readLastAction(), tabs }));
+        console.log(JSON.stringify({ held: fs.existsSync(HELD_FLAG), last: readLastAction(), tabs, downloads: listDownloads().slice(0, 50) }));
         break;
       }
       case 'status':
@@ -158,6 +232,11 @@ async function main(argv) {
       default:
         console.error(`sand-browser: unknown command ${command}\n\n${usage}`);
         return 1;
+    }
+    if (!LOOKING.has(command)) {
+      // A click may start a download a moment later; give it time to begin, then let it finish.
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await Promise.all(saving);
     }
     return 0;
   } catch (error) {

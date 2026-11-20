@@ -49,5 +49,12 @@ final class BrowserImageDefinitionTests: XCTestCase {
         XCTAssertTrue(agentCLI.contains("/tmp/sand-browser-held"), "the flag Ops writes when Onur takes control")
         XCTAssertTrue(agentCLI.contains("/tmp/sand-browser-last.json"), "agent actions are recorded so Ops can show who is using a browser")
         XCTAssertTrue(smokeScript.contains("activity reports the last agent action -> ok"))
+        XCTAssertTrue(try read("images/browser/Dockerfile").contains("ln -s /state/sandbox/Downloads /home/sandbox/Downloads"), "downloads live in Guest State, so they survive a recreate")
+        XCTAssertTrue(agentCLI.contains("download.saveAs"), "agent downloads are kept, not left in Playwright's temporary folder")
+        for command in ["'downloads'", "'download-get'", "'download-delete'"] {
+            XCTAssertTrue(agentCLI.contains(command), "sand-browser owns the downloads folder: \(command)")
+        }
+        XCTAssertTrue(smokeScript.contains("agent downloads are kept -> ok"))
+        XCTAssertTrue(smokeScript.contains("downloads survive a restart -> ok"))
     }
 }
