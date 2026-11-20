@@ -67,6 +67,10 @@ final class BrowserImageDefinitionTests: XCTestCase {
         XCTAssertTrue(smokeScript.contains("uploads reach the page -> ok"))
         XCTAssertTrue(try read("images/browser/Dockerfile").contains("libgtk-3-0t64"), "Chromium on Linux draws its file picker with GTK; without it, clicking Choose File does nothing")
         XCTAssertTrue(smokeScript.contains("file picker available -> ok"))
+        let dockerfileText = try read("images/browser/Dockerfile")
+        XCTAssertTrue(dockerfileText.contains("google-chrome-stable"), "Chrome for Testing loses files activated in its GTK picker (double-click, Enter); Google Chrome does not")
+        XCTAssertTrue(dockerfileText.contains("dpkg --print-architecture"), "Google Chrome ships amd64 only; arm64 keeps Playwright's Chromium")
+        XCTAssertTrue(smokeScript.contains("browser build -> ok"))
         XCTAssertTrue(smokeScript.contains("downloads open in the sandbox Chromium -> ok"))
         XCTAssertTrue(smokeScript.contains("downloads survive a restart -> ok"))
     }

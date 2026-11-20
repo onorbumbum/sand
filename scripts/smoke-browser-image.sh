@@ -115,6 +115,8 @@ assert any(t[\"url\"].startswith(\"http://127.0.0.1:8765\") for t in a[\"tabs\"]
   echo "uploads reach the page -> ok"
   ldconfig -p | grep -q "libgtk-3.so.0"
   echo "file picker available -> ok"
+  if [ "$(dpkg --print-architecture)" = amd64 ]; then chromium --version | grep -q "Google Chrome"; fi
+  echo "browser build -> ok"
 '
 # Stop/start keeps the container filesystem, like `sand stop` / `sand start`.
 "${SAND_ENGINE}" stop "${CONTAINER}" >/dev/null

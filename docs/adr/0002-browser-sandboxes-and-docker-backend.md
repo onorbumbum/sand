@@ -23,4 +23,5 @@ Files cross the boundary only through two Guest State folders that act as queues
 - `sand browser <name>` starts the Sandbox VM if needed and prints the Live View URL; `sand list --json` gives tools each Browser Sandbox's `browserViewPort`.
 - The noVNC view has no password, which is acceptable only because it is loopback-only on a single-user Host Mac. Never widen the publish.
 - Chromium runs with `--no-sandbox`; the Sandbox VM is the isolation boundary.
+- The browser is Google Chrome on amd64 and Playwright's Chrome for Testing on arm64. Chrome for Testing loses a file activated in its GTK picker (double-click or Enter) and shows a testing banner; Google Chrome does neither, but ships no arm64 Linux build. Chrome comes from Google's signed apt repository, so image rebuilds pick up the current stable.
 - On Intel Hosts, colima (or another Docker engine) is a prerequisite instead of Apple `container`; `sand doctor` reports which is missing.

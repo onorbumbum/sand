@@ -12,8 +12,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
     NODE_PATH=/usr/lib/node_modules \
     SAND_BROWSER_CDP=http://127.0.0.1:9222
 
-# Ubuntu's chromium package is a snap stub that cannot run in a container, so
-# Chromium comes from Playwright, which ships amd64 and arm64 Linux builds.
+# The browser: Google Chrome on amd64. Playwright's "Chrome for Testing" loses
+# a file activated in its GTK picker (double-click or Enter attaches nothing),
+# and shows a testing banner. Google Chrome ships amd64 only, so arm64 keeps
+# Playwright's Chromium (Ubuntu's chromium package is a snap stub that cannot
+# run in a container). The Playwright library drives either over CDP.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         tigervnc-standalone-server \
@@ -27,11 +30,21 @@ RUN apt-get update \
         fonts-noto-cjk \
         libgtk-3-0t64 \
     && npm install -g "playwright@${PLAYWRIGHT_VERSION}" \
-    && playwright install --with-deps chromium \
-    && chrome="$(find /opt/ms-playwright -type f -name chrome -path '*chrome-linux*' | head -n 1)" \
-    && test -x "${chrome}" \
-    && ln -s "${chrome}" /usr/local/bin/chromium \
-    && chmod -R a+rX /opt/ms-playwright \
+    && if [ "$(dpkg --print-architecture)" = amd64 ]; then \
+         install -d -m 0755 /etc/apt/keyrings \
+         && curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
+         && printf 'deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main\n' > /etc/apt/sources.list.d/google-chrome.list \
+         && apt-get update \
+         && apt-get install -y --no-install-recommends google-chrome-stable \
+         && ln -s /usr/bin/google-chrome /usr/local/bin/chromium; \
+       else \
+         playwright install --with-deps chromium \
+         && chrome="$(find /opt/ms-playwright -type f -name chrome -path '*chrome-linux*' | head -n 1)" \
+         && test -x "${chrome}" \
+         && ln -s "${chrome}" /usr/local/bin/chromium \
+         && chmod -R a+rX /opt/ms-playwright; \
+       fi \
+    && test -x /usr/local/bin/chromium \
     && npm cache clean --force \
     && rm -rf /var/lib/apt/lists/*
 
