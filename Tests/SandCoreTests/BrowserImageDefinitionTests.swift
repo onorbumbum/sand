@@ -129,6 +129,7 @@ final class BrowserImageDefinitionTests: XCTestCase {
 
         XCTAssertTrue(dockerfile.contains("xdotool"))
         XCTAssertTrue(fill.contains("/tmp/sand-browser-held"), "only while Onur has control")
+        XCTAssertTrue(try read("images/browser/sand-browser-up").contains("rm -f /tmp/sand-browser-held"), "a fresh start has no viewer, so nobody holds control")
         XCTAssertTrue(fill.contains("--file -"), "secrets go to xdotool on stdin, never as arguments")
         XCTAssertFalse(fill.contains("Return"), "Fill login never submits")
         XCTAssertTrue(smokeScript.contains("fill login types into the focused field -> ok"))

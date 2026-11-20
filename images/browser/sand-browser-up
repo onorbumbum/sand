@@ -18,6 +18,9 @@ DISPLAY_NUMBER="${DISPLAY#:}"
 mkdir -p "${PROFILE}" "${LOGS}" /state/sandbox/Downloads /state/sandbox/Uploads
 # Stop/start keeps /tmp: a stale X lock or socket makes Xvnc refuse to start.
 rm -f "/tmp/.X${DISPLAY_NUMBER}-lock" "/tmp/.X11-unix/X${DISPLAY_NUMBER}"
+# Nobody views a sandbox that is just starting, so nobody holds control (Ops
+# writes this flag while Onur has control; a stale one would pause agents forever).
+rm -f /tmp/sand-browser-held
 # A stopped sandbox leaves Chromium's single-instance locks behind.
 rm -f "${PROFILE}"/Singleton*
 
