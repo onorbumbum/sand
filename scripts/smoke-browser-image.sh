@@ -113,6 +113,59 @@ assert any(t[\"url\"].startswith(\"http://127.0.0.1:8765\") for t in a[\"tabs\"]
   test -L "$HOME/Uploads"
   sand-browser open http://127.0.0.1:8765/ >/dev/null
   echo "uploads reach the page -> ok"
+  cat > /tmp/form.html <<EOF
+<title>form</title>
+<button id=save>Save</button>
+<input aria-label=Name value=old>
+<div contenteditable=true role=textbox aria-label=Post id=ed></div>
+<select aria-label=Size><option value=s>Small</option><option value=l>Large</option></select>
+<input aria-label=Chord id=chord>
+<div style="height:4000px"></div><a href="#bottom" id=bottom>Bottom</a>
+<script>
+document.getElementById("save").onclick = () => { document.title = "saved"; };
+document.getElementById("chord").addEventListener("keydown", (e) => { if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "g") document.title = "chord"; });
+</script>
+EOF
+  sand-browser open http://127.0.0.1:8765/form.html >/dev/null
+  sand-browser tree > /tmp/tree.txt
+  ref() { sed -n "s/.*$1 \[ref=\([a-z0-9]*\)\].*/\1/p" /tmp/tree.txt | head -1; }
+  save="$(ref "button \"Save\"")"; name="$(ref "textbox \"Name\"")"; post="$(ref "textbox \"Post\"")"
+  size="$(ref "combobox \"Size\"")"; chord="$(ref "textbox \"Chord\"")"
+  test -n "$save" && test -n "$name" && test -n "$post" && test -n "$size" && test -n "$chord"
+  sand-browser click "@$save"
+  test "$(sand-browser eval document.title)" = "\"saved\""
+  sand-browser fill "@$name" "Onur"
+  test "$(sand-browser eval "document.querySelector(\"[aria-label=Name]\").value")" = "\"Onur\""
+  echo "tree, click and fill by ref -> ok"
+  sand-browser type "@$post" "Hello from sand"
+  test "$(sand-browser eval "document.getElementById(\"ed\").textContent")" = "\"Hello from sand\""
+  echo "type into contenteditable -> ok"
+  sand-browser select "@$size" Large | grep -qx l
+  sand-browser click "@$chord"
+  sand-browser key Control+Shift+g
+  test "$(sand-browser eval document.title)" = "\"chord\""
+  sand-browser scroll --down 500 | grep -q "^scrollY 500 "
+  sand-browser scroll --to "#bottom" >/dev/null
+  test "$(sand-browser eval "window.scrollY > 3000")" = true
+  sand-browser wait --idle
+  sand-browser open http://127.0.0.1:8765/ --wait load >/dev/null
+  sand-browser back | grep -q "/form.html$"
+  sand-browser forward | grep -q "127.0.0.1:8765/$"
+  sand-browser reload >/dev/null
+  echo "select, key chords, scroll, wait, history -> ok"
+  set +e
+  sand-browser click "@$save" >/tmp/stale.out 2>&1; stale_exit=$?
+  set -e
+  test "$stale_exit" = 1 && grep -q "run sand-browser tree again" /tmp/stale.out
+  echo "stale ref refused -> ok"
+  sand-browser tab-new research http://127.0.0.1:8765/form.html >/dev/null
+  sand-browser open http://127.0.0.1:8765/ --new >/dev/null
+  sand-browser tabs | awk -F "\t" "\$4 == \"research\" { found = 1 } END { exit !found }"
+  test "$(sand-browser --tab research eval location.pathname)" = "\"/form.html\""
+  sand-browser activity | python3 -c "import json,sys; a=json.load(sys.stdin); assert any(t[\"name\"] == \"research\" for t in a[\"tabs\"]), a"
+  sand-browser tab-close research
+  if sand-browser tabs | grep -q research || grep -q research /state/sandbox/sand-browser-tabs.json; then echo "closed tab kept its name" >&2; exit 1; fi
+  echo "named tabs -> ok"
   ldconfig -p | grep -q "libgtk-3.so.0"
   echo "file picker available -> ok"
   if [ "$(dpkg --print-architecture)" = amd64 ]; then chromium --version | grep -q "Google Chrome"; fi
