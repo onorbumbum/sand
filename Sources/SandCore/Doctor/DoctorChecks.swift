@@ -20,7 +20,7 @@ public struct DoctorChecks {
             return DoctorReport(findings: [
                 DoctorFinding(
                     kind: .unsupportedPlatform,
-                    message: "Sandbox VM requires Apple silicon macOS on this Host Mac. Run sand on an Apple silicon Mac before creating Sandbox VMs."
+                    message: "Sandbox VM requires Apple silicon macOS on this Host Mac, or the Docker backend (SAND_LINUX_BACKEND=docker) for Linux sandboxes. Run sand on an Apple silicon Mac or install colima + docker."
                 )
             ])
         }
@@ -56,14 +56,17 @@ public protocol DoctorPlatform {
 
 /// Checks support for the current host platform.
 public struct HostDoctorPlatform: DoctorPlatform {
-    public init() {}
+    private let linuxBackend: LinuxBackendKind
+    private let isAppleSilicon: Bool
 
+    public init(linuxBackend: LinuxBackendKind = .forThisHost, isAppleSilicon: Bool = LinuxBackendKind.hostIsAppleSilicon) {
+        self.linuxBackend = linuxBackend
+        self.isAppleSilicon = isAppleSilicon
+    }
+
+    /// The Apple engine needs Apple silicon; the Docker backend runs on Intel Macs too.
     public var isSupported: Bool {
-        #if os(macOS) && arch(arm64)
-        return true
-        #else
-        return false
-        #endif
+        isAppleSilicon || linuxBackend == .docker
     }
 }
 

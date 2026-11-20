@@ -48,6 +48,7 @@ public struct CLICommandRouter {
             return try application.doctor()
         case "list":
             if try printHelpIfRequested(arguments, CLIHelp.list) { return .success }
+            if arguments == ["list", "--json"] { return try application.listJSON() }
             try requireExactCount(arguments, 1)
             return try application.list()
         case "create":
@@ -417,9 +418,11 @@ private enum CLIHelp {
     """
 
     static let list = """
-    Usage: sand list
+    Usage: sand list [--json]
 
     Lists known Sandbox VMs with runtime state, image, and shared folder count.
+    --json prints one JSON array for tools: name, state, os, image, sharedFolders, and for browser
+    sandboxes browserViewPort and browserViewURL.
     """
 
     static let create = """

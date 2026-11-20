@@ -53,6 +53,11 @@ public enum LinuxBackendKind: String, Equatable {
         return isAppleSilicon ? .appleContainer : .docker
     }
 
+    /// The engine for this Host Mac and process environment.
+    public static var forThisHost: LinuxBackendKind {
+        select(environment: ProcessInfo.processInfo.environment, isAppleSilicon: hostIsAppleSilicon)
+    }
+
     public static var hostIsAppleSilicon: Bool {
         #if arch(arm64)
         return true

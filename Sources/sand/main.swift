@@ -19,8 +19,9 @@ let writeProgress: (String) -> Void = { FileHandle.standardError.write(Data($0.u
 // Apple `container` needs Apple silicon and macOS 26; elsewhere (e.g. an Intel
 // Mac mini) a Docker-compatible engine such as colima runs Linux sandboxes.
 // Override with SAND_LINUX_BACKEND=docker|apple-container.
+let linuxBackendKind = LinuxBackendKind.forThisHost
 let linuxBackend: any SandboxBackend
-switch LinuxBackendKind.select(environment: ProcessInfo.processInfo.environment, isAppleSilicon: LinuxBackendKind.hostIsAppleSilicon) {
+switch linuxBackendKind {
 case .appleContainer: linuxBackend = AppleContainerCLIBackend()
 case .docker: linuxBackend = DockerCLIBackend()
 }
@@ -28,7 +29,7 @@ let backendResolver = GuestOSBackendResolver(
     linuxBackend: linuxBackend,
     macOSBackend: TartCLIBackend(writeProgress: writeProgress)
 )
-let application = LifecycleCoordinator(metadataStore: metadataStore, backendResolver: backendResolver, prompt: StandardInputPromptConfirmation())
+let application = LifecycleCoordinator(metadataStore: metadataStore, backendResolver: backendResolver, prompt: StandardInputPromptConfirmation(), doctorPlatform: HostDoctorPlatform(linuxBackend: linuxBackendKind))
 let router = CLICommandRouter(application: application)
 
 // Dispatches the command-line arguments and exits with the result code.

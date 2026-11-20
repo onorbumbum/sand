@@ -722,7 +722,7 @@ final class BrowserLifecycleTests: XCTestCase {
         XCTAssertEqual(try coordinator.browser(NamedSandboxRequest(sandboxName: spec.name)), .success)
 
         XCTAssertEqual(backend.calls, [.status("web"), .start("web")])
-        XCTAssertEqual(output, ["http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=remote"])
+        XCTAssertEqual(output, ["http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=scale"])
         XCTAssertEqual(warnings, ["Starting Sandbox VM web..."])
     }
 
@@ -735,6 +735,23 @@ final class BrowserLifecycleTests: XCTestCase {
         }
     }
 
+    func testListJSONGivesMachinesStateAndBrowserViewPorts() throws {
+        let web = SandboxSpec(name: try SandboxName("web"), image: .browserDefault, browser: BrowserSettings(viewPort: 6081))
+        let box = SandboxSpec.generated(name: try SandboxName("box"))
+        var output: [String] = []
+        let coordinator = LifecycleCoordinator(metadataStore: MemoryMetadataStore(specs: [web, box]), backend: RecordingSandboxBackend(status: .running), writeOutput: { output.append($0) })
+
+        try coordinator.listJSON()
+
+        let decoded = try JSONSerialization.jsonObject(with: Data(output.joined().utf8)) as? [[String: Any]]
+        let byName = Dictionary(uniqueKeysWithValues: (decoded ?? []).map { ($0["name"] as! String, $0) })
+        XCTAssertEqual(byName["web"]?["state"] as? String, "running")
+        XCTAssertEqual(byName["web"]?["os"] as? String, "linux")
+        XCTAssertEqual(byName["web"]?["browserViewPort"] as? Int, 6081)
+        XCTAssertEqual(byName["web"]?["browserViewURL"] as? String, "http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=scale")
+        XCTAssertNil(byName["box"]?["browserViewPort"])
+    }
+
     func testStatusShowsBrowserViewURL() throws {
         let spec = SandboxSpec(name: try SandboxName("web"), image: .browserDefault, browser: BrowserSettings(viewPort: 6081))
         var output: [String] = []
@@ -742,6 +759,6 @@ final class BrowserLifecycleTests: XCTestCase {
 
         try coordinator.status(NamedSandboxRequest(sandboxName: spec.name))
 
-        XCTAssertTrue(output.contains("browser: http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=remote"))
+        XCTAssertTrue(output.contains("browser: http://127.0.0.1:6081/vnc.html?autoconnect=1&resize=scale"))
     }
 }

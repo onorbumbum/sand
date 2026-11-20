@@ -47,9 +47,13 @@ final class DeveloperReadyImageDefinitionTests: XCTestCase {
         let buildScript = try String(contentsOf: root.appendingPathComponent("scripts/build-developer-ready-image.sh"), encoding: .utf8)
         let smokeScript = try String(contentsOf: root.appendingPathComponent("scripts/smoke-developer-ready-image.sh"), encoding: .utf8)
 
-        XCTAssertTrue(buildScript.contains("container build"))
+        let engineLibrary = try String(contentsOf: root.appendingPathComponent("scripts/lib/container-engine.sh"), encoding: .utf8)
+
+        XCTAssertTrue(buildScript.contains("\"${SAND_ENGINE}\" build"))
         XCTAssertTrue(buildScript.contains("sand/developer-ready:ubuntu-lts"))
-        XCTAssertTrue(smokeScript.contains("container run"))
+        XCTAssertTrue(smokeScript.contains("\"${SAND_ENGINE}\" run"))
+        XCTAssertTrue(engineLibrary.contains("SAND_ENGINE=container"), "Apple container stays the engine where it exists")
+        XCTAssertTrue(engineLibrary.contains("SAND_ENGINE=docker"), "Docker is the fallback engine, e.g. on Intel Macs")
         XCTAssertTrue(smokeScript.contains("--user sandbox"))
         for command in ["git", "curl", "sudo", "ssh", "python3", "python3 -m venv", "pip3", "node", "npm", "tmux", "rg", "gcc", "make", "pi"] {
             XCTAssertTrue(smokeScript.contains(command), "smoke script must check \(command)")

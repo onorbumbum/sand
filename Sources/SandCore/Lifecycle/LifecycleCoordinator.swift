@@ -177,6 +177,29 @@ public struct LifecycleCoordinator: SandboxApplication {
         return .success
     }
 
+    /// Lists Sandbox VMs as one JSON array for tools such as Ops.
+    public func listJSON() throws -> CommandResult {
+        var entries: [[String: Any]] = []
+        for spec in try metadataStore.listSpecs() {
+            let view = StatusPresenter().present(name: spec.name, spec: spec, runtimeStatus: try backend(for: spec).status(spec.name))
+            var entry: [String: Any] = [
+                "name": view.name,
+                "state": view.runtimeState,
+                "os": view.guestOS,
+                "image": view.image,
+                "sharedFolders": view.sharedFolderCount
+            ]
+            if let browser = spec.browser {
+                entry["browserViewPort"] = browser.viewPort
+                entry["browserViewURL"] = browser.viewURL
+            }
+            entries.append(entry)
+        }
+        let data = try JSONSerialization.data(withJSONObject: entries, options: [.sortedKeys, .withoutEscapingSlashes])
+        writeOutput(String(decoding: data, as: UTF8.self))
+        return .success
+    }
+
     /// Applies configuration changes to an existing sandbox VM.
     public func apply(_ request: NamedSandboxRequest) throws -> CommandResult {
         try metadataStore.withLifecycleMutationLock {

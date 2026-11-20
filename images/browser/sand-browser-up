@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Keeps the browser stack of a browser sandbox running:
+#   Xvfb :99 -> openbox -> Chromium (CDP on guest 127.0.0.1:9222)
+#   x11vnc (guest localhost:5900) -> websockify/noVNC on 0.0.0.0:6080
+# Port 6080 is published by sand on the Host Mac loopback only.
+set -uo pipefail
+
+export DISPLAY="${DISPLAY:-:99}"
+SIZE="${SAND_BROWSER_SIZE:-1440x900}"
+PROFILE="${SAND_BROWSER_PROFILE:-/state/sandbox/chromium}"
+LOGS="${SAND_BROWSER_LOGS:-/tmp/sand-browser}"
+WIDTH="${SIZE%x*}"
+HEIGHT="${SIZE#*x}"
+
+mkdir -p "${PROFILE}" "${LOGS}"
+# A stopped sandbox leaves Chromium's single-instance locks behind.
+rm -f "${PROFILE}"/Singleton*
+
+Xvfb "${DISPLAY}" -screen 0 "${SIZE}x24" -nolisten tcp >"${LOGS}/xvfb.log" 2>&1 &
+for _ in $(seq 1 50); do
+  [ -e "/tmp/.X11-unix/X${DISPLAY#:}" ] && break
+  sleep 0.1
+done
+
+openbox >"${LOGS}/openbox.log" 2>&1 &
+x11vnc -display "${DISPLAY}" -forever -shared -nopw -localhost -rfbport 5900 -quiet >"${LOGS}/x11vnc.log" 2>&1 &
+websockify --web /usr/share/novnc 6080 localhost:5900 >"${LOGS}/novnc.log" 2>&1 &
+
+# Chromium comes back if someone closes the window or it crashes.
+# --no-sandbox: the Sandbox VM is the isolation boundary; container seccomp
+# blocks the user namespaces Chromium's own sandbox needs.
+(
+  while true; do
+    rm -f "${PROFILE}"/Singleton*
+    chromium \
+      --user-data-dir="${PROFILE}" \
+      --remote-debugging-address=127.0.0.1 \
+      --remote-debugging-port=9222 \
+      --no-sandbox \
+      --test-type \
+      --no-first-run \
+      --no-default-browser-check \
+      --disable-dev-shm-usage \
+      --password-store=basic \
+      --window-position=0,0 \
+      --window-size="${WIDTH},${HEIGHT}" \
+      --start-maximized \
+      about:blank >>"${LOGS}/chromium.log" 2>&1
+    sleep 1
+  done
+) &
+
+echo "sand browser up: view on :6080, CDP on 127.0.0.1:9222, profile ${PROFILE}"
+wait -n
+echo "sand browser: a core process exited; see ${LOGS}" >&2
+exit 1

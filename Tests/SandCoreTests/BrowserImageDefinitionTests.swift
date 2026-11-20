@@ -1,0 +1,35 @@
+import XCTest
+
+final class BrowserImageDefinitionTests: XCTestCase {
+    private let root = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+
+    private func read(_ path: String) throws -> String {
+        try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
+    }
+
+    func testBrowserImageKeepsDevToolsGuestOnlyAndProfileInGuestState() throws {
+        let startup = try read("images/browser/sand-browser-up")
+
+        XCTAssertTrue(startup.contains("--remote-debugging-address=127.0.0.1"), "CDP must bind guest loopback only")
+        XCTAssertTrue(startup.contains("--remote-debugging-port=9222"))
+        XCTAssertTrue(startup.contains("/state/sandbox/chromium"), "profile must live in Guest State so sign-ins persist")
+        XCTAssertTrue(startup.contains("-localhost -rfbport 5900"), "raw VNC must stay guest-local; only noVNC is published")
+        XCTAssertTrue(startup.contains("websockify --web /usr/share/novnc 6080"))
+    }
+
+    func testBrowserImageBuildsOnDeveloperReadyAndShipsAgentCLI() throws {
+        let dockerfile = try read("images/browser/Dockerfile")
+        let buildScript = try read("scripts/build-browser-image.sh")
+        let smokeScript = try read("scripts/smoke-browser-image.sh")
+
+        XCTAssertTrue(dockerfile.contains("ARG BASE_IMAGE=sand/developer-ready:ubuntu-lts"))
+        XCTAssertTrue(dockerfile.contains("COPY sand-browser-up sand-browser /usr/local/bin/"))
+        XCTAssertTrue(dockerfile.contains("USER sandbox"))
+        XCTAssertTrue(buildScript.contains("sand/browser:ubuntu-lts"))
+        XCTAssertTrue(smokeScript.contains("--publish \"127.0.0.1:${VIEW_PORT}:6080\""))
+        XCTAssertTrue(smokeScript.contains("must stay guest-only"), "smoke must prove CDP is not reachable from the host")
+    }
+}

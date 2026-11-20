@@ -154,3 +154,42 @@ final class LinuxBackendSelectionTests: XCTestCase {
         XCTAssertEqual(LinuxBackendKind.select(environment: ["SAND_LINUX_BACKEND": "apple-container"], isAppleSilicon: false), .appleContainer)
     }
 }
+
+final class HostDoctorPlatformTests: XCTestCase {
+    func testDockerBackendMakesIntelMacsSupported() {
+        XCTAssertTrue(HostDoctorPlatform(linuxBackend: .docker, isAppleSilicon: false).isSupported)
+        XCTAssertFalse(HostDoctorPlatform(linuxBackend: .appleContainer, isAppleSilicon: false).isSupported)
+        XCTAssertTrue(HostDoctorPlatform(linuxBackend: .appleContainer, isAppleSilicon: true).isSupported)
+    }
+}
+
+final class DockerErrorTranslationTests: XCTestCase {
+    func testSharedFolderOutsideTheDockerVMSharesExplainsTheFix() {
+        let error = DockerCLIBackendError.commandFailed(
+            arguments: ["create", "--name", "t1", "--mount", "type=bind,source=/private/tmp/proj,target=/workspace", "img"],
+            exitCode: 125,
+            stderr: "Error response from daemon: invalid mount config for type \"bind\": bind source path does not exist: /private/tmp/proj\n"
+        )
+
+        XCTAssertEqual(
+            BackendErrorTranslator().translate(error),
+            .commandFailed("Shared Folder /private/tmp/proj is not visible to the Docker VM. colima shares only your home folder by default: use a folder under ~, or add a mount with `colima start --edit`.")
+        )
+    }
+
+    func testDockerDaemonDownIsReportedAsServiceUnavailable() {
+        let error = DockerCLIBackendError.commandFailed(arguments: ["start", "t1"], exitCode: 1, stderr: "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?\n")
+
+        XCTAssertEqual(
+            BackendErrorTranslator().translate(error),
+            .serviceUnavailable("Sandbox backend service is not available. Run `sand doctor` to repair prerequisites, then retry.")
+        )
+    }
+
+    func testUnrecognisedDockerFailuresKeepTheEngineDetail() {
+        let error = DockerCLIBackendError.commandFailed(arguments: ["create", "--name", "t1", "img"], exitCode: 125, stderr: "Error response from daemon: Conflict. The container name \"/t1\" is already in use\n")
+
+        guard case .commandFailed(let message) = BackendErrorTranslator().translate(error) else { return XCTFail("expected commandFailed") }
+        XCTAssertTrue(message.contains("The container name \"/t1\" is already in use"), message)
+    }
+}

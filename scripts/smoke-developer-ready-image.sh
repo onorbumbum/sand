@@ -3,15 +3,18 @@ set -euo pipefail
 
 IMAGE="${SAND_DEVELOPER_READY_IMAGE:-sand/developer-ready:ubuntu-lts}"
 CONTAINER="${SAND_DEVELOPER_READY_SMOKE_CONTAINER:-sand-developer-ready-smoke}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/container-engine.sh
+source "${ROOT}/scripts/lib/container-engine.sh"
 
 cleanup() {
-  container delete --force "${CONTAINER}" >/dev/null 2>&1 || true
+  sand_engine_remove "${CONTAINER}"
 }
 trap cleanup EXIT
 
 cleanup
 
-container run \
+"${SAND_ENGINE}" run \
   --name "${CONTAINER}" \
   --detach \
   --cpus 4 \
@@ -19,7 +22,7 @@ container run \
   "${IMAGE}" \
   sleep 10000 >/dev/null
 
-container exec --user sandbox --workdir /workspace "${CONTAINER}" bash -lc '
+"${SAND_ENGINE}" exec --user sandbox --workdir /workspace "${CONTAINER}" bash -lc '
   set -euo pipefail
 
   printf "whoami -> %s\n" "$(whoami)"

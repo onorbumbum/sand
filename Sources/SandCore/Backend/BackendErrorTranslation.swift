@@ -10,6 +10,9 @@ public struct BackendErrorTranslator {
         if let backendError = error as? AppleContainerCLIBackendError {
             return translate(backendError)
         }
+        if let dockerError = error as? DockerCLIBackendError {
+            return translate(dockerError)
+        }
         return .commandFailed("Sandbox backend operation failed. Run `sand doctor` and retry.")
     }
 
@@ -17,6 +20,22 @@ public struct BackendErrorTranslator {
         switch error {
         case .commandFailed(let arguments, _, let stderr):
             return translateCommandFailure(arguments: arguments, stderr: stderr)
+        }
+    }
+
+    public func translate(_ error: DockerCLIBackendError) -> BackendTranslatedError {
+        switch error {
+        case .commandFailed(let arguments, _, let stderr):
+            let marker = "bind source path does not exist: "
+            if let range = stderr.range(of: marker) {
+                let path = stderr[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+                return .commandFailed("Shared Folder \(path) is not visible to the Docker VM. colima shares only your home folder by default: use a folder under ~, or add a mount with `colima start --edit`.")
+            }
+            let translated = translateCommandFailure(arguments: arguments, stderr: stderr)
+            guard case .commandFailed(let message) = translated else { return translated }
+            // Docker's daemon messages are specific and readable; keep them.
+            let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            return .commandFailed(detail.isEmpty ? message : "\(message) Docker said: \(detail)")
         }
     }
 
@@ -51,7 +70,7 @@ public struct BackendErrorTranslator {
 
     // Checks if the error indicates a missing runtime.
     private func runtimeLooksMissing(arguments: [String], lowercasedDetail: String) -> Bool {
-        guard ["logs", "start", "stop", "inspect", "delete"].contains(arguments.first ?? "") else { return false }
+        guard ["logs", "start", "stop", "inspect", "delete", "rm"].contains(arguments.first ?? "") else { return false }
         return lowercasedDetail.contains("notfound") || lowercasedDetail.contains("not found") || lowercasedDetail.contains("no such")
     }
 

@@ -16,7 +16,7 @@ final class DoctorChecksTests: XCTestCase {
         XCTAssertEqual(report.findings, [
             DoctorFinding(
                 kind: .unsupportedPlatform,
-                message: "Sandbox VM requires Apple silicon macOS on this Host Mac. Run sand on an Apple silicon Mac before creating Sandbox VMs."
+                message: "Sandbox VM requires Apple silicon macOS on this Host Mac, or the Docker backend (SAND_LINUX_BACKEND=docker) for Linux sandboxes. Run sand on an Apple silicon Mac or install colima + docker."
             )
         ])
         XCTAssertEqual(backend.calls, [])

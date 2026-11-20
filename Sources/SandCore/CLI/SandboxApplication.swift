@@ -8,6 +8,7 @@ public protocol SandboxApplication {
     func create(_ request: CreateRequest) throws -> CommandResult
     func bootstrap(_ request: NamedSandboxRequest) throws -> CommandResult
     func list() throws -> CommandResult
+    func listJSON() throws -> CommandResult
     func apply(_ request: NamedSandboxRequest) throws -> CommandResult
     func delete(_ request: DeleteRequest) throws -> CommandResult
     func status(_ request: NamedSandboxRequest) throws -> CommandResult

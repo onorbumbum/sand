@@ -316,6 +316,13 @@ final class BrowserCLITests: XCTestCase {
         XCTAssertEqual(app.createRequests.first?.image, .developerReadyDefault)
     }
 
+    func testListJSONDispatches() throws {
+        let app = RecordingSandboxApplication()
+        try CLICommandRouter(application: app, writeOutput: { _ in }).dispatch(arguments: ["list", "--json"])
+
+        XCTAssertEqual(app.calls, [.listJSON])
+    }
+
     func testBrowserCommandDispatchesAndHasHelp() throws {
         let app = RecordingSandboxApplication()
         var output: [String] = []
@@ -342,6 +349,7 @@ private final class RecordingSandboxApplication: SandboxApplication {
     }
     func bootstrap(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.bootstrap(request.sandboxName.rawValue)); return .success }
     func list() throws -> CommandResult { calls.append(.list); return .success }
+    func listJSON() throws -> CommandResult { calls.append(.listJSON); return .success }
     func apply(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.apply(request.sandboxName.rawValue)); return .success }
     func delete(_ request: DeleteRequest) throws -> CommandResult { calls.append(.delete(request.sandboxName.rawValue, request.force)); return .success }
     func status(_ request: NamedSandboxRequest) throws -> CommandResult { calls.append(.status(request.sandboxName.rawValue)); return .success }
@@ -366,6 +374,7 @@ private enum AppCall: Equatable {
     case create(String, String?, String, String, Int, Int, String?, String?, String?, String?)
     case bootstrap(String)
     case list
+    case listJSON
     case apply(String)
     case delete(String, Bool)
     case status(String)

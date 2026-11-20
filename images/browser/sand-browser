@@ -1,0 +1,127 @@
+#!/usr/bin/env node
+// Small CLI for agents inside a browser sandbox. It drives the same Chromium a
+// person sees in the live view, over CDP at $SAND_BROWSER_CDP (guest-only).
+// For anything richer, use Playwright directly:
+//   const { chromium } = require('playwright');
+//   const browser = await chromium.connectOverCDP(process.env.SAND_BROWSER_CDP);
+const { chromium } = require('playwright');
+
+const usage = `Usage: sand-browser <command> [args] [--tab N]
+
+  status                     Is the browser up? Lists tabs.
+  tabs                       List tabs (index, title, url).
+  open <url> [--new]         Load url in the tab (or a new tab with --new).
+  text                       Print the tab's visible text.
+  html                       Print the tab's HTML.
+  screenshot <file.png>      Save a screenshot of the tab.
+  click <selector>           Click an element (Playwright selector, e.g. 'text=Sign in').
+  fill <selector> <value>    Fill an input.
+  press <key>                Press a key, e.g. Enter.
+  eval <js>                  Evaluate a JS expression in the tab and print the JSON result.
+  close                      Close the tab.
+
+The tab defaults to the most recently opened one. When a page needs a person
+(login, 2FA, captcha), stop and ask them to open the live view: on the Host Mac
+run \`sand browser <sandbox>\`.`;
+
+async function main(argv) {
+  const args = [];
+  let tabIndex;
+  let newTab = false;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--tab') tabIndex = Number(argv[++i]);
+    else if (argv[i] === '--new') newTab = true;
+    else args.push(argv[i]);
+  }
+  const [command, ...rest] = args;
+  if (!command || command === '--help' || command === '-h') {
+    console.log(usage);
+    return 0;
+  }
+
+  const endpoint = process.env.SAND_BROWSER_CDP || 'http://127.0.0.1:9222';
+  let browser;
+  try {
+    browser = await chromium.connectOverCDP(endpoint, { timeout: 10000 });
+  } catch (error) {
+    console.error(`sand-browser: cannot reach Chromium at ${endpoint}. Is this a browser sandbox (sand create <name> --browser)?`);
+    return 2;
+  }
+  try {
+    const context = browser.contexts()[0];
+    const pages = () => context.pages();
+    const pick = async () => {
+      const all = pages();
+      if (tabIndex !== undefined) {
+        if (!all[tabIndex]) throw new Error(`no tab ${tabIndex}; see sand-browser tabs`);
+        return all[tabIndex];
+      }
+      return all[all.length - 1] || (await context.newPage());
+    };
+    const need = (n, what) => {
+      if (rest.length < n) throw new Error(`missing ${what}\n\n${usage}`);
+    };
+
+    switch (command) {
+      case 'status':
+      case 'tabs': {
+        const all = pages();
+        if (command === 'status') console.log(`up: ${endpoint}, ${all.length} tab(s)`);
+        for (const [i, page] of all.entries()) console.log(`${i}\t${await page.title()}\t${page.url()}`);
+        break;
+      }
+      case 'open': {
+        need(1, 'url');
+        const page = newTab ? await context.newPage() : await pick();
+        await page.goto(rest[0], { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.bringToFront();
+        console.log(`${await page.title()}\t${page.url()}`);
+        break;
+      }
+      case 'text':
+        console.log(await (await pick()).innerText('body'));
+        break;
+      case 'html':
+        console.log(await (await pick()).content());
+        break;
+      case 'screenshot':
+        need(1, 'file');
+        await (await pick()).screenshot({ path: rest[0] });
+        console.log(rest[0]);
+        break;
+      case 'click':
+        need(1, 'selector');
+        await (await pick()).click(rest[0], { timeout: 15000 });
+        break;
+      case 'fill':
+        need(2, 'selector and value');
+        await (await pick()).fill(rest[0], rest[1], { timeout: 15000 });
+        break;
+      case 'press':
+        need(1, 'key');
+        await (await pick()).keyboard.press(rest[0]);
+        break;
+      case 'eval': {
+        need(1, 'expression');
+        const result = await (await pick()).evaluate(rest[0]);
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
+      case 'close':
+        await (await pick()).close();
+        break;
+      default:
+        console.error(`sand-browser: unknown command ${command}\n\n${usage}`);
+        return 1;
+    }
+    return 0;
+  } catch (error) {
+    console.error(`sand-browser: ${error.message}`);
+    return 1;
+  } finally {
+    // Disconnects only; the shared Chromium keeps running for the person and other agents.
+    await browser.close().catch(() => {});
+  }
+}
+
+main(process.argv.slice(2)).then((code) => process.exit(code));
