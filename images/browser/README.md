@@ -1,19 +1,26 @@
 # Browser Sandbox Image
 
-`sand/browser:ubuntu-lts` is the developer-ready image plus a real, headed Chromium on a virtual display. `sand create <name> --browser` uses it.
+`sand/browser:ubuntu-lts` is the developer-ready image plus a real, headed browser on a resizable virtual display. `sand create <name> --browser` uses it. Design and trade-offs: [ADR 0002](../../docs/adr/0002-browser-sandboxes-and-docker-backend.md).
 
 | Who | How | Where |
 | --- | --- | --- |
-| Agent in the sandbox | `sand-browser …` or Playwright `chromium.connectOverCDP(process.env.SAND_BROWSER_CDP)` | CDP on guest `127.0.0.1:9222`, never published |
-| You | `sand browser <name>` prints the live view URL | noVNC, published on the Host Mac loopback only |
+| Agent in or beside the sandbox | `sand-browser …` (or Playwright `chromium.connectOverCDP(process.env.SAND_BROWSER_CDP)`) | DevTools on guest `127.0.0.1:9222`, never published |
+| Person | `sand browser <name>` prints the Live View URL; Ops proxies it as Live Browsers | noVNC, published on the Host Mac loopback only |
 
-The Chromium profile lives in `/state/sandbox/chromium`, so sign-ins survive stop/start and stay inside this sandbox.
+What is inside:
 
-Build it after the developer-ready image:
+- **Browser:** Google Chrome on amd64; Playwright's Chrome for Testing on arm64 (no Google Chrome arm64 Linux build). The profile lives in `/state/sandbox/chromium`, so sign-ins and tabs survive stop/start; stop closes the browser over CDP so its cookie store is written.
+- **Display:** TigerVNC `Xvnc` (accepts the viewer's resize, so the screen follows the window), openbox keeping windows maximized and frameless (`openbox.xml`), websockify/noVNC on guest port 6080.
+- **`sand-browser-up`:** the main process; restarts the browser if it is closed or crashes.
+- **`sand-browser`:** the agent CLI (`sand-browser --help`): open, text, html, screenshot, click, fill, press, eval, tabs, close; activity (JSON for Ops); downloads, download-get, download-open, download-delete; uploads, upload-put, upload, upload-delete. While Onur has control (`/tmp/sand-browser-held`), acting commands exit 75.
+- **Files:** two Guest State folders are the only way across, `/state/sandbox/Downloads` and `/state/sandbox/Uploads` (also `~/Downloads`, `~/Uploads`). Files there are never overwritten and appear only when complete.
+- **`xdg-open`:** opening a file in the sandbox shows it in a new browser tab; GTK 3 gives the browser its file picker.
+
+Build and check, after the developer-ready image:
 
 ```bash
 ./scripts/build-browser-image.sh
 ./scripts/smoke-browser-image.sh
 ```
 
-Chromium runs with `--no-sandbox`: the Sandbox VM is the isolation boundary, and container seccomp blocks the user namespaces Chromium's own sandbox needs. The noVNC view has no password, which is why it is only published on `127.0.0.1`; reach it from other machines through a proxy that authenticates (Ops behind Tailscale), never by widening the publish.
+The noVNC view has no password, which is why it is only published on `127.0.0.1`; reach it from other machines through a proxy that authenticates (Ops behind Tailscale), never by widening the publish. The browser runs with `--no-sandbox`: the Sandbox VM is the isolation boundary.

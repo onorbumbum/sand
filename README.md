@@ -2,7 +2,7 @@
 
 <!-- section-managed-doc: true -->
 <!-- managed-sections: build-and-test, install-from-source, quickstart, command-surface-summary -->
-<!-- docs-input-hash: a36bc3b2e4f1de8893f5125c5be0df6189585447c021cd274dffd41f89d60eda -->
+<!-- docs-input-hash: 7d15858577540d064cd2be4d16a2c55ce9e98718c45e5d881d5e1d5ef0d6717c -->
 
 > A safer place to run Pi and other developer tools.
 
@@ -108,7 +108,7 @@ Files cross the sandbox boundary only through two folders in Guest State, `/stat
 
 While you have control in Ops's Live Browsers view, `sand-browser` actions in that sandbox exit 75 and change nothing (looking still works), so an agent cannot click under your hands; closing the view hands control back. Chromium reopens its last tabs on start, so a stopped Browser Sandbox loses nothing: Ops stops client Browser Sandboxes after 10 idle minutes to keep memory free.
 
-The Live View is noVNC without a password, published only on the Host Mac loopback. To reach it from another machine, put an authenticating proxy in front of it rather than widening the publish. Ops does this at `/browser/<name>/` behind Tailscale with its own trusted viewer. See [ADR 0002](docs/adr/0002-browser-sandboxes-and-docker-backend.md).
+The Live View is noVNC without a password, published only on the Host Mac loopback. To reach it from another machine, put an authenticating proxy in front of it rather than widening the publish. Ops does this at `/browser/<name>/` behind Tailscale with its own trusted viewer. See [ADR 0002](docs/adr/0002-browser-sandboxes-and-docker-backend.md). Browser Sandboxes replace Aslan Browser for agent browsing; the retirement plan is [`issues/sand/prd-retire-aslan-browser.md`](issues/sand/prd-retire-aslan-browser.md) (slices 032–040).
 
 ## Getting started
 
