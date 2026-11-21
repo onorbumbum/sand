@@ -97,6 +97,29 @@ function writeTabNames(t) {
   } catch (_) {}
 }
 
+// Ops's Live Browsers polls `activity` every few seconds, so it must always
+// answer fast. Chrome's own target list (`/json/list`) does, even when a tab
+// cannot run script (a JavaScript dialog, a renderer starved of memory), where
+// Playwright's page.title() would wait forever and each poll would pile up.
+async function activity(endpoint) {
+  const url = new URL(endpoint);
+  url.protocol = { 'ws:': 'http:', 'wss:': 'https:' }[url.protocol] || url.protocol;
+  url.pathname = '/json/list';
+  url.search = '';
+  const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  if (!response.ok) throw new Error(`${url} answered ${response.status}`);
+  // Chrome lists the most recently opened first; Ops shows the last as the page.
+  const pages = (await response.json()).filter((t) => t.type === 'page').reverse();
+  const tabState = readTabNames();
+  const open = new Set(pages.map((t) => t.id));
+  let changed = false;
+  for (const id of Object.keys(tabState.names)) if (!open.has(id)) { delete tabState.names[id]; changed = true; }
+  if (tabState.current && !open.has(tabState.current)) { tabState.current = null; changed = true; }
+  if (changed) writeTabNames(tabState);
+  const tabs = pages.map((t) => ({ title: t.title, url: t.url, name: tabState.names[t.id] || null }));
+  return { held: fs.existsSync(HELD_FLAG), last: readLastAction(), tabs, downloads: listFolder(DOWNLOADS).slice(0, 50), uploads: listFolder(UPLOADS).slice(0, 50) };
+}
+
 async function targetId(page) {
   const session = await page.context().newCDPSession(page);
   try { return (await session.send('Target.getTargetInfo')).targetInfo.targetId; } finally { await session.detach().catch(() => {}); }
@@ -342,6 +365,15 @@ async function main(argv) {
   }
 
   const endpoint = process.env.SAND_BROWSER_CDP || 'http://127.0.0.1:9222';
+  if (command === 'activity') {
+    try {
+      console.log(JSON.stringify(await activity(endpoint)));
+      return 0;
+    } catch (error) {
+      console.error(`sand-browser: cannot read tabs from Chromium at ${endpoint}: ${error.message}`);
+      return 2;
+    }
+  }
   let browser;
   try {
     // Sand's loopback Chromium and this CLI share the guest filesystem. For
@@ -413,13 +445,6 @@ async function main(argv) {
     };
 
     switch (command) {
-      case 'activity': {
-        const tabs = [];
-        for (const page of pages()) tabs.push({ title: await page.title(), url: page.url(), name: (await nameOf(page)) || null });
-        await saveTabs();
-        console.log(JSON.stringify({ held: fs.existsSync(HELD_FLAG), last: readLastAction(), tabs, downloads: listFolder(DOWNLOADS).slice(0, 50), uploads: listFolder(UPLOADS).slice(0, 50) }));
-        break;
-      }
       case 'status':
       case 'tabs': {
         const all = pages();
