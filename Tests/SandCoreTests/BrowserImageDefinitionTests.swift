@@ -63,6 +63,8 @@ final class BrowserImageDefinitionTests: XCTestCase {
             XCTAssertTrue(agentCLI.contains(command), "sand-browser owns the uploads folder: \(command)")
         }
         XCTAssertTrue(agentCLI.contains("filechooser"), "buttons that open a file picker (Facebook-style) must work")
+        XCTAssertTrue(agentCLI.contains("connectOverCDP(endpoint, { timeout: 10000, isLocal })"), "uploads pass staged paths to the guest-loopback Chromium; Playwright refuses to transfer files of 50 MiB or more otherwise")
+        XCTAssertTrue(try read("scripts/test-browser-upload.cjs").contains("80 * 1024 * 1024"), "an 80 MiB upload regression test exists")
         XCTAssertTrue(try read("images/browser/Dockerfile").contains("ln -s /state/sandbox/Uploads /home/sandbox/Uploads"))
         XCTAssertTrue(smokeScript.contains("uploads reach the page -> ok"))
         XCTAssertTrue(try read("images/browser/Dockerfile").contains("libgtk-3-0t64"), "Chromium on Linux draws its file picker with GTK; without it, clicking Choose File does nothing")

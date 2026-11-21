@@ -344,7 +344,12 @@ async function main(argv) {
   const endpoint = process.env.SAND_BROWSER_CDP || 'http://127.0.0.1:9222';
   let browser;
   try {
-    browser = await chromium.connectOverCDP(endpoint, { timeout: 10000 });
+    // Sand's loopback Chromium and this CLI share the guest filesystem. For
+    // upload, pass file paths to Chromium instead of serializing file contents
+    // through Playwright (which caps that transfer at 50 MiB). Do not assume
+    // that a custom non-Sand endpoint shares the filesystem.
+    const isLocal = command === 'upload' && URL.canParse(endpoint) && new URL(endpoint).hostname === '127.0.0.1';
+    browser = await chromium.connectOverCDP(endpoint, { timeout: 10000, isLocal });
   } catch (error) {
     console.error(`sand-browser: cannot reach Chromium at ${endpoint}. Is this a browser sandbox (sand create <name> --browser)?`);
     return 2;

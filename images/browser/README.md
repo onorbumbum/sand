@@ -24,4 +24,6 @@ Build and check, after the developer-ready image:
 ./scripts/smoke-browser-image.sh
 ```
 
+With the image already available in Docker, run `./scripts/test-browser-upload.sh` to test the worktree's `sand-browser` against a fresh Chromium profile in a container with no external network. The test checks file size and SHA-256 in the page after attaching an 80 MiB staged file through both a file input and a picker button. Uploads to Sand's guest-loopback DevTools use the staged paths directly rather than transferring the bytes again through Playwright.
+
 The noVNC view has no password, which is why it is only published on `127.0.0.1`; reach it from other machines through a proxy that authenticates (Ops behind Tailscale), never by widening the publish. The browser runs with `--no-sandbox`: the Sandbox VM is the isolation boundary.
