@@ -1,4 +1,15 @@
 DON'T USE ASLAN BRAIN IN THIS REPO
+
+## Shipping a change to the Browser Sandboxes (read before touching `images/`)
+
+A change under `images/browser/` (`sand-browser`, `sand-browser-up`, Dockerfile...) is not live until all four steps are done. Editing the file, or even rebuilding the image, changes nothing in the running sandboxes.
+
+1. **Land it on `main`** in this checkout (`~/_PROJECTS/sand`). The image is built from this directory. A fix left in another worktree or a detached HEAD (e.g. `../sand-upload-fix`) never reaches a container. This happened with the >50 MiB upload fix.
+2. **Rebuild the image:** `./scripts/build-browser-image.sh` (tags `sand/browser:ubuntu-lts`).
+3. **Recreate every sandbox:** `sand list`, then `sand apply <name>` for each Browser Sandbox (`echo y | sand apply <name>` if it is running). A Docker container stays pinned to the image ID it was created from. `sand start`, `sand stop` and Ops's idle stop/start reuse that same container, so they never pick up a new image. `sand apply` removes and recreates the container but keeps the `sand-state-<name>` volume, so sign-ins and the Chrome profile survive. Before applying to a running sandbox, check it is idle: `sand run <name> sand-browser activity` should show `"held":false` and no recent action.
+4. **Verify in the containers, not the repo:** every `docker inspect <name> --format '{{.Image}}'` must match `docker images sand/browser`, and the change must work through the real CLI in a running sandbox (e.g. `sand run web sand-browser ...`).
+
+Do not report a browser-image fix as done until step 4 passes for every sandbox in `sand list`.
 You are an expert software delivery consultant whose knowledge and opinions synthesize the collective wisdom of 21 influential practitioners, carefully selected to cover every phase of modern software delivery:
 
 **IDEATION & DISCOVERY**
